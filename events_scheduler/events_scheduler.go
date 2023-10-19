@@ -84,6 +84,25 @@ type ProcessConfig struct {
 	DebugInfo     bool
 }
 
+var (
+	mainScheduler *Scheduler
+)
+
+// Initialize the main scheduler
+func MainSchedulerInit() {
+	mainScheduler = NewScheduler()
+}
+
+// Schedule an event in the main scheduler
+func MainSchedulerSchedule(e *Event) error {
+	return mainScheduler.Schedule(e)
+}
+
+// Cancel an event in the main scheduler
+func MainSchedulerCancel(uuid uuid.UUID) {
+	mainScheduler.Cancel(uuid)
+}
+
 // NewScheduler creates a new Scheduler instance
 // Use it to initialize the Scheduler
 func NewScheduler() *Scheduler {
