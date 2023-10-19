@@ -246,9 +246,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		element, ok := s.q.Next() // workaround to get all events
 		event = element.(Event)
 		if ok {
-			if config.DebugInfo {
-				fmt.Println("Got event: ", event)
-			}
+			//if config.DebugInfo {
+			//	fmt.Println("Got event: ", event)
+			//}
 			// If the event is cancelled, remove it from the events map
 			// and continue to the next event
 			if event.State == StateCancelled {
@@ -302,6 +302,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			if config.CheckEvent {
 				// TODO: Transform these prints into logs (when the Logger is implemented)
 				fmt.Printf("Processing event: %s (UUID: %s)\n", event.Name, event.UUID)
+				fmt.Println("Event body: ", event)
 			}
 			event.State = StateInProcess
 
