@@ -84,8 +84,26 @@ type ProcessConfig struct {
 	DebugInfo     bool
 }
 
+/*
+ * Main Scheduler public API
+ * This API is used to schedule and process events on the main scheduler (as per Amass requirements)
+ *
+ * MainSchedulerInit()                   - Initializes the main scheduler
+ * MainSchedulerSchedule(e *Event) error - Schedules an event (if there are no errors), returns an
+ *                                         error otherwise
+ * MainSchedulerCancel(uuid uuid.UUID)   - Cancels a scheduled event (by UUID) if it exists and there
+ *                                         are no errors
+ */
+
 var (
-	mainScheduler *Scheduler
+	mainScheduler        *Scheduler
+	mainSchedulerProcess = ProcessConfig{
+		ExitWhenEmpty: false,
+		CheckEvent:    true,
+		ExecuteAction: true,
+		ReturnIfFound: false,
+		DebugInfo:     false,
+	}
 )
 
 // Initialize the main scheduler
@@ -101,6 +119,11 @@ func MainSchedulerSchedule(e *Event) error {
 // Cancel an event in the main scheduler
 func MainSchedulerCancel(uuid uuid.UUID) {
 	mainScheduler.Cancel(uuid)
+}
+
+// Process the events in the main scheduler
+func MainSchedulerProcess() {
+	mainScheduler.Process(mainSchedulerProcess)
 }
 
 // NewScheduler creates a new Scheduler instance
