@@ -21,13 +21,18 @@ import (
  *  						      via the ProcessConfig struct
  */
 
+// Event types (are used to query the Registry adn identify the action to be executed)
 type EventType int
 
 const (
+	// EventTypeSay is used to print a message to the console
 	EventTypeSay EventType = iota
+	// EventTypeLog is used to log a message to the log file
 	EventTypeLog
+	// Add more event types here:
 )
 
+// Event states (are used to control the event flow)
 type EventState int
 
 const (
@@ -41,7 +46,9 @@ const (
 	StateError       // Event is in error (not processed)
 )
 
+// Global variables
 var (
+	// zeroUUID is used to indicate that an event has no dependencies
 	zeroUUID = uuid.UUID{}
 )
 
@@ -70,12 +77,20 @@ type Event struct {
 	-                        */
 }
 
+// Scheduler is the struct that represents a scheduler
+// We have 2 types of schedulers:
+//   - Main scheduler, used to schedule and process events, it's the central scheduler and it's
+//     allocated on the heap (it's a singleton) and it's initialized by calling
+//     the MainSchedulerInit() function.
+//   - Sub schedulers, used to schedule and process events, they are allocated on the stack and
+//     they are initialized by calling the NewScheduler() function.
 type Scheduler struct {
 	q      queue.Queue          // Events Queue (Queue to store events)
 	mutex  sync.Mutex           // Mutex to protect the queue when fetching the next event
 	events map[uuid.UUID]*Event // Map to quickly look up events by UUID
 }
 
+// ProcessConfig is the struct that represents the configuration used to process the events
 type ProcessConfig struct {
 	ExitWhenEmpty bool
 	CheckEvent    bool
