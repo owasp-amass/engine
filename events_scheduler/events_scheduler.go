@@ -31,18 +31,24 @@ var (
 	zeroUUID = uuid.UUID{}
 )
 
+// Event is the struct that represents an event
+// This struct it's kind of the "currency of exchange" between the scheduler
+// and the functions that create and process the events
 type Event struct {
-	UUID        uuid.UUID   // Event UUID
-	Session     uuid.UUID   // Session UUID
-	Name        string      // Event name
-	Timestamp   time.Time   // Event timestamp
-	Type        EventType   // Event type
-	State       EventState  // Event state (processable, waiting, done, in process)
-	DependOn    []uuid.UUID // Events this event depends on
-	Action      func()      // Event handler function (action) (normally populated by querying the Registry)
-	Priority    int         // Event priority (normally populated by querying the Registry)
-	RepeatEvery int         // Event repeat every (normally populated by querying the Registry)
-	RepeatTimes int         // Event repeat times (normally populated by querying the Registry)
+	UUID        uuid.UUID           // Event UUID
+	Session     uuid.UUID           // Session UUID
+	Name        string              // Event name
+	Timestamp   time.Time           // Event timestamp
+	Type        EventType           // Event type
+	State       EventState          // Event state (processable, waiting, done, in process)
+	DependOn    []uuid.UUID         // Events this event depends on
+	Action      func(e Event) error // Event handler function (action) (normally populated by querying the Registry)
+	Priority    int                 // Event priority (normally populated by querying the Registry)
+	RepeatEvery int                 // Event repeat every (normally populated by querying the Registry)
+	RepeatTimes int                 // Event repeat times (normally populated by querying the Registry)
+	Data        interface{}         /* This field can hold any data type (normally populated by the function
+	   that creates the event, and used by the function that processes the event)
+	*/
 }
 
 type Scheduler struct {
@@ -77,7 +83,27 @@ func (s *Scheduler) Schedule(e *Event) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	e.UUID = uuid.New() // Assign a UUID to the event
+	// If the event has no UUID, assign one
+	if e.UUID == zeroUUID {
+		e.UUID = uuid.New() // Assign a UUID to the event
+	}
+
+	// If the event has no timestamp, assign one
+	if e.Timestamp.IsZero() {
+		e.Timestamp = time.Now() // Assign a timestamp to the event
+	}
+
+	// If the event has no priority, assign one
+	if e.Priority == 0 {
+		e.Priority = 1 // Assign a priority to the event
+	}
+
+	// If the event has no EventType, assign one
+	if e.Type == 0 {
+		e.Type = EventTypeSay // Assign a type to the event
+	}
+
+	// If the event has no State, assign one
 	if e.State == StateDefault {
 		e.State = StateWaiting
 		for _, dependUUID := range e.DependOn {
@@ -88,6 +114,18 @@ func (s *Scheduler) Schedule(e *Event) {
 			}
 		}
 	}
+
+	// If the event has no Action, assign one
+	if e.Action == nil {
+		// Query the Registry to get the action (using the EventType)
+	}
+
+	// If the event has no Session, assign one
+	if e.Session == zeroUUID {
+		// Query the Session Handler to get the default session
+	}
+	// Using the session, query the Session Handler and the Registry to get the priority, repeat every and repeat times
+	// TODO: Implement this
 
 	/*
 	 * Perform a deep copy of the event (so that it won't be invalidated
@@ -102,6 +140,7 @@ func (s *Scheduler) Schedule(e *Event) {
 		State:       e.State,
 		DependOn:    e.DependOn,
 		Action:      e.Action,
+		Data:        e.Data,
 		Priority:    e.Priority,
 		RepeatEvery: e.RepeatEvery,
 		RepeatTimes: e.RepeatTimes,
@@ -145,7 +184,7 @@ func (s *Scheduler) GetNextEvent() *Event {
 		if event.State == StateDone {
 			// If the event is done, then it was already processed
 			// Let's make sure to remove it from the events map
-			s.RemoveDoneEventFromDependOn(event.UUID)
+			// RemoveDoneEventFromDependOn(s, &event)
 			delete(s.events, event.UUID)
 		} else {
 			// Log this error: ("the element at index %d presented a problem", i)
@@ -169,7 +208,7 @@ func (s *Scheduler) GetNextEvent() *Event {
 		event.State = StateInProcess
 	} else {
 		// If it can't be processed, append it back to the queue
-		s.q.Append(event)
+		s.q.AppendPriority(event, event.Priority)
 		return nil
 	}
 
@@ -188,39 +227,25 @@ func (s *Scheduler) GetEvent(uuid uuid.UUID) *Event {
 	return nil
 }
 
-// Remove done events from DependOn lists
-// Use it to remove done events from the DependOn lists
-func (s *Scheduler) RemoveDoneEventsFromDependOn() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for _, event := range s.events {
-		if event.State == StateDone {
-			for i, dependUUID := range event.DependOn {
-				if depEvent, exists := s.events[dependUUID]; exists && depEvent.State == StateDone {
-					event.DependOn = append(event.DependOn[:i], event.DependOn[i+1:]...)
-				}
-			}
-		}
-	}
-}
-
 // Remove done event (passed as UUID) from DependOn lists on all events
 // Use it to remove a specific done event from the DependOn lists on all events
-func (s *Scheduler) RemoveDoneEventFromDependOn(uuid uuid.UUID) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if event, exists := s.events[uuid]; exists && event.State == StateDone {
-		for _, event := range s.events {
-			for i, dependUUID := range event.DependOn {
-				if dependUUID == uuid {
-					event.DependOn = append(event.DependOn[:i], event.DependOn[i+1:]...)
+/* Not needed at the moment, given the event queue returns all copies of the event
+   I have implemented a workaround to have it dynamically updated
+func RemoveDoneEventFromDependOn(s *Scheduler, e *Event) {
+	for _, event := range s.events {
+		for i, dependUUID := range event.DependOn {
+			if dependUUID == e.UUID {
+				if i == 0 {
+					event.DependOn = event.DependOn[1:]
+				} else {
+					event.DependOn = append(event.DependOn[:i-1], event.DependOn[i+1:]...)
 				}
 			}
 		}
 	}
+	delete(s.events, e.UUID)
 }
+*/
 
 // Process processes the events in a queue
 // it's parametric, so it requires a ProcessConfig struct
@@ -241,36 +266,52 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 		var event Event
 		ok := true
-		s.q.Process(func(e interface{}) {
-			if event, ok = e.(Event); ok {
-				if config.DebugInfo {
-					fmt.Println("Got event: ", event)
+		/*  This is the my original code, however,
+		    s.q.Process in caffix/queue seems to be skipping
+			some events, so I have implemented a workaround below
+			s.q.Process(func(e interface{}) {
+				if event, ok = e.(Event); ok {
+					if config.DebugInfo {
+						fmt.Println("Got event: ", event)
+					}
+					if event.State == StateDone {
+						ok = false
+					}
 				}
-				if event.State == StateDone {
-					ok = false
-				}
+			})
+		*/
+		element, ok := s.q.Next() // workaround to get all events
+		event = element.(Event)
+		if ok {
+			if config.DebugInfo {
+				fmt.Println("Got event: ", event)
 			}
-		})
+			if event.State == StateDone {
+				ok = false
+			}
+		}
 		if !ok {
-			s.mutex.Unlock()
 			if event.State == StateDone {
 				// If the event is done, then it was already processed
 				// Let's make sure to remove it from the events map
-				s.RemoveDoneEventFromDependOn(event.UUID)
+				// RemoveDoneEventFromDependOn(s, &event)
 				delete(s.events, event.UUID)
 			} else {
 				// Log this error: ("the element at index %d presented a problem", i)
 				fmt.Println("The element presented a problem")
 			}
+			s.mutex.Unlock()
 			continue
 		}
 
 		// Check if all dependencies are met
 		canProcess := true
 		for _, dependUUID := range event.DependOn {
-			if depEvent, exists := s.events[dependUUID]; !exists || depEvent.State != StateDone {
+			if depEvent, exists := s.events[dependUUID]; exists && depEvent.State != StateDone {
 				if config.DebugInfo {
 					fmt.Printf("Event %s can't be processed because it depends on event %s, which is not done yet\n", event.UUID, dependUUID)
+					fmt.Printf("Event %s is in state %d\n", dependUUID, depEvent.State)
+
 				}
 				if dependUUID != event.UUID && dependUUID != zeroUUID {
 					canProcess = false
@@ -284,50 +325,43 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				fmt.Printf("Processing event: %s (UUID: %s)\n", event.Name, event.UUID)
 			}
 			event.State = StateInProcess
+			// Execute the action
+			errCh := make(chan error)
 			if config.ExecuteAction && event.Action != nil {
-				event.Action()
+				go func(e Event) {
+					err := e.Action(e)
+					if err != nil {
+						errCh <- err
+					}
+				}(event)
 			}
+			// Wait for the action to finish
+			/* select {
+				case err := <-errCh:
+					// handle error
+				default:
+					// no error, continue
+			} */
 			event.State = StateDone
+			// If the event is repeatable, schedule it again
+			if event.RepeatEvery > 0 && event.RepeatTimes > 0 {
+				event.Timestamp = event.Timestamp.Add(time.Duration(event.RepeatEvery) * time.Second)
+				event.RepeatTimes--
+				s.Schedule(&event)
+			} else {
+				// If the event is not repeatable, remove it from the events map
+				//RemoveDoneEventFromDependOn(s, &event)
+				delete(s.events, event.UUID)
+			}
 			if config.ReturnIfFound {
 				s.mutex.Unlock()
 				return
 			}
 		} else {
 			// If it can't be processed, append it back to the queue
-			s.q.Append(event)
+			s.q.AppendPriority(event, event.Priority)
 		}
 
 		s.mutex.Unlock()
 	}
 }
-
-/*
-func main() {
-	s := NewScheduler()
-
-	event1 := Event{
-		Name:      "Say Hello",
-		Timestamp: time.Now().Add(2 * time.Second),
-		Type:      EventTypeSay,
-		Action: func() {
-			fmt.Println("Hello!")
-		},
-	}
-
-	s.Schedule(event1)
-
-	event2 := Event{
-		Name:      "Say Goodbye",
-		Timestamp: time.Now().Add(5 * time.Second),
-		Type:      EventTypeSay,
-		DependOn:  []uuid.UUID{event1.UUID},
-		Action: func() {
-			fmt.Println("Goodbye!")
-		},
-	}
-
-	s.Schedule(event2)
-
-	s.Process()
-}
-*/

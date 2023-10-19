@@ -3,6 +3,7 @@ package events_scheduler
 import (
 	"flag"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,10 +12,45 @@ import (
 
 // Global vars
 var (
-	config ProcessConfig
+	config    ProcessConfig
+	setupOnce sync.Once
 )
 
+type TestEvent struct {
+	Message string
+}
+
+func setup() {
+	exitWhenEmpty := flag.Bool("exitWhenEmpty", true, "Exit when the queue is empty")
+	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
+	executeAction := flag.Bool("executeAction", true, "Execute the event action when processing")
+	returnIfFound := flag.Bool("returnIfFound", false, "Return if an event is found")
+	debugInfo := flag.Bool("DebugInfo", true, "Print debug info")
+
+	flag.Parse()
+
+	config = ProcessConfig{
+		ExitWhenEmpty: *exitWhenEmpty,
+		CheckEvent:    *checkEvent,
+		ExecuteAction: *executeAction,
+		ReturnIfFound: *returnIfFound,
+		DebugInfo:     *debugInfo,
+	}
+	fmt.Printf("%+v\n", config)
+
+	/*
+		config = ProcessConfig{
+			ExitWhenEmpty: true,
+			CheckEvent:    true,
+			ExecuteAction: true,
+			ReturnIfFound: true,
+			DebugInfo:     true,
+		}*/
+}
+
 func TestNewScheduler(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	if s == nil {
 		t.Errorf("NewScheduler() returned nil")
@@ -22,9 +58,14 @@ func TestNewScheduler(t *testing.T) {
 }
 
 func TestSchedule001(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		Name: "Test event",
+		Data: TestEvent{
+			Message: "Hello world",
+		},
 	}
 	s.Schedule(&e)
 	if len(s.events) != 1 {
@@ -35,10 +76,15 @@ func TestSchedule001(t *testing.T) {
 // Test Schedule to add an Event in Queue and:
 // - UUID
 func TestSchedule002(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID: uuid.New(),
 		Name: "Test event",
+		Data: TestEvent{
+			Message: "Hello world",
+		},
 	}
 	s.Schedule(&e)
 	if len(s.events) != 1 {
@@ -50,11 +96,16 @@ func TestSchedule002(t *testing.T) {
 // - UUID
 // - State
 func TestSchedule003(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:  uuid.New(),
 		Name:  "Test event",
 		State: StateDone,
+		Data: TestEvent{
+			Message: "Hello world",
+		},
 	}
 	s.Schedule(&e)
 	if len(s.events) != 1 {
@@ -67,12 +118,17 @@ func TestSchedule003(t *testing.T) {
 // - State
 // - DependOn
 func TestSchedule004(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:     uuid.New(),
 		Name:     "Test event",
 		State:    StateDone,
 		DependOn: []uuid.UUID{uuid.New()},
+		Data: TestEvent{
+			Message: "Hello world",
+		},
 	}
 	s.Schedule(&e)
 	if len(s.events) != 1 {
@@ -86,6 +142,8 @@ func TestSchedule004(t *testing.T) {
 // - DependOn
 // - Timestamp
 func TestSchedule005(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:      uuid.New(),
@@ -93,6 +151,9 @@ func TestSchedule005(t *testing.T) {
 		State:     StateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
+		Data: TestEvent{
+			Message: "Hello world",
+		},
 	}
 	s.Schedule(&e)
 	if len(s.events) != 1 {
@@ -107,6 +168,8 @@ func TestSchedule005(t *testing.T) {
 // - Timestamp
 // - Action
 func TestSchedule006(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:      uuid.New(),
@@ -114,8 +177,16 @@ func TestSchedule006(t *testing.T) {
 		State:     StateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			data, ok := e.Data.(TestEvent) // Type assertion
+			if ok {
+				fmt.Println(data)
+				return nil
+			}
+			return fmt.Errorf("Error: Type assertion failed")
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 	}
 	s.Schedule(&e)
@@ -132,6 +203,8 @@ func TestSchedule006(t *testing.T) {
 // - Action
 // - Type
 func TestSchedule007(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:      uuid.New(),
@@ -139,8 +212,12 @@ func TestSchedule007(t *testing.T) {
 		State:     StateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Type: EventTypeSay,
 	}
@@ -159,6 +236,8 @@ func TestSchedule007(t *testing.T) {
 // - Type
 // - Priority
 func TestSchedule008(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:      uuid.New(),
@@ -166,8 +245,12 @@ func TestSchedule008(t *testing.T) {
 		State:     StateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Type:     EventTypeSay,
 		Priority: 1,
@@ -188,6 +271,8 @@ func TestSchedule008(t *testing.T) {
 // - Priority
 // - RepeatEvery
 func TestSchedule009(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:      uuid.New(),
@@ -195,8 +280,12 @@ func TestSchedule009(t *testing.T) {
 		State:     StateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Type:        EventTypeSay,
 		Priority:    1,
@@ -219,6 +308,8 @@ func TestSchedule009(t *testing.T) {
 // - RepeatEvery
 // - RepeatTimes
 func TestSchedule010(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID:      uuid.New(),
@@ -226,8 +317,12 @@ func TestSchedule010(t *testing.T) {
 		State:     StateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Type:        EventTypeSay,
 		Priority:    1,
@@ -242,26 +337,11 @@ func TestSchedule010(t *testing.T) {
 
 // Test with empty Queue
 func TestProcess000(t *testing.T) {
-	exitWhenEmpty := flag.Bool("exitWhenEmpty", true, "Exit when the queue is empty")
-	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
-	executeAction := flag.Bool("executeAction", true, "Execute the event action when processing")
-	returnIfFound := flag.Bool("returnIfFound", true, "Return if an event is found")
-	debugInfo := flag.Bool("DebugInfo", true, "Print debug info")
-
-	flag.Parse()
+	setupOnce.Do(setup)
 
 	s := NewScheduler()
 
 	// ... schedule events ...
-
-	config = ProcessConfig{
-		ExitWhenEmpty: *exitWhenEmpty,
-		CheckEvent:    *checkEvent,
-		ExecuteAction: *executeAction,
-		ReturnIfFound: *returnIfFound,
-		DebugInfo:     *debugInfo,
-	}
-	fmt.Printf("%+v\n", config)
 
 	s.Process(config)
 
@@ -269,6 +349,7 @@ func TestProcess000(t *testing.T) {
 
 // Test with Event in Queue
 func TestProcess001(t *testing.T) {
+	setupOnce.Do(setup)
 
 	s := NewScheduler()
 
@@ -284,11 +365,17 @@ func TestProcess001(t *testing.T) {
 // Test with Event in Queue and:
 // - Action
 func TestProcess002(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 	}
 	s.Schedule(&e)
@@ -299,11 +386,17 @@ func TestProcess002(t *testing.T) {
 // - Action
 // - Timestamp
 func TestProcess003(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp: time.Now(),
 	}
@@ -316,6 +409,8 @@ func TestProcess003(t *testing.T) {
 // - Timestamp
 // - DependOn
 func TestProcess004(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e0 := Event{
 		Name: "Test event 0",
@@ -323,8 +418,12 @@ func TestProcess004(t *testing.T) {
 	s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
@@ -339,6 +438,8 @@ func TestProcess004(t *testing.T) {
 // - DependOn
 // - State
 func TestProcess005(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e0 := Event{
 		Name:  "Test event 0",
@@ -347,8 +448,12 @@ func TestProcess005(t *testing.T) {
 	s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
@@ -364,6 +469,8 @@ func TestProcess005(t *testing.T) {
 // - State
 // - Type
 func TestProcess006(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e0 := Event{
 		Name: "Test event 0",
@@ -371,8 +478,12 @@ func TestProcess006(t *testing.T) {
 	s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
@@ -383,7 +494,6 @@ func TestProcess006(t *testing.T) {
 	s.Process(config)
 }
 
-/*
 // Test with Event in Queue and:
 // - Action
 // - Timestamp
@@ -392,11 +502,17 @@ func TestProcess006(t *testing.T) {
 // - Type
 // - Priority
 func TestProcess007(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{uuid.New()},
@@ -417,11 +533,17 @@ func TestProcess007(t *testing.T) {
 // - Priority
 // - RepeatEvery
 func TestProcess008(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
@@ -444,11 +566,17 @@ func TestProcess008(t *testing.T) {
 // - RepeatEvery
 // - RepeatTimes
 func TestProcess009(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
@@ -473,12 +601,18 @@ func TestProcess009(t *testing.T) {
 // - RepeatTimes
 // - UUID
 func TestProcess010(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID: uuid.New(),
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
@@ -504,12 +638,18 @@ func TestProcess010(t *testing.T) {
 // - UUID
 // - Mutex
 func TestProcess011(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID: uuid.New(),
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
@@ -536,12 +676,18 @@ func TestProcess011(t *testing.T) {
 // - Mutex
 // - Queue
 func TestProcess012(t *testing.T) {
+	setupOnce.Do(setup)
+
 	s := NewScheduler()
 	e := Event{
 		UUID: uuid.New(),
 		Name: "Test event",
-		Action: func() {
-			fmt.Println("Hello world")
+		Action: func(e Event) error {
+			fmt.Println(e.Data.(TestEvent).Message)
+			return nil
+		},
+		Data: TestEvent{
+			Message: "Hello world",
 		},
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
@@ -554,4 +700,3 @@ func TestProcess012(t *testing.T) {
 	s.Schedule(&e)
 	s.Process(config)
 }
-*/
