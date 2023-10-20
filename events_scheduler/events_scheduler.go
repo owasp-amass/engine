@@ -372,7 +372,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				break
 			}
 		}
-		if canProcess && time.Now().After(event.Timestamp.Add(time.Duration(time.Duration(event.RepeatEvery*10_000_000)*time.Nanosecond))) {
+		if canProcess && time.Now().After(event.Timestamp.Add(time.Duration(time.Duration(event.RepeatEvery)*time.Millisecond))) {
 			// If it can be processed, process it
 			if config.CheckEvent {
 				// TODO: Transform these prints into logs (when the Logger is implemented)
@@ -384,6 +384,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			// Execute the action
 			errCh := make(chan error)
 			if config.ExecuteAction && event.Action != nil {
+				// TODO: add an actions counter and when we reach max wait
 				go func(e Event) {
 					err := e.Action(e)
 					if err != nil {
@@ -391,19 +392,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					}
 				}(event)
 			}
-
-			// TODO: Implement a timeout for the action
-			// TODO: Most likely we do not want to wait for the action to finish
-			//       however I am leaving the code below commented for the PR review
-			//       in case the requirement may change under review.
-			// Wait for the action to finish
-			/* select {
-				case err := <-errCh:
-					// handle error
-				default:
-					// no error, continue
-					event.State = StateDone
-			} */
 
 			// If the event is repeatable, schedule it again
 			if event.RepeatEvery == 0 && event.RepeatTimes > 0 {
@@ -440,7 +428,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				}
 			} else {
 				// If the event is not repeatable, remove it from the events map
-				//RemoveDoneEventFromDependOn(s, &event)
 				delete(s.events, event.UUID)
 			}
 			if config.ReturnIfFound {
@@ -449,7 +436,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 		} else {
 			// If it can't be processed, append it back to the queue
-			//s.q.AppendPriority(event, event.Priority)
 			delete(s.events, event.UUID)
 			err := schedule(s, &event)
 			if err != nil {
