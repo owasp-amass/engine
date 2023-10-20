@@ -432,6 +432,10 @@ func TestProcess001(t *testing.T) {
 
 	e := Event{
 		Name: "Test event (TestProcess001)",
+		Action: func(e Event) error {
+			s.SetEventState(e.UUID, StateDone)
+			return nil
+		},
 	}
 	s.Schedule(&e)
 	s.Process(config)
@@ -450,6 +454,7 @@ func TestProcess002(t *testing.T) {
 		Name: "Test event (TestProcess002)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -474,6 +479,7 @@ func TestProcess003(t *testing.T) {
 		Name: "Test event (TestProcess003)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -498,12 +504,17 @@ func TestProcess004(t *testing.T) {
 	s := NewScheduler()
 	e0 := Event{
 		Name: "Test event 0 (TestProcess004)",
+		Action: func(e Event) error {
+			s.SetEventState(e.UUID, StateDone)
+			return nil
+		},
 	}
 	s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event 1 (TestProcess004)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -531,12 +542,17 @@ func TestProcess005(t *testing.T) {
 	e0 := Event{
 		Name:  "Test event 0 (TestProcess005)",
 		State: StateDone,
+		Action: func(e Event) error {
+			s.SetEventState(e.UUID, StateDone)
+			return nil
+		},
 	}
 	s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event 1 (TestProcess005)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -564,12 +580,17 @@ func TestProcess006(t *testing.T) {
 	s := NewScheduler()
 	e0 := Event{
 		Name: "Test event 0 (TestProcess006)",
+		Action: func(e Event) error {
+			s.SetEventState(e.UUID, StateDone)
+			return nil
+		},
 	}
 	s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event 1 (TestProcess006)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -602,6 +623,7 @@ func TestProcess007(t *testing.T) {
 		Name: "Test event (TestProcess007) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -636,6 +658,7 @@ func TestProcess008(t *testing.T) {
 		Name: "Test event (TestProcess008) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -671,6 +694,7 @@ func TestProcess009(t *testing.T) {
 		Name: "Test event (TestProcess009) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -710,6 +734,7 @@ func TestProcess010(t *testing.T) {
 		Name: "Test event (TestProcess010) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -750,6 +775,7 @@ func TestProcess011(t *testing.T) {
 		Name: "Test event (TestProcess011) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -791,6 +817,7 @@ func TestProcess012(t *testing.T) {
 		Name: "Test event (TestProcess012) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			s.SetEventState(e.UUID, StateDone)
 			return nil
 		},
 		Data: TestEvent{
