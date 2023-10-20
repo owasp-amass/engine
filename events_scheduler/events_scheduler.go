@@ -108,6 +108,8 @@ type ProcessConfig struct {
  *                                         error otherwise
  * MainSchedulerCancel(uuid uuid.UUID)   - Cancels a scheduled event (by UUID) if it exists and there
  *                                         are no errors
+ * MainSchedulerCancelAll()              - Cancels all scheduled events
+ * MainSchedulerProcess()                - Processes the events in the queue
  */
 
 var (
@@ -134,6 +136,11 @@ func MainSchedulerSchedule(e *Event) error {
 // Cancel an event in the main scheduler
 func MainSchedulerCancel(uuid uuid.UUID) {
 	mainScheduler.Cancel(uuid)
+}
+
+// Cancel all events in the main scheduler
+func MainSchedulerCancelAll() {
+	mainScheduler.CancelAll()
 }
 
 // Process the events in the main scheduler
@@ -254,6 +261,17 @@ func (s *Scheduler) Cancel(uuid uuid.UUID) {
 	defer s.mutex.Unlock()
 
 	if event, exists := s.events[uuid]; exists {
+		event.State = StateCancelled
+	}
+}
+
+// CancelAll cancels all events
+// Use it to cancel all events
+func (s *Scheduler) CancelAll() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, event := range s.events {
 		event.State = StateCancelled
 	}
 }
