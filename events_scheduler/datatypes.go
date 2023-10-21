@@ -14,10 +14,12 @@ import (
 type EventType int
 
 const (
-	// EventTypeSay is used to print a message to the console
-	EventTypeSay EventType = iota
+	// SystemType is used to identify system events
+	SystemType EventType = iota
 	// EventTypeLog is used to log a message to the log file
 	EventTypeLog
+	// EventTypeSay is used to print a message to the console (used for debugging purposes)
+	EventTypeSay
 	// Add more event types here:
 )
 
@@ -56,14 +58,20 @@ type Event struct {
 	-                                Registry)
 	-                              */
 	Priority    int /* Event priority (normally populated by querying the Registry) */
-	RepeatEvery int /* Event repeat every X centiseconds (normally populated by querying
-	-			       the Registry)
+	RepeatEvery int /* Event repeat every X milliseconds
+	-                  0 means repeat immediately
+	-                  n means repeat after n milliseconds (n > 0)
+	-                  Event won't be repeated if RepeatTimes is 0
 	-                */
-	RepeatTimes int         /* Event repeat times (normally populated by querying the Registry) */
-	Data        interface{} /* This field can hold any data type (normally populated by the function
-	-                          that creates the event, and used by the function that processes the
-	-                          event)
-	-                        */
+	RepeatTimes int /* Event repeat times (normally populated by querying the Registry)
+	-                  -1 means repeat forever
+	-                   0 means don't repeat
+	-                   n means repeat n times
+	-                 */
+	Data interface{} /* This field can hold any data type (normally populated by the function
+	-                   that creates the event, and used by the function that processes the
+	-                   event)
+	-                 */
 	timeout time.Time  /* Timeout timer (used to cancel the event if it's not processed in time) */
 	s       *Scheduler /* Pointer to the scheduler that created the event */
 }
@@ -76,17 +84,19 @@ type Event struct {
 //   - Sub schedulers, used to schedule and process events, they are allocated on the stack and
 //     they are initialized by calling the NewScheduler() function.
 type Scheduler struct {
-	q      queue.Queue          // Events Queue (Queue to store events)
-	mutex  sync.Mutex           // Mutex to protect the queue when fetching the next event
-	events map[uuid.UUID]*Event // Map to quickly look up events by UUID
+	q                     queue.Queue          // Events Queue (Queue to store events)
+	mutex                 sync.Mutex           // Mutex to protect the queue when fetching the next event
+	events                map[uuid.UUID]*Event // Map to quickly look up events by UUID
+	CurrentRunningActions int                  // Number of actions currently running
 }
 
 // ProcessConfig is the struct that represents the configuration used to process the events
 type ProcessConfig struct {
-	ExitWhenEmpty bool
-	CheckEvent    bool
-	ExecuteAction bool
-	ReturnIfFound bool
-	DebugInfo     bool
-	ActionTimeout int
+	ExitWhenEmpty        bool // Return from the Process() function when the queue is empty (instead of waiting for new events)
+	CheckEvent           bool // Check if the event is processable (instead of just processing it)
+	ExecuteAction        bool // Execute the action (instead of just processing the event), used for debugging purposes
+	ReturnIfFound        bool // Return from the Process() function when the event is found (instead of waiting for new events)
+	DebugInfo            bool // Print debug info
+	ActionTimeout        int  // Action timeout (in milliseconds)
+	MaxConcurrentActions int  // Maximum number of concurrent actions allowed
 }

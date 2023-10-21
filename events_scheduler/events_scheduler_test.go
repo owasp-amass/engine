@@ -30,12 +30,13 @@ func setup() {
 	flag.Parse()
 
 	config = ProcessConfig{
-		ExitWhenEmpty: *exitWhenEmpty,
-		CheckEvent:    *checkEvent,
-		ExecuteAction: *executeAction,
-		ReturnIfFound: *returnIfFound,
-		DebugInfo:     *debugInfo,
-		ActionTimeout: 60,
+		ExitWhenEmpty:        *exitWhenEmpty,
+		CheckEvent:           *checkEvent,
+		ExecuteAction:        *executeAction,
+		ReturnIfFound:        *returnIfFound,
+		DebugInfo:            *debugInfo,
+		ActionTimeout:        60,
+		MaxConcurrentActions: 10,
 	}
 	fmt.Printf("%+v\n", config)
 

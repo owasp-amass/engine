@@ -36,11 +36,13 @@ import (
 var (
 	mainScheduler        *Scheduler
 	mainSchedulerProcess = ProcessConfig{
-		ExitWhenEmpty: false,
-		CheckEvent:    true,
-		ExecuteAction: true,
-		ReturnIfFound: false,
-		DebugInfo:     false,
+		ExitWhenEmpty:        false,
+		CheckEvent:           true,
+		ExecuteAction:        true,
+		ReturnIfFound:        false,
+		DebugInfo:            false,
+		ActionTimeout:        30,
+		MaxConcurrentActions: 10,
 	}
 )
 
@@ -270,12 +272,9 @@ func SetEventState(e *Event, state EventState) {
 
 	e.s.mutex.Lock()
 
-	fmt.Println("SetEventState: ", e.UUID, state)
-
 	e.s.events[e.UUID].State = state
 	e.State = state
-
-	fmt.Println("SetEventState: ", e, e.s.events[e.UUID].State)
+	e.s.CurrentRunningActions--
 
 	e.s.mutex.Unlock()
 }
@@ -301,9 +300,16 @@ func removeEventAndDeps(s *Scheduler, uuid uuid.UUID) {
 // it's parametric, so it requires a ProcessConfig struct
 // Use it to start the scheduler
 func (s *Scheduler) Process(config ProcessConfig) {
+	// Init local variables
+	var previousAverage time.Duration
+	var averageWaitingTime time.Duration
+
 	// Events processing loop
 	for {
-		//time.Sleep(20 * time.Millisecond) // wait 20 milliseconds to help the pipeline to update status
+		if averageWaitingTime > 0 {
+			// If we have an average waiting time, wait for it
+			time.Sleep(averageWaitingTime)
+		}
 		s.mutex.Lock()
 
 		// If the queue is empty, wait for a second and continue
@@ -328,8 +334,10 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		if ok {
 			// If the event in being processed then continue to the next event
 			if s.events[event.UUID].State == StateInProcess {
-				if time.Now().After(event.timeout) {
-					event.State = StateError
+				if config.ActionTimeout > 0 {
+					if time.Now().After(event.timeout) {
+						event.State = StateError
+					}
 				}
 				fmt.Println("Event in process: ", event)
 				err := schedule(s, &event)
@@ -434,7 +442,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 
 			// Set the event state to in process
-			event.State = StateInProcess
+			if s.CurrentRunningActions < config.MaxConcurrentActions {
+				event.State = StateInProcess
+			}
 			event.timeout = time.Now().Add(time.Duration(config.ActionTimeout) * time.Second)
 
 			// Execute the action
@@ -444,7 +454,17 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 				// Schedule the event again with its new state
 				err := schedule(s, &event)
+				if event.State != StateInProcess {
+					// If we reached the maximum number of concurrent actions, reschedule the event
+					// and continue to the next event
+					s.mutex.Unlock()
+					continue
+				}
+
 				if err == nil {
+					// Increment the number of running actions
+					s.CurrentRunningActions++
+
 					// Execute the action in a goroutine
 					go func(e Event) {
 						err := e.Action(e)
@@ -460,6 +480,19 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				return
 			}
 		} else {
+			// If it can't be processed yet, then use it to calculate average waiting time
+			if canProcess {
+				// calculate average waiting time
+				targetTime := event.Timestamp.Add(time.Duration(event.RepeatEvery) * time.Millisecond)
+				waitingTime := time.Until(targetTime) // current waiting time
+
+				// compute the new average waiting time considering current waiting time and previous average
+				averageWaitingTime := (waitingTime + previousAverage) / 2
+
+				// store the new average for future computations
+				previousAverage = averageWaitingTime
+			}
+
 			// If it can't be processed, append it back to the queue
 			err := schedule(s, &event)
 			if err != nil {
