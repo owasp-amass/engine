@@ -2,7 +2,6 @@ package events_scheduler
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/caffix/queue"
@@ -20,84 +19,6 @@ import (
  * Process(config ProcessConfig)- Processes the events in the queue using the configuration provided
  *  						      via the ProcessConfig struct
  */
-
-// Event types (are used to query the Registry adn identify the action to be executed)
-type EventType int
-
-const (
-	// EventTypeSay is used to print a message to the console
-	EventTypeSay EventType = iota
-	// EventTypeLog is used to log a message to the log file
-	EventTypeLog
-	// Add more event types here:
-)
-
-// Event states (are used to control the event flow)
-type EventState int
-
-const (
-	StateDefault EventState = iota // Event is in default state
-	// (normally used when the event is created)
-	StateProcessable // Event is processable (all dependencies are met)
-	StateWaiting     // Event is waiting (some dependencies are not met)
-	StateDone        // Event is done (already processed)
-	StateInProcess   // Event is in process (being processed)
-	StateCancelled   // Event is cancelled (not processed)
-	StateError       // Event is in error (not processed)
-)
-
-// Global variables
-var (
-	// zeroUUID is used to indicate that an event has no dependencies
-	zeroUUID = uuid.UUID{}
-)
-
-// Event is the struct that represents an event
-// This struct it's kind of the "currency of exchange" between the scheduler
-// and the functions that create and process the events
-type Event struct {
-	UUID      uuid.UUID           /* Event UUID */
-	Session   uuid.UUID           /* Session UUID */
-	Name      string              /* Event name */
-	Timestamp time.Time           /* Event timestamp */
-	Type      EventType           /* Event type */
-	State     EventState          /* Event state (processable, waiting, done, in process) */
-	DependOn  []uuid.UUID         /* Events this event "depends on" */
-	Action    func(e Event) error /* Event handler function (action) (normally populated by querying the
-	-                                Registry)
-	-                              */
-	Priority    int /* Event priority (normally populated by querying the Registry) */
-	RepeatEvery int /* Event repeat every X centiseconds (normally populated by querying
-	-			       the Registry)
-	-                */
-	RepeatTimes int         /* Event repeat times (normally populated by querying the Registry) */
-	Data        interface{} /* This field can hold any data type (normally populated by the function
-	-                          that creates the event, and used by the function that processes the
-	-                          event)
-	-                        */
-}
-
-// Scheduler is the struct that represents a scheduler
-// We have 2 types of schedulers:
-//   - Main scheduler, used to schedule and process events, it's the central scheduler and it's
-//     allocated on the heap (it's a singleton) and it's initialized by calling
-//     the MainSchedulerInit() function.
-//   - Sub schedulers, used to schedule and process events, they are allocated on the stack and
-//     they are initialized by calling the NewScheduler() function.
-type Scheduler struct {
-	q      queue.Queue          // Events Queue (Queue to store events)
-	mutex  sync.Mutex           // Mutex to protect the queue when fetching the next event
-	events map[uuid.UUID]*Event // Map to quickly look up events by UUID
-}
-
-// ProcessConfig is the struct that represents the configuration used to process the events
-type ProcessConfig struct {
-	ExitWhenEmpty bool
-	CheckEvent    bool
-	ExecuteAction bool
-	ReturnIfFound bool
-	DebugInfo     bool
-}
 
 /*
  * Main Scheduler public API
@@ -168,6 +89,11 @@ func NewScheduler() *Scheduler {
 // Schedule schedules an event (public method)
 // Use it to add your events to the scheduler
 func (s *Scheduler) Schedule(e *Event) error {
+
+	if e == nil {
+		return fmt.Errorf("The event is nil")
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -222,14 +148,9 @@ func (s *Scheduler) Schedule(e *Event) error {
 		e.RepeatEvery = 0
 	}
 
-	// If the event has no Action, assign one
-	if e.Action == nil {
-		// Query the Registry to get the action (using the EventType)
-		e.Action = func(e Event) error {
-			s.SetEventState(e.UUID, StateDone)
-			return nil
-		}
-	}
+	// Make sure the event has the scheduler reference
+	// (this is used to set the event state to cancelled when the scheduler is cancelled)
+	e.s = s
 
 	// Schedule the event
 	err := schedule(s, e)
@@ -256,6 +177,22 @@ func schedule(s *Scheduler, e *Event) error {
 		Priority:    e.Priority,
 		RepeatEvery: e.RepeatEvery,
 		RepeatTimes: e.RepeatTimes,
+		// private fields
+		timeout: e.timeout,
+		s:       s,
+	}
+
+	if e.s == nil {
+		eCopy.s = s
+	}
+
+	// If the event has no Action, assign one
+	if eCopy.Action == nil {
+		// Query the Registry to get the action (using the EventType)
+		eCopy.Action = func(e Event) error {
+			SetEventState(e, StateDone)
+			return nil
+		}
 	}
 
 	// Store the event in the map
@@ -317,7 +254,25 @@ func (s *Scheduler) SetEventState(uuid uuid.UUID, state EventState) {
 func setEventState(s *Scheduler, uuid uuid.UUID, state EventState) {
 	if event, exists := s.events[uuid]; exists {
 		event.State = state
+	} else {
+		fmt.Printf("SetEventState: event '%s' not found\n", uuid)
 	}
+}
+
+// SetEventState sets the state of an event in the scheduler queue
+// Use it to set the state of an event by UUID
+// (public method)
+func SetEventState(e Event, state EventState) {
+	if e.s == nil {
+		fmt.Printf("SetEventState: event '%s' has no scheduler\n", e.UUID)
+		return
+	}
+
+	e.s.mutex.Lock()
+	defer e.s.mutex.Unlock()
+
+	fmt.Println("SetEventState: ", e.UUID, state)
+	setEventState(e.s, e.UUID, state)
 }
 
 // removeEventAndDeps removes an event and the events that depends on it from the scheduler queue
@@ -367,8 +322,18 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		if ok {
 			// If the event in being processed then continue to the next event
 			if event.State == StateInProcess {
-				s.mutex.Unlock()
-				continue
+				if time.Now().After(event.timeout) {
+					event.State = StateError
+				}
+				err := schedule(s, &event)
+				if err == nil {
+					s.mutex.Unlock()
+					time.Sleep(10 * time.Millisecond) // wait 20 milliseconds to help the pipeline to update status
+					continue
+				} else {
+					// TODO: Transform these prints into logs (when the Logger is implemented)
+					fmt.Println(err)
+				}
 			}
 
 			// If the event is cancelled, remove it from the events map
@@ -382,6 +347,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				s.mutex.Unlock()
 				continue
 			}
+
 			// If the event is done, check if it needs to be repeated
 			if event.State == StateDone {
 				// If the event is repeatable, schedule it again
@@ -389,7 +355,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					// If the event is repeatable, schedule it again
 					event.State = StateProcessable
 					event.RepeatTimes--
-					delete(s.events, event.UUID)
 					err := schedule(s, &event)
 					if err != nil {
 						// TODO: Transform these prints into logs (when the Logger is implemented)
@@ -402,7 +367,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					event.State = StateProcessable
 					event.Timestamp = time.Now()
 					event.RepeatTimes--
-					delete(s.events, event.UUID)
 					err := schedule(s, &event)
 					if err != nil {
 						// TODO: Transform these prints into logs (when the Logger is implemented)
@@ -411,7 +375,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				} else if event.RepeatEvery >= 0 && event.RepeatTimes == -1 {
 					// If the event is repeatable, schedule it again (for ever)
 					event.State = StateProcessable
-					delete(s.events, event.UUID)
+					event.Timestamp = time.Now()
 					err := schedule(s, &event)
 					if err != nil {
 						// TODO: Transform these prints into logs (when the Logger is implemented)
@@ -443,8 +407,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			if depEvent, exists := s.events[dependUUID]; exists && depEvent.State != StateDone {
 				if config.DebugInfo {
 					// TODO: Transform these prints into logs (when the Logger is implemented)
-					fmt.Printf("Event %s can't be processed because it depends on event %s, which is not done yet\n", event.UUID, dependUUID)
-					fmt.Printf("Event %s is in state %d\n", dependUUID, depEvent.State)
+					fmt.Printf("Event '%s' with name '%s' can't be processed because it depends on event '%s', which is not done yet\n", event.UUID, event.Name, dependUUID)
+					fmt.Printf("Event '%s' with name '%s' is in state %d\n", dependUUID, depEvent.Name, depEvent.State)
+					fmt.Println("Event body: ", depEvent)
 				}
 				if dependUUID != event.UUID && dependUUID != zeroUUID {
 					canProcess = false
@@ -464,6 +429,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 			// Set the event state to in process
 			event.State = StateInProcess
+			event.timeout = time.Now().Add(time.Duration(config.ActionTimeout) * time.Second)
 
 			// Execute the action
 			errCh := make(chan error)
@@ -482,20 +448,20 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					}(event)
 				}
 			}
+
 			if config.ReturnIfFound {
 				s.mutex.Unlock()
 				return
 			}
 		} else {
 			// If it can't be processed, append it back to the queue
-			delete(s.events, event.UUID)
 			err := schedule(s, &event)
 			if err != nil {
 				// TODO: Transform these prints into logs (when the Logger is implemented)
 				fmt.Println(err)
 			}
 		}
-
 		s.mutex.Unlock()
+		time.Sleep(10 * time.Millisecond) // wait 10 milliseconds to help the pipeline to update status
 	}
 }

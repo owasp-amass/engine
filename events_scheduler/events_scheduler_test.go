@@ -35,6 +35,7 @@ func setup() {
 		ExecuteAction: *executeAction,
 		ReturnIfFound: *returnIfFound,
 		DebugInfo:     *debugInfo,
+		ActionTimeout: 60,
 	}
 	fmt.Printf("%+v\n", config)
 
@@ -183,6 +184,7 @@ func TestSchedule006(t *testing.T) {
 				fmt.Println(data)
 				return nil
 			}
+			SetEventState(e, StateError)
 			return fmt.Errorf("Error: Type assertion failed")
 		},
 		Data: TestEvent{
@@ -217,6 +219,7 @@ func TestSchedule007(t *testing.T) {
 		Timestamp: time.Now(),
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -253,6 +256,7 @@ func TestSchedule008(t *testing.T) {
 		Timestamp: time.Now(),
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -291,6 +295,7 @@ func TestSchedule009(t *testing.T) {
 		Timestamp: time.Now(),
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -331,6 +336,7 @@ func TestSchedule010(t *testing.T) {
 		Timestamp: time.Now(),
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -366,14 +372,12 @@ func TestSchedule011(t *testing.T) {
 		Name:     "Test event 1 (TestSchedule011)",
 		DependOn: []uuid.UUID{e0.UUID},
 	}
-
 	s.Schedule(&e1)
 
 	e2 := Event{
 		Name:     "Test event 2 (TestSchedule011)",
 		DependOn: []uuid.UUID{e0.UUID},
 	}
-
 	s.Schedule(&e2)
 
 	e3 := Event{
@@ -384,6 +388,7 @@ func TestSchedule011(t *testing.T) {
 		Timestamp: time.Now(),
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -433,7 +438,7 @@ func TestProcess001(t *testing.T) {
 	e := Event{
 		Name: "Test event (TestProcess001)",
 		Action: func(e Event) error {
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 	}
@@ -454,7 +459,7 @@ func TestProcess002(t *testing.T) {
 		Name: "Test event (TestProcess002)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -479,7 +484,7 @@ func TestProcess003(t *testing.T) {
 		Name: "Test event (TestProcess003)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -505,7 +510,7 @@ func TestProcess004(t *testing.T) {
 	e0 := Event{
 		Name: "Test event 0 (TestProcess004)",
 		Action: func(e Event) error {
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 	}
@@ -514,7 +519,7 @@ func TestProcess004(t *testing.T) {
 		Name: "Test event 1 (TestProcess004)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -543,7 +548,7 @@ func TestProcess005(t *testing.T) {
 		Name:  "Test event 0 (TestProcess005)",
 		State: StateDone,
 		Action: func(e Event) error {
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 	}
@@ -552,7 +557,7 @@ func TestProcess005(t *testing.T) {
 		Name: "Test event 1 (TestProcess005)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -581,7 +586,7 @@ func TestProcess006(t *testing.T) {
 	e0 := Event{
 		Name: "Test event 0 (TestProcess006)",
 		Action: func(e Event) error {
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 	}
@@ -590,7 +595,7 @@ func TestProcess006(t *testing.T) {
 		Name: "Test event 1 (TestProcess006)",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -623,7 +628,7 @@ func TestProcess007(t *testing.T) {
 		Name: "Test event (TestProcess007) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -658,7 +663,7 @@ func TestProcess008(t *testing.T) {
 		Name: "Test event (TestProcess008) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -694,7 +699,7 @@ func TestProcess009(t *testing.T) {
 		Name: "Test event (TestProcess009) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -734,7 +739,7 @@ func TestProcess010(t *testing.T) {
 		Name: "Test event (TestProcess010) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -775,7 +780,7 @@ func TestProcess011(t *testing.T) {
 		Name: "Test event (TestProcess011) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -817,7 +822,7 @@ func TestProcess012(t *testing.T) {
 		Name: "Test event (TestProcess012) Random UUID as dependency",
 		Action: func(e Event) error {
 			fmt.Println(e.Data.(TestEvent).Message)
-			s.SetEventState(e.UUID, StateDone)
+			SetEventState(e, StateDone)
 			return nil
 		},
 		Data: TestEvent{
