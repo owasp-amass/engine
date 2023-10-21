@@ -20,62 +20,6 @@ import (
  *  						      via the ProcessConfig struct
  */
 
-/*
- * Main Scheduler public API
- * This API is used to schedule and process events on the main scheduler (as per Amass requirements)
- *
- * MainSchedulerInit()                   - Initializes the main scheduler
- * MainSchedulerSchedule(e *Event) error - Schedules an event (if there are no errors), returns an
- *                                         error otherwise
- * MainSchedulerCancel(uuid uuid.UUID)   - Cancels a scheduled event (by UUID) if it exists and there
- *                                         are no errors
- * MainSchedulerCancelAll()              - Cancels all scheduled events
- * MainSchedulerProcess()                - Processes the events in the queue
- */
-
-var (
-	mainScheduler        *Scheduler
-	mainSchedulerProcess = ProcessConfig{
-		ExitWhenEmpty:        false,
-		CheckEvent:           true,
-		ExecuteAction:        true,
-		ReturnIfFound:        false,
-		DebugInfo:            false,
-		ActionTimeout:        30,
-		MaxConcurrentActions: 10,
-	}
-)
-
-// Initialize the main scheduler
-func MainSchedulerInit() {
-	mainScheduler = NewScheduler()
-}
-
-// Schedule an event in the main scheduler
-func MainSchedulerSchedule(e *Event) error {
-	return mainScheduler.Schedule(e)
-}
-
-// Cancel an event in the main scheduler
-func MainSchedulerCancel(uuid uuid.UUID) {
-	mainScheduler.Cancel(uuid)
-}
-
-// Cancel all events in the main scheduler
-func MainSchedulerCancelAll() {
-	mainScheduler.CancelAll()
-}
-
-// Set an event state in the main scheduler
-func MainSchedulerSetEventState(uuid uuid.UUID, state EventState) {
-	mainScheduler.SetEventState(uuid, state)
-}
-
-// Process the events in the main scheduler
-func MainSchedulerProcess() {
-	mainScheduler.Process(mainSchedulerProcess)
-}
-
 // NewScheduler creates a new Scheduler instance
 // Use it to initialize the Scheduler
 func NewScheduler() *Scheduler {
@@ -255,7 +199,11 @@ func (s *Scheduler) SetEventState(uuid uuid.UUID, state EventState) {
 // (private method)
 func setEventState(s *Scheduler, uuid uuid.UUID, state EventState) {
 	if event, exists := s.events[uuid]; exists {
+		if (state == StateDone || state == StateCancelled || state == StateError) && s.events[uuid].State == StateInProcess {
+			s.CurrentRunningActions--
+		}
 		event.State = state
+		s.events[uuid].State = state
 	} else {
 		fmt.Printf("SetEventState: event '%s' not found\n", uuid)
 	}
@@ -266,15 +214,19 @@ func setEventState(s *Scheduler, uuid uuid.UUID, state EventState) {
 // (public method)
 func SetEventState(e *Event, state EventState) {
 	if e == nil {
-		//fmt.Printf("SetEventState: event '%s' has no scheduler\n", e.UUID)
+		// TODO: Transform these prints into logs (when the Logger is implemented)
+		// fmt.Printf("SetEventState: event is nil\n", e.UUID)
 		return
 	}
 
 	e.s.mutex.Lock()
 
+	if (state == StateDone || state == StateCancelled || state == StateError) && e.s.events[e.UUID].State == StateInProcess {
+		e.s.CurrentRunningActions--
+	}
+
 	e.s.events[e.UUID].State = state
 	e.State = state
-	e.s.CurrentRunningActions--
 
 	e.s.mutex.Unlock()
 }
@@ -339,7 +291,10 @@ func (s *Scheduler) Process(config ProcessConfig) {
 						event.State = StateError
 					}
 				}
-				fmt.Println("Event in process: ", event)
+				if config.DebugInfo {
+					// TODO: Transform these prints into logs (when the Logger is implemented)
+					fmt.Println("Event in process: ", event)
+				}
 				err := schedule(s, &event)
 				if err == nil {
 					s.mutex.Unlock()

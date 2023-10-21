@@ -25,7 +25,7 @@ func setup() {
 	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
 	executeAction := flag.Bool("executeAction", true, "Execute the event action when processing")
 	returnIfFound := flag.Bool("returnIfFound", false, "Return if an event is found")
-	debugInfo := flag.Bool("DebugInfo", true, "Print debug info")
+	debugInfo := flag.Bool("DebugInfo", false, "Print debug info")
 
 	flag.Parse()
 
@@ -38,6 +38,7 @@ func setup() {
 		ActionTimeout:        60,
 		MaxConcurrentActions: 10,
 	}
+	fmt.Println("Tests config:")
 	fmt.Printf("%+v\n", config)
 
 	/*
