@@ -190,7 +190,7 @@ func schedule(s *Scheduler, e *Event) error {
 	if eCopy.Action == nil {
 		// Query the Registry to get the action (using the EventType)
 		eCopy.Action = func(e Event) error {
-			SetEventState(e, StateDone)
+			SetEventState(&e, StateDone)
 			return nil
 		}
 	}
@@ -262,17 +262,22 @@ func setEventState(s *Scheduler, uuid uuid.UUID, state EventState) {
 // SetEventState sets the state of an event in the scheduler queue
 // Use it to set the state of an event by UUID
 // (public method)
-func SetEventState(e Event, state EventState) {
-	if e.s == nil {
-		fmt.Printf("SetEventState: event '%s' has no scheduler\n", e.UUID)
+func SetEventState(e *Event, state EventState) {
+	if e == nil {
+		//fmt.Printf("SetEventState: event '%s' has no scheduler\n", e.UUID)
 		return
 	}
 
 	e.s.mutex.Lock()
-	defer e.s.mutex.Unlock()
 
 	fmt.Println("SetEventState: ", e.UUID, state)
-	setEventState(e.s, e.UUID, state)
+
+	e.s.events[e.UUID].State = state
+	e.State = state
+
+	fmt.Println("SetEventState: ", e, e.s.events[e.UUID].State)
+
+	e.s.mutex.Unlock()
 }
 
 // removeEventAndDeps removes an event and the events that depends on it from the scheduler queue
@@ -298,6 +303,7 @@ func removeEventAndDeps(s *Scheduler, uuid uuid.UUID) {
 func (s *Scheduler) Process(config ProcessConfig) {
 	// Events processing loop
 	for {
+		//time.Sleep(20 * time.Millisecond) // wait 20 milliseconds to help the pipeline to update status
 		s.mutex.Lock()
 
 		// If the queue is empty, wait for a second and continue
@@ -321,14 +327,14 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		event = element.(Event)
 		if ok {
 			// If the event in being processed then continue to the next event
-			if event.State == StateInProcess {
+			if s.events[event.UUID].State == StateInProcess {
 				if time.Now().After(event.timeout) {
 					event.State = StateError
 				}
+				fmt.Println("Event in process: ", event)
 				err := schedule(s, &event)
 				if err == nil {
 					s.mutex.Unlock()
-					time.Sleep(10 * time.Millisecond) // wait 20 milliseconds to help the pipeline to update status
 					continue
 				} else {
 					// TODO: Transform these prints into logs (when the Logger is implemented)
@@ -338,7 +344,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 			// If the event is cancelled, remove it from the events map
 			// and continue to the next event
-			if event.State == StateCancelled || event.State == StateError {
+			if s.events[event.UUID].State == StateCancelled || s.events[event.UUID].State == StateError {
 				if event.State == StateError {
 					// TODO: Transform these prints into logs (when the Logger is implemented)
 					fmt.Println("The element presented an error: ", event)
@@ -349,7 +355,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 
 			// If the event is done, check if it needs to be repeated
-			if event.State == StateDone {
+			if s.events[event.UUID].State == StateDone {
 				// If the event is repeatable, schedule it again
 				if event.RepeatEvery == 0 && event.RepeatTimes > 0 {
 					// If the event is repeatable, schedule it again
@@ -407,9 +413,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			if depEvent, exists := s.events[dependUUID]; exists && depEvent.State != StateDone {
 				if config.DebugInfo {
 					// TODO: Transform these prints into logs (when the Logger is implemented)
-					fmt.Printf("Event '%s' with name '%s' can't be processed because it depends on event '%s', which is not done yet\n", event.UUID, event.Name, dependUUID)
-					fmt.Printf("Event '%s' with name '%s' is in state %d\n", dependUUID, depEvent.Name, depEvent.State)
-					fmt.Println("Event body: ", depEvent)
+					//fmt.Printf("Event '%s' with name '%s' can't be processed because it depends on event '%s', which is not done yet\n", event.UUID, event.Name, dependUUID)
+					//fmt.Printf("Event '%s' with name '%s' is in state %d\n", dependUUID, depEvent.Name, depEvent.State)
+					//fmt.Println("Event body: ", depEvent)
 				}
 				if dependUUID != event.UUID && dependUUID != zeroUUID {
 					canProcess = false
@@ -462,6 +468,5 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 		}
 		s.mutex.Unlock()
-		time.Sleep(10 * time.Millisecond) // wait 10 milliseconds to help the pipeline to update status
 	}
 }
