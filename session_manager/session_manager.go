@@ -42,6 +42,9 @@ func (ss *SessionStorage) AddSession(s *SessionConfig) uuid.UUID {
 
 	id := uuid.New()
 	ss.sessions[id] = s
+
+	// TODO: Need to add the session config checks here (using the Registry)
+
 	return id
 }
 
