@@ -36,6 +36,12 @@ func NewScheduler() *Scheduler {
 // Use it to add your events to the scheduler
 func (s *Scheduler) Schedule(e *Event) error {
 
+	// Check if the scheduler is nil
+	if s == nil {
+		return fmt.Errorf("the scheduler has not been initialized")
+	}
+
+	// Check if the event is nil
 	if e == nil {
 		return fmt.Errorf("the event is nil")
 	}
