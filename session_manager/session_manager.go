@@ -30,12 +30,14 @@ import (
  *
  */
 
+// NewSessionStorage creates a new session storage.
 func NewSessionStorage() *SessionStorage {
 	return &SessionStorage{
 		sessions: make(map[uuid.UUID]*SessionConfig),
 	}
 }
 
+// AddSession adds a session to a session storage after checking the session config.
 func (ss *SessionStorage) AddSession(s *SessionConfig) uuid.UUID {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
@@ -48,6 +50,7 @@ func (ss *SessionStorage) AddSession(s *SessionConfig) uuid.UUID {
 	return id
 }
 
+// CancelSession cancels a session in a session storage.
 func (ss *SessionStorage) CancelSession(id uuid.UUID) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
@@ -55,6 +58,7 @@ func (ss *SessionStorage) CancelSession(id uuid.UUID) {
 	delete(ss.sessions, id)
 }
 
+// GetSession returns a session from a session storage.
 func (ss *SessionStorage) GetSession(id uuid.UUID) *SessionConfig {
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
@@ -62,6 +66,7 @@ func (ss *SessionStorage) GetSession(id uuid.UUID) *SessionConfig {
 	return ss.sessions[id]
 }
 
+// CleanAllSessions cleans all sessions from a session storage.
 func (ss *SessionStorage) CleanAllSessions() {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
