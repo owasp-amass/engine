@@ -1,5 +1,3 @@
-package events_scheduler
-
 /*
  * Main Scheduler public API
  * This API is used to schedule and process events on the main scheduler (as per Amass requirements)
@@ -12,6 +10,8 @@ package events_scheduler
  * MainSchedulerCancelAll()              - Cancels all scheduled events
  * MainSchedulerProcess()                - Processes the events in the queue
  */
+
+package events
 
 import (
 	"fmt"
@@ -92,7 +92,7 @@ func MainSchedulerShutdown() error {
 	if mainScheduler == nil {
 		return fmt.Errorf(errMainSchedulerNotInitialized)
 	}
-	MainSchedulerCancelAll()
+	_ = MainSchedulerCancelAll()
 	mainScheduler = nil
 	return nil
 }

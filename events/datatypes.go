@@ -1,6 +1,6 @@
 // Structures required to create and process events
 
-package events_scheduler
+package events
 
 import (
 	"sync"

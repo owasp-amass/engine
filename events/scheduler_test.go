@@ -1,4 +1,4 @@
-package events_scheduler
+package events
 
 import (
 	"flag"
@@ -576,7 +576,7 @@ func TestProcess001(t *testing.T) {
 			return nil
 		},
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -604,7 +604,7 @@ func TestProcess002(t *testing.T) {
 			Message: testMsg,
 		},
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -634,7 +634,7 @@ func TestProcess003(t *testing.T) {
 		},
 		Timestamp: time.Now(),
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -660,7 +660,7 @@ func TestProcess004(t *testing.T) {
 			return nil
 		},
 	}
-	s.Schedule(&e0)
+	_ = s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event 1 (TestProcess004)",
 		Action: func(e Event) error {
@@ -674,7 +674,7 @@ func TestProcess004(t *testing.T) {
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
 	}
-	s.Schedule(&e1)
+	_ = s.Schedule(&e1)
 	s.Process(config)
 }
 
@@ -702,7 +702,7 @@ func TestProcess005(t *testing.T) {
 			return nil
 		},
 	}
-	s.Schedule(&e0)
+	_ = s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event 1 (TestProcess005)",
 		Action: func(e Event) error {
@@ -716,7 +716,7 @@ func TestProcess005(t *testing.T) {
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
 	}
-	s.Schedule(&e1)
+	_ = s.Schedule(&e1)
 	s.Process(config)
 }
 
@@ -744,7 +744,7 @@ func TestProcess006(t *testing.T) {
 			return nil
 		},
 	}
-	s.Schedule(&e0)
+	_ = s.Schedule(&e0)
 	e1 := Event{
 		Name: "Test event 1 (TestProcess006)",
 		Action: func(e Event) error {
@@ -760,7 +760,7 @@ func TestProcess006(t *testing.T) {
 		State:     StateDone,
 		Type:      EventTypeSay,
 	}
-	s.Schedule(&e1)
+	_ = s.Schedule(&e1)
 	s.Process(config)
 }
 
@@ -798,7 +798,7 @@ func TestProcess007(t *testing.T) {
 		Type:      EventTypeSay,
 		Priority:  1,
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -837,7 +837,7 @@ func TestProcess008(t *testing.T) {
 		Priority:    1,
 		RepeatEvery: 1,
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -879,7 +879,7 @@ func TestProcess009(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -923,7 +923,7 @@ func TestProcess010(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -968,7 +968,7 @@ func TestProcess011(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -1014,7 +1014,7 @@ func TestProcess012(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 3,
 	}
-	s.Schedule(&e)
+	_ = s.Schedule(&e)
 	s.Process(config)
 }
 
@@ -1066,8 +1066,8 @@ func TestMainScheduler001(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	MainSchedulerProcess()
-	MainSchedulerShutdown()
+	_ = MainSchedulerProcess()
+	_ = MainSchedulerShutdown()
 }
 
 // Test with Event in Queue and:
@@ -1102,6 +1102,6 @@ func TestMainScheduler002(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	MainSchedulerProcess()
-	MainSchedulerShutdown()
+	_ = MainSchedulerProcess()
+	_ = MainSchedulerShutdown()
 }

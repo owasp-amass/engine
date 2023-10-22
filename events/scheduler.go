@@ -1,13 +1,3 @@
-package events_scheduler
-
-import (
-	"fmt"
-	"time"
-
-	"github.com/caffix/queue"
-	"github.com/google/uuid"
-)
-
 /*
  * Events Scheduler public API
  * This API is used to schedule and process events
@@ -19,6 +9,16 @@ import (
  * Process(config ProcessConfig)- Processes the events in the queue using the configuration provided
  *  						      via the ProcessConfig struct
  */
+
+package events
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/caffix/queue"
+	"github.com/google/uuid"
+)
 
 // NewScheduler creates a new Scheduler instance
 // Use it to initialize the Scheduler
@@ -189,12 +189,12 @@ func (s *Scheduler) CancelAll() {
 // GetEvent returns an event by reference
 // Use it to get an event by UUID (to transform its state for example)
 // (private method)
-func getEvent(s *Scheduler, uuid uuid.UUID) *Event {
+/*func getEvent(s *Scheduler, uuid uuid.UUID) *Event {
 	if event, exists := s.events[uuid]; exists {
 		return event
 	}
 	return nil
-}
+}*/
 
 // SetEventState sets the state of an event in the scheduler queue
 // Use it to set the state of an event by UUID
@@ -291,7 +291,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		// (if there are more events with the same priority, it should return the first one)
 		// Note: s.q.Next() returns an interface{}, so we need to cast it to an Event
 		var event Event
-		ok := true
 		element, ok := s.q.Next() // workaround to get all events
 		event = element.(Event)
 		if ok {
