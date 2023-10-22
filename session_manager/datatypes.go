@@ -1,6 +1,6 @@
 package session_manager
 
-// Data structures for session-manager
+// Data structures for session_manager
 
 import (
 	"sync"
@@ -10,7 +10,7 @@ import (
 
 // SessionConfig is a struct that holds the configuration parameters for a session.
 type SessionConfig struct {
-	// Whatever configuration parameters you want.
+	// TODO: Need to add the list of configuration parameters here
 }
 
 // SessionStorage is a struct that holds the sessions in memory.

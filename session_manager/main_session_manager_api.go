@@ -34,7 +34,6 @@ func SessionManagerShutdown() {
 	}
 	sessionStorage.CleanAllSessions()
 	// reset the global session storage
-
 	sessionStorage = nil
 }
 
