@@ -37,7 +37,7 @@ func NewScheduler() *Scheduler {
 func (s *Scheduler) Schedule(e *Event) error {
 
 	if e == nil {
-		return fmt.Errorf("The event is nil")
+		return fmt.Errorf("the event is nil")
 	}
 
 	s.mutex.Lock()
@@ -59,6 +59,11 @@ func (s *Scheduler) Schedule(e *Event) error {
 		if event, exists := s.events[dependUUID]; !exists || event.State != StateDone {
 			e.State = StateProcessable
 			break
+		} else {
+			if event.Priority <= e.Priority {
+				// If the event has a higher priority than the dependent event, decrease the priority of the dependent event to avoid starvation
+				e.Priority = event.Priority - 1
+			}
 		}
 	}
 
