@@ -33,7 +33,6 @@ func setup() {
 	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
 	executeAction := flag.Bool("executeAction", true, "Execute the event action when processing")
 	returnIfFound := flag.Bool("returnIfFound", false, "Return if an event is found")
-	debugInfo := flag.Bool("DebugInfo", false, "Print debug info")
 
 	flag.Parse()
 
@@ -42,7 +41,7 @@ func setup() {
 		CheckEvent:           *checkEvent,
 		ExecuteAction:        *executeAction,
 		ReturnIfFound:        *returnIfFound,
-		DebugInfo:            *debugInfo,
+		DebugLevel:           0,
 		ActionTimeout:        60,
 		MaxConcurrentActions: 10,
 	}

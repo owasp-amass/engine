@@ -32,7 +32,7 @@ var (
 		CheckEvent:           true,
 		ExecuteAction:        true,
 		ReturnIfFound:        false,
-		DebugInfo:            false,
+		DebugLevel:           0,
 		ActionTimeout:        30,
 		MaxConcurrentActions: 10,
 	}
@@ -41,7 +41,7 @@ var (
 		CheckEvent:           true,
 		ExecuteAction:        true,
 		ReturnIfFound:        false,
-		DebugInfo:            false,
+		DebugLevel:           0,
 		ActionTimeout:        30,
 		MaxConcurrentActions: 10,
 	}

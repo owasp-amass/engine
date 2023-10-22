@@ -296,7 +296,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 						event.State = StateError
 					}
 				}
-				if config.DebugInfo {
+				if config.DebugLevel > 0 {
 					// TODO: Transform these prints into logs (when the Logger is implemented)
 					fmt.Println("Event in process: ", event)
 				}
@@ -367,7 +367,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			// If the event is not ok, remove it from the events map
 			// and continue to the next event
 			delete(s.events, event.UUID)
-			if config.DebugInfo {
+			if config.DebugLevel > 0 {
 				// TODO: Transform these prints into logs (when the Logger is implemented)
 				fmt.Println("The element presented a problem: ", event)
 			}
@@ -379,11 +379,13 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		canProcess := true
 		for _, dependUUID := range event.DependOn {
 			if depEvent, exists := s.events[dependUUID]; exists && depEvent.State != StateDone {
-				if config.DebugInfo {
+				if config.DebugLevel > 1 {
 					// TODO: Transform these prints into logs (when the Logger is implemented)
-					//fmt.Printf("Event '%s' with name '%s' can't be processed because it depends on event '%s', which is not done yet\n", event.UUID, event.Name, dependUUID)
-					//fmt.Printf("Event '%s' with name '%s' is in state %d\n", dependUUID, depEvent.Name, depEvent.State)
-					//fmt.Println("Event body: ", depEvent)
+					fmt.Printf("Event '%s' with name '%s' can't be processed because it depends on event '%s', which is not done yet\n", event.UUID, event.Name, dependUUID)
+					fmt.Printf("Event '%s' with name '%s' is in state %d\n", dependUUID, depEvent.Name, depEvent.State)
+					if config.DebugLevel > 2 {
+						fmt.Println("Event body: ", depEvent)
+					}
 				}
 				if dependUUID != event.UUID && dependUUID != zeroUUID {
 					canProcess = false
@@ -411,7 +413,10 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			errCh := make(chan error)
 			if config.ExecuteAction && event.Action != nil {
 				// TODO: add an actions counter and when we reach max wait
-
+				if averageWaitingTime > 0 {
+					// reset average waiting time
+					averageWaitingTime = 0
+				}
 				// Schedule the event again with its new state
 				err := schedule(s, &event)
 				if event.State != StateInProcess {

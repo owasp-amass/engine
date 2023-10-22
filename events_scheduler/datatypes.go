@@ -96,7 +96,7 @@ type ProcessConfig struct {
 	CheckEvent           bool // Check if the event is processable (instead of just processing it)
 	ExecuteAction        bool // Execute the action (instead of just processing the event), used for debugging purposes
 	ReturnIfFound        bool // Return from the Process() function when the event is found (instead of waiting for new events)
-	DebugInfo            bool // Print debug info
+	DebugLevel           int  // Print debug info
 	ActionTimeout        int  // Action timeout (in milliseconds)
 	MaxConcurrentActions int  // Maximum number of concurrent actions allowed
 }
