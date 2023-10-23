@@ -186,6 +186,18 @@ func (s *Scheduler) CancelAll() {
 	}
 }
 
+// Shutdown cancels all events and stops the scheduler
+// Use it to stop the scheduler
+func (s *Scheduler) Shutdown() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, event := range s.events {
+		event.State = StateCancelled
+	}
+	s.state = SchedulerStateShutdown
+}
+
 // GetEvent returns an event by reference
 // Use it to get an event by UUID (to transform its state for example)
 // (private method)
@@ -269,6 +281,14 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 	// Events processing loop
 	for {
+		// Check if the scheduler has been shutdown
+		if s.state == SchedulerStateShutdown {
+			return
+		} else if s.state == SchedulerStatePaused {
+			// If the scheduler is paused, wait for a second and continue
+			time.Sleep(1 * time.Second)
+			continue
+		}
 		if averageWaitingTime > 0 {
 			// If we have an average waiting time, wait for it
 			time.Sleep(averageWaitingTime)
