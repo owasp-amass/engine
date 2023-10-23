@@ -28,7 +28,6 @@ type TestEvent struct {
 }
 
 func setup() {
-	runType = 1 // 0 = production, 1 = test
 	exitWhenEmpty := flag.Bool("exitWhenEmpty", true, "Exit when the queue is empty")
 	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
 	executeAction := flag.Bool("executeAction", true, "Execute the event action when processing")
@@ -1016,92 +1015,4 @@ func TestProcess012(t *testing.T) {
 	}
 	_ = s.Schedule(&e)
 	s.Process(config)
-}
-
-// Test the main scheduler
-
-// Test with Event in Queue and:
-// - Action
-// - Timestamp
-// - DependOn
-// - State
-// - Type
-// - Priority
-// - RepeatEvery
-// - RepeatTimes
-func TestMainScheduler001(t *testing.T) {
-
-	fmt.Println("\nTestMainScheduler001")
-
-	var err error
-
-	setupOnce.Do(setup)
-	err = MainSchedulerInit()
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	fmt.Printf("Inside TestMainSchedulerInit, address of mainScheduler: %p\n", mainScheduler)
-
-	e := Event{
-		Name: "Test event (TestMainScheduler001) Random UUID as dependency",
-		Action: func(e Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, StateDone)
-			return nil
-		},
-		Data: TestEvent{
-			Message: testMsg,
-		},
-		Timestamp:   time.Now(),
-		DependOn:    []uuid.UUID{uuid.New()},
-		State:       StateDone,
-		Type:        EventTypeSay,
-		Priority:    20,
-		RepeatEvery: 1,
-		RepeatTimes: 3,
-	}
-	err = MainSchedulerSchedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	_ = MainSchedulerProcess()
-	_ = MainSchedulerShutdown()
-}
-
-// Test with Event in Queue and:
-// - Action
-func TestMainScheduler002(t *testing.T) {
-
-	fmt.Println("\nTestMainScheduler002")
-
-	var err error
-
-	setupOnce.Do(setup)
-	err = MainSchedulerInit()
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	fmt.Printf("Inside TestMainSchedulerInit, address of mainScheduler: %p\n", mainScheduler)
-
-	e := Event{
-		Name: "Test event (TestMainScheduler002) Random UUID as dependency",
-		Action: func(e Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, StateDone)
-			return nil
-		},
-		Data: TestEvent{
-			Message: testMsg,
-		},
-	}
-	err = MainSchedulerSchedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-
-	_ = MainSchedulerProcess()
-	_ = MainSchedulerShutdown()
 }

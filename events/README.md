@@ -1,15 +1,12 @@
 # Events Scheduler
 
-The Events Scheduler is a component of the Amass project that provides a centralized mechanism to manage, schedule, and process events. It is designed to be a generic scheduler that can be used in any application that requires event scheduling and processing.
+The Events Scheduler is a component of the Amass project that provides a mechanism to manage, schedule, and process events. It is designed to be a generic scheduler that can be used in any application that requires event scheduling and processing.
 
 ## Table of Contents
 
 - [Events Scheduler](#events-scheduler)
   - [Table of Contents](#table-of-contents)
   - [Overview](#overview)
-  - [Main Scheduler](#main-scheduler)
-    - [Main Scheduler Public API](#main-scheduler-public-api)
-      - [Functions:](#functions)
   - [Events Scheduler Technical Documentation](#events-scheduler-technical-documentation)
     - [Introduction](#introduction)
     - [Structures](#structures)
@@ -22,9 +19,7 @@ The Events Scheduler is a component of the Amass project that provides a central
 
 ## Overview
 
-The Events Scheduler is a component of the Amass project that provides a centralized mechanism to manage, schedule, and process events.
-
-It offers a centralized events scheduler called the Main Scheduler, which is responsible for managing, scheduling, and processing events. The Main Scheduler is designed to "talk" (through events) to other components of the Amass engine, such as the the GraphQL interface, the Event Plugins adn Pipelines and the engine itself that can use the Main Scheduler to schedule System events like checking if we are consuming too much RAM or too much disk space and other systems level events.
+The Events Scheduler offers functionalities to create events schedulers within Amass events which can be used for managing, scheduling, and processing events. The Scheduler API is designed to "talk" (through events) to other components of the Amass engine, such as the the GraphQL interface, the Event processing Pipelines and the engine itself that can use the Scheduler to schedule System events like checking if we are consuming too much RAM or too much disk space and other systems level events.
 
 The Events Scheduler also offers an API to allow Pipelines (for example) to have their own schedulers that can be used to schedule events that are specific to the Pipeline. These schedulers are called Local Schedulers and they are managed by the component who allocate them. For example, the Pipeline component is responsible for allocating and managing the Local Schedulers for the Pipeline.
 
@@ -66,122 +61,15 @@ The events scheduler code is a concurrency-safe event scheduling system that use
 
 Overall, the events scheduler provides a solid foundation for an event-driven system with priority and dependencies. With some refinements, it could be a robust solution for a variety of scheduling needs.
 
-## Main Scheduler
-
-As mentioned above the Main Scheduler is designed to be a Singleton pattern that can be used by all components of the Amass engine. It has a public API that can be used by other components to schedule events on the Main Scheduler.
-
-## Main Scheduler Public API
-
-This API is crafted to meet Amass requirements, presenting functions that handle event life-cycles, from initialization to processing.
-
-### Functions
-
-#### 1. MainSchedulerInit()
-
-**Description:**  
-Initializes the main scheduler.
-
-This method should be called by the Initialization process of the Amass engine.
-
-**Usage:**
-
-```go
-MainSchedulerInit()
-```
-
-#### 2. MainSchedulerSchedule(e *Event) error
-
-**Description:**  
-Schedules an event on the main scheduler. If there are errors during the scheduling process, the function returns an error.
-
-**Parameters:**
-
-- `e *Event`: The event to be scheduled.
-
-**Returns:**
-
-- `error`: Returns an error if the scheduling process encounters issues.
-
-**Usage:**
-
-```go
-event := &Event{ /*... attributes ...*/ }
-err := MainSchedulerSchedule(event)
-if err != nil {
-    // Handle error
-}
-```
-
-#### 3. MainSchedulerCancel(uuid uuid.UUID)
-
-**Description:**
-
-Cancels a scheduled event in the main scheduler based on its UUID.
-
-**Parameters:**
-
-- `uuid uuid.UUID`: The UUID of the event to be cancelled.
-
-**Usage:**
-
-```go
-MainSchedulerCancel(someUUID)
-```
-
-#### 4. MainSchedulerCancelAll()
-
-**Description:**  
-Cancels all scheduled events in the main scheduler.
-
-**Usage:**
-
-```go
-MainSchedulerCancelAll()
-```
-
-#### 5. MainSchedulerSetEventState(uuid uuid.UUID, state EventState)
-
-**Description:**  
-Sets the state of an event in the main scheduler.
-
-This method should be called by every Amass component and pipeline that is responsible for processing events.
-For these components, this method should be called when the event processing is done. This is vital if the event process() configuration has been set to NOT have a timeout for events being processed.
-
-**Parameters:**
-
-- `uuid uuid.UUID`: The UUID of the event whose state is to be set.
-- `state EventState`: The desired state to be set.
-
-**Usage:**
-
-```go
-MainSchedulerSetEventState(someUUID, StateDone)
-```
-
-#### 6. MainSchedulerProcess()
-
-**Description:**  
-Processes the events in the main scheduler queue based on a predefined process configuration.
-
-This method should be called by the Initialization process of the Amass engine.
-
-**Usage:**
-
-```go
-MainSchedulerProcess()
-```
-
-Based on the provided code, I'll draft the technical documentation for the `events_scheduler` package:
-
----
-
 ## Events Scheduler Technical Documentation
 
 ### Introduction
 
-`events_scheduler` is a package responsible for creating, scheduling, and processing events. This package defines the structures and mechanisms to manage event dependencies, priority, and state, allowing you to create flexible event-driven systems.
+`events` is a package responsible for creating, scheduling, and processing events. This package defines the structures and mechanisms to manage event dependencies, priority, and state, allowing you to create flexible event-driven systems.
 
 ### Structures
+
+All structures are defined in the `datatypes.go` file.
 
 #### EventType
 
@@ -249,9 +137,62 @@ Attributes:
 
 ### Usage
 
-To use the `events_scheduler` package:
+To use the `events` package:
 
-1. Initialize the scheduler using either `MainSchedulerInit()` for the main scheduler or `NewScheduler()` for sub-schedulers.
+1. Initialize a scheduler using `NewScheduler()`.
+   - For example, to create a main scheduler:
+
+     ```go
+     scheduler := events.NewScheduler()
+     ```
+
 2. Create events and add them to the scheduler.
+   - For example, to create a new event:
+
+     ```go
+     event := &Event { Name: "MyEvent", Type: events.EventTypeLog, Priority: 1}
+     ```
+
+   - To add the event to the scheduler:
+
+     ```go
+     scheduler.Schedule(event)
+     ```
+
 3. Configure the event processing using the `ProcessConfig` structure.
+   - For example, to configure the processing:
+
+     ```go
+     config := &ProcessConfig { ExitWhenEmpty: true, CheckEvent: true, ExecuteAction: true, ReturnIfFound: false, DebugInfo: false, ActionTimeout: 10, MaxConcurrentActions: 10 }
+     ```
+
 4. Process events using the configured parameters.
+   - For example, to process events:
+
+     ```go
+     go func(e Event) {
+         err := scheduler.Process(config)
+         if err != nil {
+            errCh <- err
+         }
+     }(event)
+     ```
+
+If you need to cancel an event, you can use the `CancelEvent` method:
+
+```go
+scheduler.CancelEvent(event.UUID)
+```
+
+If you need to set the state of an event, you can use the `SetEventState` method:
+
+```go
+scheduler.SetEventState(event.UUID, events.StateDone)
+```
+
+If you need to set the state of an event from a package that has no knowledge of the scheduler, you can use the `SetEventState` method as follows:
+
+```go
+// Please note the references to the package name and the event type.
+events.SetState(&event, events.StateDone)
+```

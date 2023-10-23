@@ -76,6 +76,14 @@ type Event struct {
 	s       *Scheduler /* Pointer to the scheduler that created the event */
 }
 
+type SchedulerState int
+
+const (
+	SchedulerStateRunning  SchedulerState = iota // Scheduler is running
+	SchedulerStateShutdown                       // Scheduler is stopped
+	SchedulerStatePaused                         // Scheduler is paused
+)
+
 // Scheduler is the struct that represents a scheduler
 // We have 2 types of schedulers:
 //   - Main scheduler, used to schedule and process events, it's the central scheduler and it's
@@ -88,6 +96,7 @@ type Scheduler struct {
 	mutex                 sync.Mutex           // Mutex to protect the queue when fetching the next event
 	events                map[uuid.UUID]*Event // Map to quickly look up events by UUID
 	CurrentRunningActions int                  // Number of actions currently running
+	state                 SchedulerState       // Scheduler state (running, stopped, paused)
 }
 
 // ProcessConfig is the struct that represents the configuration used to process the events
