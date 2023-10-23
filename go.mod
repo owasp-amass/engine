@@ -1,4 +1,4 @@
-module gotests/amass-engine/events_scheduler
+module github.com/owasp-amass/engine
 
 go 1.21.1
 
