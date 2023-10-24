@@ -10,7 +10,7 @@ import (
 )
 
 // SessionStorage is a struct that holds the sessions in memory.
-type SessionStorage struct {
+type Storage struct {
 	mu       sync.RWMutex // Mutex for thread-safety
 	sessions map[uuid.UUID]*config.Config
 }

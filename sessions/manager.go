@@ -23,12 +23,12 @@ import (
  * managers if needed. But, as of now, it's not used.
  *
  * The session manager API to create sub-sessions managers:
- * NewSessionStorage creates a new session storage.
- * AddSession adds a session to the session storage.
- * CancelSession cancels a session in the session storage.
- * GetSession gets a session from the session storage.
- * CleanAllSessions cleans all sessions from the session storage.
- * Shutdown cleans all sessions from the session storage and shutdown the session storage.
+ * NewStorage: creates a new session storage.
+ * Add: adds a session to the session storage.
+ * Cancel: cancels a session in the session storage.
+ * Get: gets a session from the session storage.
+ * CleanAll: cleans all sessions from the session storage.
+ * Shutdown: cleans all sessions from the session storage and shutdown the session storage.
  *
  */
 
@@ -36,18 +36,18 @@ var (
 	zeroSessionUUID = uuid.UUID{}
 )
 
-// NewSessionStorage creates a new session storage.
-func NewSessionStorage() *SessionStorage {
+// NewStorage: creates a new session storage.
+func NewStorage() *Storage {
 	if zeroSessionUUID == uuid.Nil {
 		zeroSessionUUID = uuid.UUID{}
 	}
-	return &SessionStorage{
+	return &Storage{
 		sessions: make(map[uuid.UUID]*config.Config),
 	}
 }
 
-// AddSession adds a session to a session storage after checking the session config.
-func (ss *SessionStorage) AddSession(s *config.Config) uuid.UUID {
+// Add: adds a session to a session storage after checking the session config.
+func (ss *Storage) Add(s *config.Config) uuid.UUID {
 	if s == nil {
 		return uuid.UUID{}
 	}
@@ -62,8 +62,8 @@ func (ss *SessionStorage) AddSession(s *config.Config) uuid.UUID {
 	return id
 }
 
-// CancelSession cancels a session in a session storage.
-func (ss *SessionStorage) CancelSession(id uuid.UUID) {
+// Cancel: cancels a session in a session storage.
+func (ss *Storage) Cancel(id uuid.UUID) {
 	if id == zeroSessionUUID {
 		return
 	}
@@ -74,8 +74,8 @@ func (ss *SessionStorage) CancelSession(id uuid.UUID) {
 	delete(ss.sessions, id)
 }
 
-// GetSession returns a session from a session storage.
-func (ss *SessionStorage) GetSession(id uuid.UUID) *config.Config {
+// Get: returns a session from a session storage.
+func (ss *Storage) Get(id uuid.UUID) *config.Config {
 	if id == zeroSessionUUID {
 		return nil
 	}
@@ -86,8 +86,8 @@ func (ss *SessionStorage) GetSession(id uuid.UUID) *config.Config {
 	return ss.sessions[id]
 }
 
-// CleanAllSessions cleans all sessions from a session storage.
-func (ss *SessionStorage) CleanAllSessions() {
+// CleanAll: cleans all sessions from a session storage.
+func (ss *Storage) CleanAll() {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
@@ -96,8 +96,8 @@ func (ss *SessionStorage) CleanAllSessions() {
 	}
 }
 
-// Shutdown cleans all sessions from a session storage and shutdown the session storage.
-func (ss *SessionStorage) Shutdown() {
-	ss.CleanAllSessions()
+// Shutdown: cleans all sessions from a session storage and shutdown the session storage.
+func (ss *Storage) Shutdown() {
+	ss.CleanAll()
 	ss = nil
 }
