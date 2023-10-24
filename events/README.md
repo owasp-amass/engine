@@ -77,6 +77,7 @@ Enumerates the types of events.
 
 - `SystemType`: System events.
 - `EventTypeLog`: Used for logging messages.
+- `EventTypeCustom`: Used for custom events.
 - `EventTypeSay`: Used for printing debug messages to the console.
 - (Note: Additional event types can be added as needed.)
 
@@ -143,7 +144,8 @@ To use the `events` package:
    - For example, to create a main scheduler:
 
      ```go
-     scheduler := events.NewScheduler()
+     logFacility := log.New(os.Stderr, "", log.LstdFlags)
+     scheduler := events.NewScheduler(LogFacility)
      ```
 
 2. Create events and add them to the scheduler.
@@ -178,6 +180,12 @@ To use the `events` package:
      }(event)
      ```
 
+5. To Shutdown the scheduler:
+
+   ```go
+   scheduler.Shutdown()
+   ```
+
 If you need to cancel an event, you can use the `CancelEvent` method:
 
 ```go
@@ -196,3 +204,48 @@ If you need to set the state of an event from a package that has no knowledge of
 // Please note the references to the package name and the event type.
 events.SetState(&event, events.StateDone)
 ```
+
+### Handling of Actions
+
+The `Action` attribute of an event is a function that takes an event as a parameter and returns an error. The function is executed when the event is processed. If the event has no action, a default action is used.
+
+There are different ways to assign an action to an event:
+
+- Assign a function to the `Action` attribute of the event.
+  This means literally assigning a function to the `Action` attribute of the event. For example:
+
+  ```go
+   event.Type = events.EventTypeCustom
+   event.Action = func(e *Event) error {
+         // Do something
+
+         // Very important: At the end of your function, set the state of the event to StateDone!
+         events.SetState(e, events.StateDone)
+         return nil
+   }
+   ```
+
+- Assign a function to the `Action` attribute of the event using a function literal.
+  For example:
+  
+  ```go
+   event.Type = events.EventTypeCustom
+   event.Action = MyFunction
+   ```
+
+- Setting up the EventType only
+  For example:
+
+  ```go
+   event.Type = events.EventTypeLog
+   ```
+
+   This will make The Event Scheduler assign the appropriate Action to your event based on the EventType.
+
+#### Order of eventType and Action assignment
+
+Give we have multiple choices, we have established an order of priority for the assignment of the Action to the event. The order is as follows:
+
+1. If the event has an Action assigned to it, that Action will be used, aka if Action is NOT nil. (Highest priority)
+2. If the event has an EventType assigned to it, the appropriate Action will be assigned to the event. (Medium priority)
+3. If the event has no Action and no EventType assigned to it, the default Action will be assigned to the event. (Lowest priority)
