@@ -2,11 +2,6 @@ module github.com/owasp-amass/engine
 
 go 1.21.1
 
-require (
-	github.com/caffix/queue v0.1.5 // indirect; direct
-	github.com/google/uuid v1.3.1 // direct
-)
-
 require github.com/owasp-amass/config v0.1.6-0.20231023070030-9acd19954ee0
 
 require (
@@ -47,4 +42,19 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	github.com/caffix/queue v0.1.5 // direct
+	github.com/google/uuid v1.3.1 // direct
+)
+
+require (
+	github.com/99designs/gqlgen v0.17.40
+	github.com/vektah/gqlparser/v2 v2.5.10
+)
+
+require (
+	github.com/agnivade/levenshtein v1.1.1 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.3 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/sosodev/duration v1.1.0 // indirect
 )
