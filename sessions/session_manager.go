@@ -15,6 +15,7 @@ package sessions
 
 import (
 	"github.com/google/uuid"
+	"github.com/owasp-amass/config/config"
 )
 
 /*
@@ -41,12 +42,12 @@ func NewSessionStorage() *SessionStorage {
 		zeroSessionUUID = uuid.UUID{}
 	}
 	return &SessionStorage{
-		sessions: make(map[uuid.UUID]*Config),
+		sessions: make(map[uuid.UUID]*config.Config),
 	}
 }
 
 // AddSession adds a session to a session storage after checking the session config.
-func (ss *SessionStorage) AddSession(s *Config) uuid.UUID {
+func (ss *SessionStorage) AddSession(s *config.Config) uuid.UUID {
 	if s == nil {
 		return uuid.UUID{}
 	}
@@ -74,7 +75,7 @@ func (ss *SessionStorage) CancelSession(id uuid.UUID) {
 }
 
 // GetSession returns a session from a session storage.
-func (ss *SessionStorage) GetSession(id uuid.UUID) *Config {
+func (ss *SessionStorage) GetSession(id uuid.UUID) *config.Config {
 	if id == zeroSessionUUID {
 		return nil
 	}
