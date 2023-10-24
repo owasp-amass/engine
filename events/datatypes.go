@@ -3,6 +3,7 @@
 package events
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -18,6 +19,8 @@ const (
 	SystemType EventType = iota
 	// EventTypeLog is used to log a message to the log file
 	EventTypeLog
+	// EventTypeCustom is used to execute a custom function
+	EventTypeCustom
 	// EventTypeSay is used to print a message to the console (used for debugging purposes)
 	EventTypeSay
 	// Add more event types here:
@@ -97,6 +100,7 @@ type Scheduler struct {
 	events                map[uuid.UUID]*Event // Map to quickly look up events by UUID
 	CurrentRunningActions int                  // Number of actions currently running
 	state                 SchedulerState       // Scheduler state (running, stopped, paused)
+	logger                *log.Logger          // Logger
 }
 
 // ProcessConfig is the struct that represents the configuration used to process the events
