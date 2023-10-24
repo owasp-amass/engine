@@ -1,4 +1,4 @@
-package session_manager
+package sessions
 
 /*
  * Amass Engine allow users to create multiple sessions.
@@ -27,18 +27,29 @@ import (
  * CancelSession cancels a session in the session storage.
  * GetSession gets a session from the session storage.
  * CleanAllSessions cleans all sessions from the session storage.
+ * Shutdown cleans all sessions from the session storage and shutdown the session storage.
  *
  */
 
+var (
+	zeroSessionUUID = uuid.UUID{}
+)
+
 // NewSessionStorage creates a new session storage.
 func NewSessionStorage() *SessionStorage {
+	if zeroSessionUUID == uuid.Nil {
+		zeroSessionUUID = uuid.UUID{}
+	}
 	return &SessionStorage{
-		sessions: make(map[uuid.UUID]*SessionConfig),
+		sessions: make(map[uuid.UUID]*Config),
 	}
 }
 
 // AddSession adds a session to a session storage after checking the session config.
-func (ss *SessionStorage) AddSession(s *SessionConfig) uuid.UUID {
+func (ss *SessionStorage) AddSession(s *Config) uuid.UUID {
+	if s == nil {
+		return uuid.UUID{}
+	}
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
@@ -52,6 +63,10 @@ func (ss *SessionStorage) AddSession(s *SessionConfig) uuid.UUID {
 
 // CancelSession cancels a session in a session storage.
 func (ss *SessionStorage) CancelSession(id uuid.UUID) {
+	if id == zeroSessionUUID {
+		return
+	}
+
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
@@ -59,7 +74,11 @@ func (ss *SessionStorage) CancelSession(id uuid.UUID) {
 }
 
 // GetSession returns a session from a session storage.
-func (ss *SessionStorage) GetSession(id uuid.UUID) *SessionConfig {
+func (ss *SessionStorage) GetSession(id uuid.UUID) *Config {
+	if id == zeroSessionUUID {
+		return nil
+	}
+
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
@@ -74,4 +93,10 @@ func (ss *SessionStorage) CleanAllSessions() {
 	for k := range ss.sessions {
 		delete(ss.sessions, k)
 	}
+}
+
+// Shutdown cleans all sessions from a session storage and shutdown the session storage.
+func (ss *SessionStorage) Shutdown() {
+	ss.CleanAllSessions()
+	ss = nil
 }
