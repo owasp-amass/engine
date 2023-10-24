@@ -2,13 +2,17 @@ package main
 
 import (
 	//	"fmt"
+	"log"
+	"os"
+
 	"github.com/owasp-amass/engine/api/graphql/server"
 	"github.com/owasp-amass/engine/events"
 )
 
 func main() {
 
-	scheduler := events.NewScheduler()
+	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
+	scheduler := events.NewScheduler(logger)
 
 	config := events.ProcessConfig{
 		ExitWhenEmpty:        false,

@@ -25,7 +25,7 @@ func NewServer(scheduler *events.Scheduler) *Server {
 	http.Handle("/graphql", srv)
 
 	return &Server{
-		port: "8080",
+		port: "4000",
 	}
 }
 
