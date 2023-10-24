@@ -1,0 +1,263 @@
+
+{
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#1",
+    "data": {
+      "asset": {
+        "name": "example.com"
+      },
+      "type": "FQDN"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#2",
+    "data": {
+      "asset": {
+        "address": "192.0.2.1",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#3",
+    "data": {
+      "asset": {
+        "address": "192.0.2.2",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#4",
+    "data": {
+      "asset": {
+        "address": "192.168.0.3",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#5",
+    "data": {
+      "asset": {
+        "address": "192.168.0.4",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#6",
+    "data": {
+      "asset": {
+        "address": "192.168.0.5",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#7",
+    "data": {
+      "asset": {
+        "address": "192.168.0.6",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#8",
+    "data": {
+      "asset": {
+        "address": "192.168.0.7",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#9",
+    "data": {
+      "asset": {
+        "address": "192.168.0.8",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#10",
+    "data": {
+      "asset": {
+        "address": "192.168.0.10",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#11",
+    "data": {
+      "asset": {
+        "address": "192.168.0.11",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#12",
+    "data": {
+      "asset": {
+        "address": "192.168.0.12",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#13",
+    "data": {
+      "asset": {
+        "address": "192.168.0.13",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#14",
+    "data": {
+      "asset": {
+        "address": "192.168.0.14",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#15",
+    "data": {
+      "asset": {
+        "address": "192.168.0.15",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#16",
+    "data": {
+      "asset": {
+        "address": "192.168.0.16",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#17",
+    "data": {
+      "asset": {
+        "address": "192.168.0.17",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#18",
+    "data": {
+      "asset": {
+        "address": "192.168.0.18",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#19",
+    "data": {
+      "asset": {
+        "address": "192.168.0.19",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#20",
+    "data": {
+      "asset": {
+        "address": "192.168.0.20",
+        "type": "IPv4"
+      },
+      "type": "IPAddress"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#21",
+    "data": {
+      "asset": {
+        "cidr": "192.0.2.0/24",
+        "type": "IPv4"
+      },
+      "type": "Netblock"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#22",
+    "data": {
+      "asset": {
+        "cidr": "192.0.2.128/25",
+        "type": "IPv4"
+      },
+      "type": "Netblock"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#23",
+    "data": {
+      "asset": {
+        "number": 1234
+      },
+      "type": "ASN"
+    }
+  }
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "event_name": "asset#24",
+    "data": {
+      "asset": {
+        "number": 5678
+      },
+      "type": "ASN"
+    }
+  }
+  

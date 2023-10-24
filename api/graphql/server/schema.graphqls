@@ -1,0 +1,31 @@
+scalar JSON
+
+type Session {
+  token: ID!
+}
+
+input CreateSessionInput {
+  config: String!
+}
+
+type Event {
+  id: ID!
+}
+
+input CreateEventInput {
+  session_id: ID!
+  event_name: String!
+  data: String
+  type: String!
+}
+
+type Mutation {
+  createSession(input: CreateSessionInput!): Session
+  createEvent(input: CreateEventInput!): Event
+}
+
+
+
+
+
+
