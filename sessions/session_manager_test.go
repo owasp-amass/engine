@@ -3,6 +3,8 @@ package sessions
 import (
 	"fmt"
 	"testing"
+
+	"github.com/owasp-amass/config/config"
 )
 
 var (
@@ -18,7 +20,7 @@ func TestMain(m *testing.M) {
 
 func TestAddSession001(t *testing.T) {
 	// Create a session
-	s := &Config{
+	s := &config.Config{
 		// ...
 	}
 	id := ss.AddSession(s)
