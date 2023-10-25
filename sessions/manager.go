@@ -15,7 +15,6 @@ package sessions
 
 import (
 	"github.com/google/uuid"
-	"github.com/owasp-amass/config/config"
 )
 
 /*
@@ -37,17 +36,17 @@ var (
 )
 
 // NewStorage: creates a new session storage.
-func NewStorage() *Storage {
+func NewStorage() *Manager {
 	if zeroSessionUUID == uuid.Nil {
 		zeroSessionUUID = uuid.UUID{}
 	}
-	return &Storage{
-		sessions: make(map[uuid.UUID]*config.Config),
+	return &Manager{
+		sessions: make(map[uuid.UUID]*Session),
 	}
 }
 
 // Add: adds a session to a session storage after checking the session config.
-func (ss *Storage) Add(s *config.Config) uuid.UUID {
+func (ss *Manager) Add(s *Session) uuid.UUID {
 	if s == nil {
 		return uuid.UUID{}
 	}
@@ -63,7 +62,7 @@ func (ss *Storage) Add(s *config.Config) uuid.UUID {
 }
 
 // Cancel: cancels a session in a session storage.
-func (ss *Storage) Cancel(id uuid.UUID) {
+func (ss *Manager) Cancel(id uuid.UUID) {
 	if id == zeroSessionUUID {
 		return
 	}
@@ -75,7 +74,7 @@ func (ss *Storage) Cancel(id uuid.UUID) {
 }
 
 // Get: returns a session from a session storage.
-func (ss *Storage) Get(id uuid.UUID) *config.Config {
+func (ss *Manager) Get(id uuid.UUID) *Session {
 	if id == zeroSessionUUID {
 		return nil
 	}
@@ -87,7 +86,7 @@ func (ss *Storage) Get(id uuid.UUID) *config.Config {
 }
 
 // CleanAll: cleans all sessions from a session storage.
-func (ss *Storage) CleanAll() {
+func (ss *Manager) CleanAll() {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
@@ -97,7 +96,7 @@ func (ss *Storage) CleanAll() {
 }
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
-func (ss *Storage) Shutdown() {
+func (ss *Manager) Shutdown() {
 	ss.CleanAll()
 	ss = nil
 }

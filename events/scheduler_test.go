@@ -307,7 +307,7 @@ func TestSchedule007(t *testing.T) {
 		Data: TestEvent{
 			Message: testMsg,
 		},
-		Type: EventTypeSay,
+		Type: EventTypeCustom,
 	}
 	err = s.Schedule(&e)
 	if err != nil {
@@ -354,7 +354,7 @@ func TestSchedule008(t *testing.T) {
 		Data: TestEvent{
 			Message: testMsg,
 		},
-		Type:     EventTypeSay,
+		Type:     EventTypeCustom,
 		Priority: 1,
 	}
 	err = s.Schedule(&e)
@@ -403,7 +403,7 @@ func TestSchedule009(t *testing.T) {
 		Data: TestEvent{
 			Message: testMsg,
 		},
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    1,
 		RepeatEvery: 1,
 	}
@@ -454,7 +454,7 @@ func TestSchedule010(t *testing.T) {
 		Data: TestEvent{
 			Message: testMsg,
 		},
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    1,
 		RepeatEvery: 1,
 		RepeatTimes: 1,
@@ -524,7 +524,7 @@ func TestSchedule011(t *testing.T) {
 		Data: TestEvent{
 			Message: testMsg,
 		},
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    1,
 		RepeatEvery: 1,
 		RepeatTimes: 1,
@@ -763,7 +763,7 @@ func TestProcess006(t *testing.T) {
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
 		State:     StateDone,
-		Type:      EventTypeSay,
+		Type:      EventTypeCustom,
 	}
 	_ = s.Schedule(&e1)
 	s.Process(config)
@@ -800,7 +800,7 @@ func TestProcess007(t *testing.T) {
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{uuid.New()},
 		State:     StateDone,
-		Type:      EventTypeSay,
+		Type:      EventTypeCustom,
 		Priority:  1,
 	}
 	_ = s.Schedule(&e)
@@ -838,7 +838,7 @@ func TestProcess008(t *testing.T) {
 		},
 		DependOn:    []uuid.UUID{uuid.New()},
 		State:       StateDone,
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    1,
 		RepeatEvery: 1,
 	}
@@ -879,7 +879,7 @@ func TestProcess009(t *testing.T) {
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
 		State:       StateDone,
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    1,
 		RepeatEvery: 1,
 		RepeatTimes: 1,
@@ -923,7 +923,7 @@ func TestProcess010(t *testing.T) {
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
 		State:       StateDone,
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    1,
 		RepeatEvery: 1,
 		RepeatTimes: 1,
@@ -968,7 +968,7 @@ func TestProcess011(t *testing.T) {
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
 		State:       StateDone,
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    30,
 		RepeatEvery: 1,
 		RepeatTimes: 1,
@@ -1014,7 +1014,7 @@ func TestProcess012(t *testing.T) {
 		Timestamp:   time.Now(),
 		DependOn:    []uuid.UUID{uuid.New()},
 		State:       StateDone,
-		Type:        EventTypeSay,
+		Type:        EventTypeCustom,
 		Priority:    20,
 		RepeatEvery: 1,
 		RepeatTimes: 3,

@@ -49,11 +49,6 @@ func setupEvent(e *Event) {
 	// indicate when the event was created
 	e.Timestamp = time.Now()
 
-	// If the event has no EventType, assign one
-	if e.Type == 0 {
-		e.Type = EventTypeSay // Assign a type to the event
-	}
-
 	// There is only one special negative value for RepeatTimes (-1)
 	if e.RepeatTimes < -1 {
 		e.RepeatTimes = -1
@@ -113,7 +108,7 @@ func (s *Scheduler) Schedule(e *Event) error {
 
 	// Make sure the event has the scheduler reference
 	// (this is used to set the event state to cancelled when the scheduler is cancelled)
-	e.s = s
+	e.Sched = s
 
 	// Schedule the event
 	err := schedule(s, e)
@@ -142,11 +137,11 @@ func schedule(s *Scheduler, e *Event) error {
 		RepeatTimes: e.RepeatTimes,
 		// private fields
 		timeout: e.timeout,
-		s:       s,
+		Sched:   s,
 	}
 
-	if e.s == nil {
-		eCopy.s = s
+	if e.Sched == nil {
+		eCopy.Sched = s
 	}
 
 	// If the event has no Action, assign one
@@ -243,20 +238,20 @@ func setEventState(s *Scheduler, uuid uuid.UUID, state EventState) {
 // (public method)
 func SetEventState(e *Event, state EventState) {
 	if e == nil {
-		e.s.logger.Println("SetEventState: event is nil\n", e.UUID)
+		e.Sched.logger.Println("SetEventState: event is nil\n", e.UUID)
 		return
 	}
 
-	e.s.mutex.Lock()
+	e.Sched.mutex.Lock()
 
-	if (state == StateDone || state == StateCancelled || state == StateError) && e.s.events[e.UUID].State == StateInProcess {
-		e.s.CurrentRunningActions--
+	if (state == StateDone || state == StateCancelled || state == StateError) && e.Sched.events[e.UUID].State == StateInProcess {
+		e.Sched.CurrentRunningActions--
 	}
 
-	e.s.events[e.UUID].State = state
+	e.Sched.events[e.UUID].State = state
 	e.State = state
 
-	e.s.mutex.Unlock()
+	e.Sched.mutex.Unlock()
 }
 
 // removeEventAndDeps removes an event and the events that depends on it from the scheduler queue
