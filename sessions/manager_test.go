@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	ss *Storage
+	ss *Manager
 )
 
 func TestMain(m *testing.M) {

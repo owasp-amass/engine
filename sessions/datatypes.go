@@ -15,7 +15,7 @@ type Session struct {
 }
 
 // SessionStorage is a struct that holds the sessions in memory.
-type Storage struct {
+type Manager struct {
 	mu       sync.RWMutex // Mutex for thread-safety
 	sessions map[uuid.UUID]*Session
 }
