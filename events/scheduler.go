@@ -49,11 +49,6 @@ func setupEvent(e *Event) {
 	// indicate when the event was created
 	e.Timestamp = time.Now()
 
-	// If the event has no EventType, assign one
-	if e.Type == 0 {
-		e.Type = EventTypeSay // Assign a type to the event
-	}
-
 	// There is only one special negative value for RepeatTimes (-1)
 	if e.RepeatTimes < -1 {
 		e.RepeatTimes = -1

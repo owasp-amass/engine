@@ -22,7 +22,7 @@ func (p *PluginOne) handleSampleEvent(e *events.Event) error {
 func (p *PluginOne) Start(r *registry.Registry) error {
 	r.RegisterHandler(
 		&registry.Handler{
-			EventType: events.EventTypeSay,
+			EventType: events.EventTypeLog,
 			Handler:   p.handleSampleEvent, // check if it's not nil
 		})
 

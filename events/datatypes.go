@@ -17,14 +17,29 @@ type EventType int
 
 const (
 	// SystemType is used to identify system events
-	SystemType EventType = iota
+	EventTypeSystem EventType = iota
 	// EventTypeLog is used to log a message to the log file
 	EventTypeLog
 	// EventTypeCustom is used to execute a custom function
 	EventTypeCustom
-	// EventTypeSay is used to print a message to the console (used for debugging purposes)
-	EventTypeSay
+	// AssetType is used to identify asset events
+	EventTypeAsset
 	// Add more event types here:
+	// ...
+)
+
+var (
+	// Event types names (used to query the Registry)
+	EventTypeNames = map[EventType]string{
+		EventTypeSystem: "System",
+		EventTypeLog:    "Log",
+		EventTypeCustom: "Custom",
+		EventTypeAsset:  "Asset",
+		// Add more event types here:
+		// ...
+	}
+
+	MaxEventTypes = len(EventTypeNames)
 )
 
 // Event states (are used to control the event flow)

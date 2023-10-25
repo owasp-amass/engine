@@ -14,15 +14,17 @@ import (
 
 // Registry storage
 type Registry struct {
-	Plugins     map[string]AmassPlugin
-	HandlersMap map[events.EventType][]func(*events.Event) error
+	Plugins map[string]AmassPlugin
+	//HandlersMap map[events.EventType][]func(*events.Event) error
+	HandlersMap map[events.EventType]map[string][]func(*events.Event) error
 }
 
 // Create a new instance of Registry
 func NewRegistry() *Registry {
 	return &Registry{
-		Plugins:     make(map[string]AmassPlugin),
-		HandlersMap: make(map[events.EventType][]func(*events.Event) error),
+		Plugins: make(map[string]AmassPlugin),
+		//HandlersMap: make(map[events.EventType][]func(*events.Event) error),
+		HandlersMap: make(map[events.EventType]map[string][]func(*events.Event) error),
 	}
 }
 
@@ -75,7 +77,7 @@ func (r *Registry) loadPlugin(path string) (AmassPlugin, error) {
 // Register a Plugin Handler on the registry:
 func (r *Registry) RegisterHandler(h *Handler) error {
 	// Check if the event Type is correct
-	if h.EventType < 0 || h.EventType > 5 {
+	if h.EventType < 0 || h.EventType > events.EventType(events.MaxEventTypes) {
 		return fmt.Errorf("Invalid EventType")
 	}
 	// TODO: Use the Transformation against the OAM relationships to ensure that
@@ -87,6 +89,35 @@ func (r *Registry) RegisterHandler(h *Handler) error {
 		}
 	}
 	// All checks passed, let's add the handler to the registry
-	r.HandlersMap[h.EventType] = append(r.HandlersMap[h.EventType], h.Handler)
+	//r.HandlersMap[h.EventType] = append(r.HandlersMap[h.EventType], h.Handler)
+	if _, ok := r.HandlersMap[h.EventType]; !ok {
+		for _, transformation := range h.Transform {
+			r.HandlersMap[h.EventType] = make(map[string][]func(*events.Event) error)
+			r.HandlersMap[h.EventType][transformation] = append(r.HandlersMap[h.EventType][transformation], h.Handler)
+		}
+	} else {
+		if _, ok := r.HandlersMap[h.EventType][h.Name]; ok {
+			return fmt.Errorf("Handler %s already registered for EventType %d", h.Name, h.EventType)
+		}
+	}
 	return nil
+}
+
+// Returns a list of handlers for a given event type
+func (r *Registry) GetHandlers(eventType events.EventType) ([]func(*events.Event) error, error) {
+	// Check if the event Type is correct
+	if eventType < 0 || eventType > events.EventType(events.MaxEventTypes) {
+		return nil, fmt.Errorf("Invalid EventType")
+	}
+	// Check if the event Type is correct
+	transformations, ok := r.HandlersMap[eventType]
+	if !ok {
+		return nil, fmt.Errorf("No handlers registered for EventType %d", eventType)
+	}
+	// Aggregate handlers into a slice
+	var handlers []func(*events.Event) error
+	for _, handler := range transformations {
+		handlers = append(handlers, handler...)
+	}
+	return handlers, nil
 }
