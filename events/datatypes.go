@@ -9,6 +9,7 @@ import (
 
 	"github.com/caffix/queue"
 	"github.com/google/uuid"
+	"github.com/owasp-amass/engine/sessions"
 )
 
 // Event types (are used to query the Registry adn identify the action to be executed)
@@ -51,7 +52,7 @@ var (
 // and the functions that create and process the events
 type Event struct {
 	UUID      uuid.UUID           /* Event UUID */
-	Session   uuid.UUID           /* Session UUID */
+	SessionID uuid.UUID           /* Session UUID */
 	Name      string              /* Event name */
 	Timestamp time.Time           /* Event timestamp */
 	Type      EventType           /* Event type */
@@ -76,7 +77,8 @@ type Event struct {
 	-                   event)
 	-                 */
 	timeout time.Time  /* Timeout timer (used to cancel the event if it's not processed in time) */
-	s       *Scheduler /* Pointer to the scheduler that created the event */
+	Sched   *Scheduler /* Pointer to the scheduler that created the event */
+	Session *sessions.Session
 }
 
 type SchedulerState int
