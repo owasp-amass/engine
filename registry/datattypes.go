@@ -5,10 +5,9 @@ import (
 )
 
 // plugin interface
-
 type AmassPlugin interface {
+	InitPlugin(h *Handlers) error
 	notify(e *events.Event) error
-	initPlugin(h *Handlers) error
 }
 
 // Each plugins must return an Handlers list at initPlugin() time
