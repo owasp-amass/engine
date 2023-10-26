@@ -8,6 +8,7 @@ import (
 	"os"
 	"plugin"
 	"strings"
+	"sync"
 
 	"github.com/owasp-amass/engine/events"
 )
@@ -18,6 +19,7 @@ type Registry struct {
 	//HandlersMap map[events.EventType][]func(*events.Event) error
 	//HandlersMap map[events.EventType]map[string][]func(*events.Event) error
 	handlersMap map[events.EventType]map[string][]Handler
+	m           sync.RWMutex
 }
 
 // Create a new instance of Registry
@@ -36,16 +38,23 @@ func (r *Registry) LoadPlugins(dir string) error {
 		return err
 	}
 
+	// Ensure that only one goroutine is accessing the map (in case of concurrent calls)
+	r.m.Lock()
+
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".so") {
 			p, err := r.loadPlugin(dir + "/" + file.Name())
 			if err != nil {
+				r.m.Unlock()
 				fmt.Printf("Error loading plugin %s: %s\n", file.Name(), err)
 				continue
 			}
 			r.plugins[file.Name()] = p
 		}
 	}
+
+	// Release the lock and return no error (everything went fine)
+	r.m.Unlock()
 	return nil
 }
 
@@ -113,9 +122,14 @@ func (r *Registry) GetHandlers(eventType events.EventType) (map[string]Handler, 
 		return nil, fmt.Errorf("invalid EventType")
 	}
 
+	// lock the map for reading
+	r.m.RLock()
+
 	// Check if there are any handlers registered for this EventType
 	transformations, ok := r.handlersMap[eventType]
 	if !ok {
+		// unlock the map
+		r.m.RUnlock()
 		return nil, fmt.Errorf("no handlers registered for EventType %d", eventType)
 	}
 
@@ -129,6 +143,8 @@ func (r *Registry) GetHandlers(eventType events.EventType) (map[string]Handler, 
 		}
 	}
 
+	// unlock the map and return the result (everything went well)
+	r.m.RUnlock()
 	return result, nil
 }
 
