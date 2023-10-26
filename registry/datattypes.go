@@ -14,10 +14,10 @@ type AmassPlugin interface {
 // and which handlers should be called for each event.
 
 type Handler struct {
-	Name      string
-	EventType events.EventType
-	Transform []string
-	Handler   func(*events.Event) error
+	Name       string
+	EventType  events.EventType
+	Transforms []string
+	Handler    func(*events.Event) error
 }
 
 type Handlers []Handler
