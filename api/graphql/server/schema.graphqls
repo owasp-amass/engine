@@ -1,10 +1,40 @@
 scalar JSON
+scalar Any
+
+input Config {
+   scope: [Any]
+   ports: [Int]
+   blacklist: [String]
+   domains: [String]
+   resolvers: [String]
+   ips: [String]
+   cirds: [Any]
+   transformations: [Any]
+   database: [Any]
+   brute_force: Boolean
+   alterations: Boolean
+}
+
+scalar OAM
+
+#type Thing {
+ # config: String!
+#  mvar: OAM
+#}
+
+
+
 
 type Session {
   token: ID!
+  name: String
 }
 
 input CreateSessionInput {
+  config: Config!
+}
+
+input CreateSessionJsonInput {
   config: String!
 }
 
@@ -12,15 +42,23 @@ type Event {
   id: ID!
 }
 
+type Subscription {
+  placeholder: String!
+}
+
+type Query {
+  placeholder: String!
+}
+
 input CreateEventInput {
   session_id: ID!
-  event_name: String!
-  data: String
-  type: String!
+  event_name: String
+  data: Any
 }
 
 type Mutation {
   createSession(input: CreateSessionInput!): Session
+  createSessionFromJson(input: CreateSessionJsonInput!): Session
   createEvent(input: CreateEventInput!): Event
 }
 

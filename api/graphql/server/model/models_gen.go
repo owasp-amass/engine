@@ -2,14 +2,31 @@
 
 package model
 
+type Config struct {
+	Scope           []interface{} `json:"scope,omitempty"`
+	Ports           []*int        `json:"ports,omitempty"`
+	Blacklist       []*string     `json:"blacklist,omitempty"`
+	Domains         []*string     `json:"domains,omitempty"`
+	Resolvers       []*string     `json:"resolvers,omitempty"`
+	Ips             []*string     `json:"ips,omitempty"`
+	Cirds           []interface{} `json:"cirds,omitempty"`
+	Transformations []interface{} `json:"transformations,omitempty"`
+	Database        []interface{} `json:"database,omitempty"`
+	BruteForce      *bool         `json:"brute_force,omitempty"`
+	Alterations     *bool         `json:"alterations,omitempty"`
+}
+
 type CreateEventInput struct {
-	SessionID string  `json:"session_id"`
-	EventName string  `json:"event_name"`
-	Data      *string `json:"data,omitempty"`
-	Type      string  `json:"type"`
+	SessionID string      `json:"session_id"`
+	EventName *string     `json:"event_name,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
 }
 
 type CreateSessionInput struct {
+	Config *Config `json:"config"`
+}
+
+type CreateSessionJSONInput struct {
 	Config string `json:"config"`
 }
 
@@ -18,5 +35,6 @@ type Event struct {
 }
 
 type Session struct {
-	Token string `json:"token"`
+	Token string  `json:"token"`
+	Name  *string `json:"name,omitempty"`
 }
