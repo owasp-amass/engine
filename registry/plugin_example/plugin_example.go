@@ -23,9 +23,10 @@ func (p *PluginOne) Start(r *registry.Registry) error {
 	// Register the handler
 	r.RegisterHandler(
 		registry.Handler{
-			Name:      "PluginOne-MainHandler",
-			EventType: events.EventTypeLog,
-			Handler:   p.handleSampleEvent,
+			Name:       "PluginOne-MainHandler",
+			Transforms: []string{"Test-Transform"},
+			EventType:  events.EventTypeLog,
+			Handler:    p.handleSampleEvent,
 		})
 
 	return nil

@@ -81,6 +81,7 @@ func (r *Registry) RegisterHandler(h Handler) error {
 	if h.EventType < 0 || h.EventType > events.EventType(events.MaxEventTypes) {
 		return fmt.Errorf("invalid EventType")
 	}
+
 	// TODO: Use the Transformation against the OAM relationships to ensure that
 	//       the EventType and Transformation have a relationship
 	for _, transformation := range h.Transforms {
@@ -89,6 +90,7 @@ func (r *Registry) RegisterHandler(h Handler) error {
 			continue
 		}
 	}
+
 	// All checks passed, let's add the handler to the registry
 	//r.HandlersMap[h.EventType] = append(r.HandlersMap[h.EventType], h.Handler)
 	if _, ok := r.HandlersMap[h.EventType]; !ok {
