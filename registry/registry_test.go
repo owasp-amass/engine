@@ -30,7 +30,7 @@ func TestRegisterHandler(t *testing.T) {
 		})
 
 	// Check if the handler was registered
-	if len(r.HandlersMap) == 0 {
+	if r.HandlersMapSize() == 0 {
 		t.Error("No handlers registered")
 	}
 }
