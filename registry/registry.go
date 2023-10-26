@@ -15,19 +15,17 @@ import (
 
 // Registry storage
 type Registry struct {
-	plugins map[string]AmassPlugin
-	//HandlersMap map[events.EventType][]func(*events.Event) error
-	//HandlersMap map[events.EventType]map[string][]func(*events.Event) error
-	handlersMap map[events.EventType]map[string][]Handler
-	m           sync.RWMutex
+	pluginLock  sync.Mutex
+	plugins     map[string]AmassPlugin
+	handlerLock sync.RWMutex
+	handlers    map[events.EventType]map[string][]Handler
 }
 
 // Create a new instance of Registry
 func NewRegistry() *Registry {
 	return &Registry{
-		plugins: make(map[string]AmassPlugin),
-		//HandlersMap: make(map[events.EventType][]func(*events.Event) error),
-		handlersMap: make(map[events.EventType]map[string][]Handler),
+		plugins:  make(map[string]AmassPlugin),
+		handlers: make(map[events.EventType]map[string][]Handler),
 	}
 }
 
@@ -39,22 +37,19 @@ func (r *Registry) LoadPlugins(dir string) error {
 	}
 
 	// Ensure that only one goroutine is accessing the map (in case of concurrent calls)
-	r.m.Lock()
+	r.pluginLock.Lock()
+	defer r.pluginLock.Unlock()
 
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".so") {
 			p, err := r.loadPlugin(dir + "/" + file.Name())
 			if err != nil {
-				r.m.Unlock()
 				fmt.Printf("Error loading plugin %s: %s\n", file.Name(), err)
 				continue
 			}
 			r.plugins[file.Name()] = p
 		}
 	}
-
-	// Release the lock and return no error (everything went fine)
-	r.m.Unlock()
 	return nil
 }
 
@@ -80,7 +75,6 @@ func (r *Registry) loadPlugin(path string) (AmassPlugin, error) {
 	} else {
 		return nil, errors.New("unexpected plugin type")
 	}
-
 	return p, nil
 }
 
@@ -100,55 +94,54 @@ func (r *Registry) RegisterHandler(h Handler) error {
 		}
 	}
 
+	r.handlerLock.Lock()
+	defer r.handlerLock.Unlock()
 	// All checks passed, let's add the handler to the registry
 	//r.HandlersMap[h.EventType] = append(r.HandlersMap[h.EventType], h.Handler)
-	if _, ok := r.handlersMap[h.EventType]; !ok {
+	if _, ok := r.handlers[h.EventType]; !ok {
 		for _, transformation := range h.Transforms {
-			r.handlersMap[h.EventType] = make(map[string][]Handler)
-			r.handlersMap[h.EventType][transformation] = append(r.handlersMap[h.EventType][transformation], h)
+			r.handlers[h.EventType] = make(map[string][]Handler)
+			r.handlers[h.EventType][transformation] = append(r.handlers[h.EventType][transformation], h)
 		}
 	} else {
-		if _, ok := r.handlersMap[h.EventType][h.Name]; ok {
+		if _, ok := r.handlers[h.EventType][h.Name]; ok {
 			return fmt.Errorf("handler %s already registered for EventType %d", h.Name, h.EventType)
 		}
 	}
 	return nil
 }
 
-// Returns a list of handlers for a given event type
-func (r *Registry) GetHandlers(eventType events.EventType) (map[string]Handler, error) {
+// Returns a list of handlers for a given event type. Assets can optionally be specified to filter transforms.
+func (r *Registry) GetHandlers(eventType events.EventType, transforms ...string) ([]Handler, error) {
 	// Check if the event Type is correct
 	if eventType < 0 || eventType > events.EventType(events.MaxEventTypes) {
 		return nil, fmt.Errorf("invalid EventType")
 	}
 
-	// lock the map for reading
-	r.m.RLock()
-
+	r.handlerLock.RLock()
+	defer r.handlerLock.RUnlock()
 	// Check if there are any handlers registered for this EventType
-	transformations, ok := r.handlersMap[eventType]
+	trans, ok := r.handlers[eventType]
 	if !ok {
-		// unlock the map
-		r.m.RUnlock()
 		return nil, fmt.Errorf("no handlers registered for EventType %d", eventType)
 	}
 
-	// Create a new map to return
-	result := make(map[string]Handler)
-
-	for transformation, handlers := range transformations {
-		if len(handlers) > 0 {
-			// For simplicity, just taking the first handler for each transformation
-			result[transformation] = handlers[0]
+	var results []Handler
+	if len(transforms) == 0 {
+		for _, handlers := range trans {
+			results = append(results, handlers...)
+		}
+	} else {
+		for _, t := range transforms {
+			if h, ok := trans[t]; ok {
+				results = append(results, h...)
+			}
 		}
 	}
-
-	// unlock the map and return the result (everything went well)
-	r.m.RUnlock()
-	return result, nil
+	return results, nil
 }
 
 // Returns the size of the handlers map
 func (r *Registry) HandlersMapSize() int {
-	return len(r.handlersMap)
+	return len(r.handlers)
 }
