@@ -9,6 +9,7 @@ import (
 
 	"github.com/caffix/queue"
 	"github.com/google/uuid"
+	"github.com/owasp-amass/engine/sessions"
 )
 
 // Event types (are used to query the Registry adn identify the action to be executed)
@@ -16,14 +17,29 @@ type EventType int
 
 const (
 	// SystemType is used to identify system events
-	SystemType EventType = iota
+	EventTypeSystem EventType = iota
 	// EventTypeLog is used to log a message to the log file
 	EventTypeLog
 	// EventTypeCustom is used to execute a custom function
 	EventTypeCustom
-	// EventTypeSay is used to print a message to the console (used for debugging purposes)
-	EventTypeSay
+	// AssetType is used to identify asset events
+	EventTypeAsset
 	// Add more event types here:
+	// ...
+)
+
+var (
+	// Event types names (used to query the Registry)
+	EventTypeNames = map[EventType]string{
+		EventTypeSystem: "System",
+		EventTypeLog:    "Log",
+		EventTypeCustom: "Custom",
+		EventTypeAsset:  "Asset",
+		// Add more event types here:
+		// ...
+	}
+
+	MaxEventTypes = len(EventTypeNames)
 )
 
 // Event states (are used to control the event flow)
@@ -51,7 +67,7 @@ var (
 // and the functions that create and process the events
 type Event struct {
 	UUID      uuid.UUID           /* Event UUID */
-	Session   uuid.UUID           /* Session UUID */
+	SessionID uuid.UUID           /* Session UUID */
 	Name      string              /* Event name */
 	Timestamp time.Time           /* Event timestamp */
 	Type      EventType           /* Event type */
@@ -76,7 +92,8 @@ type Event struct {
 	-                   event)
 	-                 */
 	timeout time.Time  /* Timeout timer (used to cancel the event if it's not processed in time) */
-	s       *Scheduler /* Pointer to the scheduler that created the event */
+	Sched   *Scheduler /* Pointer to the scheduler that created the event */
+	Session *sessions.Session
 }
 
 type SchedulerState int
