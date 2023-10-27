@@ -49,12 +49,12 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
-	Event struct {
+	Asset struct {
 		ID func(childComplexity int) int
 	}
 
 	Mutation struct {
-		CreateEvent           func(childComplexity int, input model.CreateEventInput) int
+		CreateAsset           func(childComplexity int, input model.CreateAssetInput) int
 		CreateSession         func(childComplexity int, input model.CreateSessionInput) int
 		CreateSessionFromJSON func(childComplexity int, input model.CreateSessionJSONInput) int
 	}
@@ -64,7 +64,6 @@ type ComplexityRoot struct {
 	}
 
 	Session struct {
-		Name  func(childComplexity int) int
 		Token func(childComplexity int) int
 	}
 
@@ -76,7 +75,7 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	CreateSession(ctx context.Context, input model.CreateSessionInput) (*model.Session, error)
 	CreateSessionFromJSON(ctx context.Context, input model.CreateSessionJSONInput) (*model.Session, error)
-	CreateEvent(ctx context.Context, input model.CreateEventInput) (*model.Event, error)
+	CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error)
 }
 type QueryResolver interface {
 	Placeholder(ctx context.Context) (string, error)
@@ -104,24 +103,24 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	_ = ec
 	switch typeName + "." + field {
 
-	case "Event.id":
-		if e.complexity.Event.ID == nil {
+	case "Asset.id":
+		if e.complexity.Asset.ID == nil {
 			break
 		}
 
-		return e.complexity.Event.ID(childComplexity), true
+		return e.complexity.Asset.ID(childComplexity), true
 
-	case "Mutation.createEvent":
-		if e.complexity.Mutation.CreateEvent == nil {
+	case "Mutation.createAsset":
+		if e.complexity.Mutation.CreateAsset == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_createEvent_args(context.TODO(), rawArgs)
+		args, err := ec.field_Mutation_createAsset_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateEvent(childComplexity, args["input"].(model.CreateEventInput)), true
+		return e.complexity.Mutation.CreateAsset(childComplexity, args["input"].(model.CreateAssetInput)), true
 
 	case "Mutation.createSession":
 		if e.complexity.Mutation.CreateSession == nil {
@@ -154,13 +153,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.Placeholder(childComplexity), true
 
-	case "Session.name":
-		if e.complexity.Session.Name == nil {
-			break
-		}
-
-		return e.complexity.Session.Name(childComplexity), true
-
 	case "Session.token":
 		if e.complexity.Session.Token == nil {
 			break
@@ -184,7 +176,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := executionContext{rc, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputConfig,
-		ec.unmarshalInputCreateEventInput,
+		ec.unmarshalInputCreateAssetInput,
 		ec.unmarshalInputCreateSessionInput,
 		ec.unmarshalInputCreateSessionJsonInput,
 	)
@@ -320,13 +312,13 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_createEvent_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Mutation_createAsset_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.CreateEventInput
+	var arg0 model.CreateAssetInput
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNCreateEventInput2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐCreateEventInput(ctx, tmp)
+		arg0, err = ec.unmarshalNCreateAssetInput2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐCreateAssetInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -418,8 +410,8 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _Event_id(ctx context.Context, field graphql.CollectedField, obj *model.Event) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Event_id(ctx, field)
+func (ec *executionContext) _Asset_id(ctx context.Context, field graphql.CollectedField, obj *model.Asset) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Asset_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -449,9 +441,9 @@ func (ec *executionContext) _Event_id(ctx context.Context, field graphql.Collect
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Event_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Asset_id(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "Event",
+		Object:     "Asset",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -500,8 +492,6 @@ func (ec *executionContext) fieldContext_Mutation_createSession(ctx context.Cont
 			switch field.Name {
 			case "token":
 				return ec.fieldContext_Session_token(ctx, field)
-			case "name":
-				return ec.fieldContext_Session_name(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
 		},
@@ -558,8 +548,6 @@ func (ec *executionContext) fieldContext_Mutation_createSessionFromJson(ctx cont
 			switch field.Name {
 			case "token":
 				return ec.fieldContext_Session_token(ctx, field)
-			case "name":
-				return ec.fieldContext_Session_name(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Session", field.Name)
 		},
@@ -578,8 +566,8 @@ func (ec *executionContext) fieldContext_Mutation_createSessionFromJson(ctx cont
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_createEvent(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_createEvent(ctx, field)
+func (ec *executionContext) _Mutation_createAsset(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createAsset(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -592,7 +580,7 @@ func (ec *executionContext) _Mutation_createEvent(ctx context.Context, field gra
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateEvent(rctx, fc.Args["input"].(model.CreateEventInput))
+		return ec.resolvers.Mutation().CreateAsset(rctx, fc.Args["input"].(model.CreateAssetInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -601,12 +589,12 @@ func (ec *executionContext) _Mutation_createEvent(ctx context.Context, field gra
 	if resTmp == nil {
 		return graphql.Null
 	}
-	res := resTmp.(*model.Event)
+	res := resTmp.(*model.Asset)
 	fc.Result = res
-	return ec.marshalOEvent2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐEvent(ctx, field.Selections, res)
+	return ec.marshalOAsset2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐAsset(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_createEvent(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_createAsset(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -615,9 +603,9 @@ func (ec *executionContext) fieldContext_Mutation_createEvent(ctx context.Contex
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_Event_id(ctx, field)
+				return ec.fieldContext_Asset_id(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type Event", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type Asset", field.Name)
 		},
 	}
 	defer func() {
@@ -627,7 +615,7 @@ func (ec *executionContext) fieldContext_Mutation_createEvent(ctx context.Contex
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createEvent_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_createAsset_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -846,47 +834,6 @@ func (ec *executionContext) fieldContext_Session_token(ctx context.Context, fiel
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Session_name(ctx context.Context, field graphql.CollectedField, obj *model.Session) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Session_name(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Name, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Session_name(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Session",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2730,7 +2677,7 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"scope", "ports", "blacklist", "domains", "resolvers", "ips", "cirds", "transformations", "database", "brute_force", "alterations"}
+	fieldsInOrder := [...]string{"scope", "ports", "blacklist", "domains", "resolvers", "ips", "cirds", "transformations", "database", "bruteForce", "alterations"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -2818,10 +2765,10 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 				return it, err
 			}
 			it.Database = data
-		case "brute_force":
+		case "bruteForce":
 			var err error
 
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("brute_force"))
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bruteForce"))
 			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
 			if err != nil {
 				return it, err
@@ -2842,38 +2789,38 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputCreateEventInput(ctx context.Context, obj interface{}) (model.CreateEventInput, error) {
-	var it model.CreateEventInput
+func (ec *executionContext) unmarshalInputCreateAssetInput(ctx context.Context, obj interface{}) (model.CreateAssetInput, error) {
+	var it model.CreateAssetInput
 	asMap := map[string]interface{}{}
 	for k, v := range obj.(map[string]interface{}) {
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"session_id", "event_name", "data"}
+	fieldsInOrder := [...]string{"sessionToken", "assetName", "data"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "session_id":
+		case "sessionToken":
 			var err error
 
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("session_id"))
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sessionToken"))
 			data, err := ec.unmarshalNID2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.SessionID = data
-		case "event_name":
+			it.SessionToken = data
+		case "assetName":
 			var err error
 
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("event_name"))
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assetName"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.EventName = data
+			it.AssetName = data
 		case "data":
 			var err error
 
@@ -2955,19 +2902,19 @@ func (ec *executionContext) unmarshalInputCreateSessionJsonInput(ctx context.Con
 
 // region    **************************** object.gotpl ****************************
 
-var eventImplementors = []string{"Event"}
+var assetImplementors = []string{"Asset"}
 
-func (ec *executionContext) _Event(ctx context.Context, sel ast.SelectionSet, obj *model.Event) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, eventImplementors)
+func (ec *executionContext) _Asset(ctx context.Context, sel ast.SelectionSet, obj *model.Asset) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, assetImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("Event")
+			out.Values[i] = graphql.MarshalString("Asset")
 		case "id":
-			out.Values[i] = ec._Event_id(ctx, field, obj)
+			out.Values[i] = ec._Asset_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -3021,9 +2968,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_createSessionFromJson(ctx, field)
 			})
-		case "createEvent":
+		case "createAsset":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createEvent(ctx, field)
+				return ec._Mutation_createAsset(ctx, field)
 			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -3136,8 +3083,6 @@ func (ec *executionContext) _Session(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "name":
-			out.Values[i] = ec._Session_name(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3527,8 +3472,8 @@ func (ec *executionContext) unmarshalNConfig2ᚖgithubᚗcomᚋowaspᚑamassᚋe
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) unmarshalNCreateEventInput2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐCreateEventInput(ctx context.Context, v interface{}) (model.CreateEventInput, error) {
-	res, err := ec.unmarshalInputCreateEventInput(ctx, v)
+func (ec *executionContext) unmarshalNCreateAssetInput2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐCreateAssetInput(ctx context.Context, v interface{}) (model.CreateAssetInput, error) {
+	res, err := ec.unmarshalInputCreateAssetInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -3873,6 +3818,13 @@ func (ec *executionContext) marshalOAny2ᚕinterface(ctx context.Context, sel as
 	return ret
 }
 
+func (ec *executionContext) marshalOAsset2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐAsset(ctx context.Context, sel ast.SelectionSet, v *model.Asset) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Asset(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v interface{}) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -3897,13 +3849,6 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	}
 	res := graphql.MarshalBoolean(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOEvent2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐEvent(ctx context.Context, sel ast.SelectionSet, v *model.Event) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._Event(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOInt2ᚕᚖint(ctx context.Context, v interface{}) ([]*int, error) {

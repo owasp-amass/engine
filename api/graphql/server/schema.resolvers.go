@@ -30,7 +30,6 @@ func (r *mutationResolver) CreateSession(ctx context.Context, input model.Create
 
 // CreateSessionFromJSON is the resolver for the createSessionFromJson field.
 func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input model.CreateSessionJSONInput) (*model.Session, error) {
-
 	var config config.Config
 	fmt.Println("CreateSessionFromJSON")
 	err := json.Unmarshal([]byte(input.Config), &config)
@@ -48,16 +47,16 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 	return model, nil
 }
 
-// CreateEvent is the resolver for the createEvent field.
-func (r *mutationResolver) CreateEvent(ctx context.Context, input model.CreateEventInput) (*model.Event, error) {
+// CreateAsset is the resolver for the createAsset field.
+func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error) {
 	//event := &events.Event{Name: "NewSession", Type: events.EventTypeLog, Priority: 1}
 	fmt.Printf("%#v\n", input)
 
-	token, _ := uuid.Parse(input.SessionID)
+	token, _ := uuid.Parse(input.SessionToken)
 
 	event := &events.Event{
 		UUID:    uuid.New(),
-		Name:    *input.EventName,
+		Name:    *input.AssetName,
 		Session: token,
 		Data:    input.Data,
 		Type:    events.EventTypeSay,
@@ -65,7 +64,7 @@ func (r *mutationResolver) CreateEvent(ctx context.Context, input model.CreateEv
 	r.scheduler.Schedule(event)
 	//r.scheduler.SetEventState()
 
-	testSession := &model.Event{
+	testSession := &model.Asset{
 		ID: event.UUID.String(),
 	}
 	return testSession, nil

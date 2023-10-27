@@ -109,9 +109,9 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 		return token, err
 	}
 
-	fmt.Println(string(configJson))
+	fmt.Println("CONFIG:" + string(configJson))
 	quotedStr := strconv.Quote((string(configJson)))
-	fmt.Println(string(quotedStr))
+	fmt.Println("QUOTED:" + string(quotedStr))
 	queryStr := fmt.Sprintf(`mutation { createSessionFromJson(input: {config: %s}) {token} }`, quotedStr)
 
 	res, err := c.Query(queryStr)
@@ -145,7 +145,7 @@ func (c *Client) createEvent(asset Asset, token uuid.UUID) {
 	err = json.Unmarshal(assetJson, &data)
 	q := gqlEncoder(data)
 
-	queryStr := fmt.Sprintf(`mutation { createEvent(input:  %s) {id} }`, string(q))
+	queryStr := fmt.Sprintf(`mutation { createAsset(input:  %s) {id} }`, string(q))
 
 	res, err := c.Query(queryStr)
 
@@ -160,7 +160,7 @@ func makeAssets(config *config.Config) []*Asset {
 
 	assets := convertScopeToAssets(config.Scope)
 	for i, asset := range assets {
-		asset.Event = fmt.Sprintf("asset#%d", i+1)
+		asset.Name = fmt.Sprintf("asset#%d", i+1)
 	}
 
 	return assets
@@ -201,8 +201,8 @@ const (
 )
 
 type Asset struct {
-	Session uuid.UUID `json:"session_id,omitempty"`
-	Event   string    `json:"event_name,omitempty"`
+	Session uuid.UUID `json:"sessionToken,omitempty"`
+	Name    string    `json:"assetName,omitempty"`
 	Data    AssetData `json:"data,omitempty"`
 }
 

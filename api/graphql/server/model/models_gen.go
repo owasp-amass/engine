@@ -2,6 +2,10 @@
 
 package model
 
+type Asset struct {
+	ID string `json:"id"`
+}
+
 type Config struct {
 	Scope           []interface{} `json:"scope,omitempty"`
 	Ports           []*int        `json:"ports,omitempty"`
@@ -12,14 +16,14 @@ type Config struct {
 	Cirds           []interface{} `json:"cirds,omitempty"`
 	Transformations []interface{} `json:"transformations,omitempty"`
 	Database        []interface{} `json:"database,omitempty"`
-	BruteForce      *bool         `json:"brute_force,omitempty"`
+	BruteForce      *bool         `json:"bruteForce,omitempty"`
 	Alterations     *bool         `json:"alterations,omitempty"`
 }
 
-type CreateEventInput struct {
-	SessionID string      `json:"session_id"`
-	EventName *string     `json:"event_name,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
+type CreateAssetInput struct {
+	SessionToken string      `json:"sessionToken"`
+	AssetName    *string     `json:"assetName,omitempty"`
+	Data         interface{} `json:"data,omitempty"`
 }
 
 type CreateSessionInput struct {
@@ -30,11 +34,6 @@ type CreateSessionJSONInput struct {
 	Config string `json:"config"`
 }
 
-type Event struct {
-	ID string `json:"id"`
-}
-
 type Session struct {
-	Token string  `json:"token"`
-	Name  *string `json:"name,omitempty"`
+	Token string `json:"token"`
 }

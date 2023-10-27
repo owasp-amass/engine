@@ -11,7 +11,7 @@ input Config {
    cirds: [Any]
    transformations: [Any]
    database: [Any]
-   brute_force: Boolean
+   bruteForce: Boolean
    alterations: Boolean
 }
 
@@ -27,7 +27,6 @@ scalar OAM
 
 type Session {
   token: ID!
-  name: String
 }
 
 input CreateSessionInput {
@@ -38,7 +37,7 @@ input CreateSessionJsonInput {
   config: String!
 }
 
-type Event {
+type Asset {
   id: ID!
 }
 
@@ -50,16 +49,16 @@ type Query {
   placeholder: String!
 }
 
-input CreateEventInput {
-  session_id: ID!
-  event_name: String
+input CreateAssetInput {
+  sessionToken: ID!
+  assetName: String
   data: Any
 }
 
 type Mutation {
   createSession(input: CreateSessionInput!): Session
   createSessionFromJson(input: CreateSessionJsonInput!): Session
-  createEvent(input: CreateEventInput!): Event
+  createAsset(input: CreateAssetInput!): Asset
 }
 
 
