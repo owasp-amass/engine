@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/types"
 )
 
 // plugin interface
@@ -15,9 +15,9 @@ type AmassPlugin interface {
 
 type Handler struct {
 	Name       string
-	EventType  events.EventType
+	EventType  types.EventType
 	Transforms []string
-	Handler    func(*events.Event) error
+	Handler    func(*types.Event) error
 }
 
 type Handlers []Handler

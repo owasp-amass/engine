@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/types"
 )
 
 func TestNewRegistry(t *testing.T) {
@@ -13,7 +13,7 @@ func TestNewRegistry(t *testing.T) {
 	}
 }
 
-func FakeHandler(e *events.Event) error {
+func FakeHandler(e *types.Event) error {
 	return nil
 }
 
@@ -25,7 +25,7 @@ func TestRegisterHandler(t *testing.T) {
 		Handler{
 			Name:       "Test-MainHandler",
 			Transforms: []string{"Test-Transform"},
-			EventType:  events.EventTypeLog,
+			EventType:  types.EventTypeLog,
 			Handler:    FakeHandler,
 		})
 
