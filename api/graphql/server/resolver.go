@@ -7,12 +7,12 @@ package server
 import (
 	"log"
 
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 )
 
 type Resolver struct {
 	logger         *log.Logger
-	scheduler      *events.Scheduler
-	sessionManager *sessions.Storage
+	sched          *scheduler.Scheduler
+	sessionManager *sessions.Manager
 }

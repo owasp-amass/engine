@@ -1,6 +1,6 @@
 // Structures required to create and process events
 
-package events
+package scheduler
 
 import (
 	"log"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/caffix/queue"
 	"github.com/google/uuid"
+	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/types"
 )
 
@@ -39,6 +40,7 @@ type Scheduler struct {
 	CurrentRunningActions int                        // Number of actions currently running
 	state                 SchedulerState             // Scheduler state (running, stopped, paused)
 	logger                *log.Logger                // Logger
+	r                     *registry.Registry         // Plugins registry
 }
 
 // ProcessConfig is the struct that represents the configuration used to process the events

@@ -1,13 +1,16 @@
 package registry
 
 import (
+	"log"
+	"os"
 	"testing"
 
 	"github.com/owasp-amass/engine/types"
 )
 
 func TestNewRegistry(t *testing.T) {
-	r := NewRegistry()
+	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
+	r := NewRegistry(logger)
 	if r == nil {
 		t.Error("Registry is nil")
 	}
@@ -18,7 +21,8 @@ func FakeHandler(e *types.Event) error {
 }
 
 func TestRegisterHandler(t *testing.T) {
-	r := NewRegistry()
+	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
+	r := NewRegistry(logger)
 
 	// Register a handler
 	r.RegisterHandler(
