@@ -433,8 +433,6 @@ github.com/owasp-amass/amass/v4 v4.2.0 h1:fG1QtomsxK0uLRqL/5BtPWmh1/m27h5USPJsmh
 github.com/owasp-amass/amass/v4 v4.2.0/go.mod h1:noG761fR7CGpDUlGkw0GiQ+Uar89yMTyMZruz7saHaw=
 github.com/owasp-amass/asset-db v0.3.3 h1:M+JckW/TJV9piOKP8gTpTCm4J5jJ0XHJxaK/FWGgX0M=
 github.com/owasp-amass/asset-db v0.3.3/go.mod h1:0dIY3OAQaoAG+dVOE8f57r61WgGJx1bvnn9DV4l6K8c=
-github.com/owasp-amass/config v0.1.6-0.20231023070030-9acd19954ee0 h1:Bj+4ubXEMlIWy/wFyvLz5PGTQi4zrtdQTsCf49Tb2p4=
-github.com/owasp-amass/config v0.1.6-0.20231023070030-9acd19954ee0/go.mod h1:x/FnozXfADXEcv40GPfRazphKnM1COoWtS4oZ43/MDk=
 github.com/owasp-amass/config v0.1.6-0.20231026223710-8bfab320c129 h1:JIXIsemUyFq+EMadiwbCyO9abSi53EXkfuPV+ixkMPs=
 github.com/owasp-amass/config v0.1.6-0.20231026223710-8bfab320c129/go.mod h1:x/FnozXfADXEcv40GPfRazphKnM1COoWtS4oZ43/MDk=
 github.com/owasp-amass/open-asset-model v0.2.0 h1:wkuFKOjYL6G0kIBbHDFGXAAxq3UlnVVp1iG+tFODPTg=

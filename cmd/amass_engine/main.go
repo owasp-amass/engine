@@ -26,7 +26,7 @@ func main() {
 	// Step 2: Create a new logger instance using `log.New()`
 	logger := log.New(file, "custom-prefix: ", log.LstdFlags)
 	//logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	sessionManager := sessions.NewStorage()
+	sessionManager := sessions.NewStorage(logger)
 	Registry := registry.NewRegistry(logger)
 	Scheduler := scheduler.NewScheduler(logger, Registry)
 

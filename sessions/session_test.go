@@ -1,8 +1,6 @@
 package sessions_test
 
 import (
-	"log"
-	"os"
 	"testing"
 
 	"github.com/owasp-amass/asset-db/repository"
@@ -11,14 +9,11 @@ import (
 )
 
 func TestNewSession(t *testing.T) {
-	// Create a new logger for testing.
-	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-
 	// Create a new configuration object.
 	cfg := config.NewConfig()
 
 	// Test the function with a nil configuration object.
-	ses, err := NewSession(nil, logger)
+	ses, err := NewSession(nil)
 	if err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	}
@@ -27,7 +22,7 @@ func TestNewSession(t *testing.T) {
 	}
 
 	// Test the function with a valid configuration object.
-	ses, err = NewSession(cfg, logger)
+	ses, err = NewSession(cfg)
 	if err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	}
@@ -37,7 +32,7 @@ func TestNewSession(t *testing.T) {
 
 	// Test the function with an invalid configuration object.
 	cfg.GraphDBs = []*config.Database{}
-	ses, err = NewSession(cfg, logger)
+	ses, err = NewSession(cfg)
 	if err == nil {
 		t.Error("Expected error creating new session")
 	}
@@ -57,7 +52,7 @@ func TestNewSession(t *testing.T) {
 			DBName:   "test",
 		},
 	}
-	ses, err = NewSession(cfg, logger)
+	ses, err = NewSession(cfg)
 	if err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	}
@@ -75,7 +70,7 @@ func TestNewSession(t *testing.T) {
 			System:  "sqlite",
 		},
 	}
-	ses, err = NewSession(cfg, logger)
+	ses, err = NewSession(cfg)
 	if err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	}

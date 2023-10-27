@@ -1,6 +1,7 @@
 package pubsub_test
 
 import (
+	"log"
 	"testing"
 	"time"
 
@@ -9,8 +10,9 @@ import (
 )
 
 func TestSessionSpecificLogs(t *testing.T) {
+	log := log.Logger{}
 	// Create a new session storage
-	manager := sessions.NewStorage()
+	manager := sessions.NewStorage(&log)
 
 	// Create two sessions
 	session1 := &sessions.Session{

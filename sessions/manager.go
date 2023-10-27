@@ -14,6 +14,8 @@ package sessions
  */
 
 import (
+	"log"
+
 	"github.com/google/uuid"
 )
 
@@ -36,12 +38,13 @@ var (
 )
 
 // NewStorage: creates a new session storage.
-func NewStorage() *Manager {
+func NewStorage(EngineLog *log.Logger) *Manager {
 	if zeroSessionUUID == uuid.Nil {
 		zeroSessionUUID = uuid.UUID{}
 	}
 	return &Manager{
-		sessions: make(map[uuid.UUID]*Session),
+		sessions:  make(map[uuid.UUID]*Session),
+		EngineLog: EngineLog,
 	}
 }
 
@@ -50,6 +53,10 @@ func (ss *Manager) Add(s *Session) uuid.UUID {
 	if s == nil {
 		return uuid.UUID{}
 	}
+
+	// passes the EngineLog to the session
+	s.EngineLog = ss.EngineLog
+
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 

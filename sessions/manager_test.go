@@ -2,6 +2,8 @@ package sessions
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"testing"
 )
 
@@ -10,7 +12,9 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	ss := NewStorage()
+	// Create a new logger for testing.
+	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ss := NewStorage(logger)
 	defer ss.Shutdown()
 
 	m.Run()

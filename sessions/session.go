@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 
@@ -17,12 +16,11 @@ import (
 //
 // Parameters:
 // - cfg: Configuration settings for the session. If nil, a default configuration is used.
-// - engineLogger: A logger for the core engine to write to.
 //
 // Returns:
 // - A pointer to the initialized Session object.
 // - An error if the session initialization fails (e.g., invalid database configuration).
-func NewSession(cfg *config.Config, engineLogger *log.Logger) (*Session, error) {
+func NewSession(cfg *config.Config) (*Session, error) {
 	var dsn string               // Data Source Name: Represents the database connection string.
 	var dbtype repository.DBType // Type of the database (e.g., Postgres, SQLite).
 
@@ -68,9 +66,8 @@ func NewSession(cfg *config.Config, engineLogger *log.Logger) (*Session, error) 
 
 	// Create a new session object.
 	newSes := &Session{
-		Cfg:       cfg,                // Store the provided configuration.
-		PubSub:    pubsub.NewLogger(), // Initialize a new logger for publishing/subscribing.
-		EngineLog: engineLogger,       // Use the provided engine logger.
+		Cfg:    cfg,                // Store the provided configuration.
+		PubSub: pubsub.NewLogger(), // Initialize a new logger for publishing/subscribing.
 	}
 
 	// Initialize the session's database with the identified type and connection string.
