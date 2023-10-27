@@ -1,18 +1,19 @@
-package plugin_example
+package main
 
 // Amass plugin example
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/owasp-amass/engine/events"
 	"github.com/owasp-amass/engine/registry"
-	// Add OAM dependecy (the Plugin has to deal with the response)
+	"github.com/owasp-amass/engine/types"
+	// Add OAM dependency (the Plugin has to deal with the response)
 )
 
 type PluginOne struct{}
 
-func (p *PluginOne) handleSampleEvent(e *events.Event) error {
+func (p *PluginOne) handleSampleEvent(e *types.Event) error {
 	fmt.Println("PluginOne handling:", e.Data)
 	return nil
 }
@@ -25,7 +26,7 @@ func (p *PluginOne) Start(r *registry.Registry) error {
 		registry.Handler{
 			Name:       "PluginOne-MainHandler",
 			Transforms: []string{"Test-Transform"},
-			EventType:  events.EventTypeLog,
+			EventType:  types.EventTypeLog,
 			Handler:    p.handleSampleEvent,
 		})
 
@@ -33,3 +34,13 @@ func (p *PluginOne) Start(r *registry.Registry) error {
 }
 
 var Plugin PluginOne
+
+// Generic main function
+func main() {
+	fmt.Println("PluginOne main function")
+	// Go to sleep
+	for {
+		// Sleep for 1 second
+		time.Sleep(1 * time.Second)
+	}
+}

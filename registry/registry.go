@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/types"
 )
 
 // Registry storage
@@ -18,14 +18,14 @@ type Registry struct {
 	pluginLock  sync.Mutex
 	plugins     map[string]AmassPlugin
 	handlerLock sync.RWMutex
-	handlers    map[events.EventType]map[string][]Handler
+	handlers    map[types.EventType]map[string][]Handler
 }
 
 // Create a new instance of Registry
 func NewRegistry() *Registry {
 	return &Registry{
 		plugins:  make(map[string]AmassPlugin),
-		handlers: make(map[events.EventType]map[string][]Handler),
+		handlers: make(map[types.EventType]map[string][]Handler),
 	}
 }
 
@@ -81,7 +81,7 @@ func (r *Registry) loadPlugin(path string) (AmassPlugin, error) {
 // Register a Plugin Handler on the registry:
 func (r *Registry) RegisterHandler(h Handler) error {
 	// Check if the event Type is correct
-	if h.EventType < 0 || h.EventType > events.EventType(events.MaxEventTypes) {
+	if h.EventType < 0 || h.EventType > types.EventType(types.MaxEventTypes) {
 		return fmt.Errorf("invalid EventType")
 	}
 
@@ -112,9 +112,9 @@ func (r *Registry) RegisterHandler(h Handler) error {
 }
 
 // Returns a list of handlers for a given event type. Assets can optionally be specified to filter transforms.
-func (r *Registry) GetHandlers(eventType events.EventType, transforms ...string) ([]Handler, error) {
+func (r *Registry) GetHandlers(eventType types.EventType, transforms ...string) ([]Handler, error) {
 	// Check if the event Type is correct
-	if eventType < 0 || eventType > events.EventType(events.MaxEventTypes) {
+	if eventType < 0 || eventType > types.EventType(types.MaxEventTypes) {
 		return nil, fmt.Errorf("invalid EventType")
 	}
 
