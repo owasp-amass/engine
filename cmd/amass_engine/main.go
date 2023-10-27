@@ -2,17 +2,20 @@ package main
 
 import (
 	//	"fmt"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/owasp-amass/engine/api/graphql/server"
 	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/sessions"
 )
 
 func main() {
 
 	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 	scheduler := events.NewScheduler(logger)
+	sessionManager := sessions.NewStorage()
 
 	config := events.ProcessConfig{
 		ExitWhenEmpty:        false,
@@ -34,7 +37,8 @@ func main() {
 		*/
 	}(config)
 
-	server := server.NewServer(scheduler)
+	server := server.NewServer(logger, scheduler, sessionManager)
+	fmt.Println("Started server...")
 	server.Start()
 
 	// Wait

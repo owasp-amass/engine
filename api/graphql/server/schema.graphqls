@@ -1,27 +1,64 @@
 scalar JSON
+scalar Any
+
+input Config {
+   scope: [Any]
+   ports: [Int]
+   blacklist: [String]
+   domains: [String]
+   resolvers: [String]
+   ips: [String]
+   cirds: [Any]
+   transformations: [Any]
+   database: [Any]
+   bruteForce: Boolean
+   alterations: Boolean
+}
+
+scalar OAM
+
+#type Thing {
+ # config: String!
+#  mvar: OAM
+#}
+
+
+
 
 type Session {
   token: ID!
 }
 
 input CreateSessionInput {
+  config: Config!
+}
+
+input CreateSessionJsonInput {
   config: String!
 }
 
-type Event {
+type Asset {
   id: ID!
 }
 
-input CreateEventInput {
-  session_id: ID!
-  event_name: String!
-  data: String
-  type: String!
+type Subscription {
+  placeholder: String!
+}
+
+type Query {
+  placeholder: String!
+}
+
+input CreateAssetInput {
+  sessionToken: ID!
+  assetName: String
+  data: Any
 }
 
 type Mutation {
   createSession(input: CreateSessionInput!): Session
-  createEvent(input: CreateEventInput!): Event
+  createSessionFromJson(input: CreateSessionJsonInput!): Session
+  createAsset(input: CreateAssetInput!): Asset
 }
 
 

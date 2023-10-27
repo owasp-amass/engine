@@ -1,0 +1,48 @@
+# The scope objects can be used as seed data and obviously values to determine the scope of the engine.
+# The options are items that I believe we can implement as well (Obviously not now but later in the future)
+
+scope:
+  domains: # domain names to be in scope
+    - example.com
+  ips: # IP addresses to be in scope, multiple methods of inserting ip addresses can be used
+    - 192.0.2.1
+    - 192.0.2.2
+    - 192.168.0.3-8
+    - 192.168.0.10-192.168.0.20
+  asns: # ASNs that are to be in scope
+    - 1234
+    - 5678
+  cidrs: # CIDR ranges that are to be in scope
+    - 192.0.2.0/24
+    - 192.0.2.128/25
+  ports: # ports to be used when actively reaching a service
+    - 80
+    - 443
+  blacklist: # subdomains to be blacklisted
+    - example.example1.com
+options:
+  resolvers: 
+    - 76.76.19.19
+  database: "postgres://username:password@localhost:5432/database?testing=works" # databases URI to be used when adding entries
+  bruteforce: # specific option to use when brute forcing is needed
+    enabled: true
+  alterations: # specific option to use when brute forcing is needed
+    enabled: true
+  engine: "https://username:password@localhost:443/graphql?testing=works" # the URI to the engine
+  confidence: 50 # default confidence level for all transformations unless otherwise specified
+
+transformations:
+  FQDN->IP:
+    priority: 1
+    confidence: 80
+  FQDN->WHOIS:
+    priority: 2
+  FQDN->ALL: 
+    exclude: [TLS,FQDN]
+  IP->IP:
+    priority: 1
+    confidence: 80
+  IP->WHOIS:
+    priority: 2
+  IP->TLS:
+    # leaving both priority and confidence out
