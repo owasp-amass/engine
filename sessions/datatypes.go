@@ -9,8 +9,13 @@ import (
 	"github.com/owasp-amass/config/config"
 )
 
+// Session
+type Session struct {
+	Cfg *config.Config
+}
+
 // SessionStorage is a struct that holds the sessions in memory.
-type Storage struct {
+type Manager struct {
 	mu       sync.RWMutex // Mutex for thread-safety
-	sessions map[uuid.UUID]*config.Config
+	sessions map[uuid.UUID]*Session
 }
