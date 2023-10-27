@@ -5,6 +5,7 @@ package registry
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"plugin"
 	"strings"
@@ -19,13 +20,15 @@ type Registry struct {
 	plugins     map[string]AmassPlugin
 	handlerLock sync.RWMutex
 	handlers    map[types.EventType]map[string][]Handler
+	l           *log.Logger
 }
 
 // Create a new instance of Registry
-func NewRegistry() *Registry {
+func NewRegistry(l *log.Logger) *Registry {
 	return &Registry{
 		plugins:  make(map[string]AmassPlugin),
 		handlers: make(map[types.EventType]map[string][]Handler),
+		l:        l,
 	}
 }
 
@@ -44,7 +47,7 @@ func (r *Registry) LoadPlugins(dir string) error {
 		if strings.HasSuffix(file.Name(), ".so") {
 			p, err := r.loadPlugin(dir + "/" + file.Name())
 			if err != nil {
-				fmt.Printf("Error loading plugin %s: %s\n", file.Name(), err)
+				r.l.Fatalf("Error loading plugin %s: %s\n", file.Name(), err)
 				continue
 			}
 			r.plugins[file.Name()] = p

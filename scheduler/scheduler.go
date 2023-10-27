@@ -10,7 +10,7 @@
  *  						      via the ProcessConfig struct
  */
 
-package events
+package scheduler
 
 import (
 	"fmt"
@@ -20,12 +20,13 @@ import (
 
 	"github.com/caffix/queue"
 	"github.com/google/uuid"
+	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/types"
 )
 
 // NewScheduler creates a new Scheduler instance
 // Use it to initialize the Scheduler
-func NewScheduler(l *log.Logger) *Scheduler {
+func NewScheduler(l *log.Logger, r *registry.Registry) *Scheduler {
 	// Initialize the zero UUID (used to indicate that an event has no dependencies)
 	zeroUUID, _ = uuid.Parse("00000000-0000-0000-0000-000000000000")
 	// Initialize the logger
@@ -37,6 +38,7 @@ func NewScheduler(l *log.Logger) *Scheduler {
 		q:      queue.NewQueue(),
 		events: make(map[uuid.UUID]*types.Event),
 		logger: l,
+		r:      r,
 	}
 }
 
@@ -82,11 +84,11 @@ func (s *Scheduler) Schedule(e *types.Event) error {
 	setupEvent(e)
 
 	// Set the event state to waiting
-	e.State = types.StateWaiting
+	e.State = types.EventStateWaiting
 	for _, dependUUID := range e.DependOn {
 		// If any dependent event is not done, mark the event as not processable
-		if event, exists := s.events[dependUUID]; !exists || event.State != types.StateDone {
-			e.State = types.StateProcessable
+		if event, exists := s.events[dependUUID]; !exists || event.State != types.EventStateDone {
+			e.State = types.EventStateProcessable
 			break
 		} else {
 			if event.Priority <= e.Priority {
@@ -148,7 +150,7 @@ func schedule(s *Scheduler, e *types.Event) error {
 	if eCopy.Action == nil {
 		// Query the Registry to get the action (using the EventType)
 		eCopy.Action = func(e types.Event) error {
-			SetEventState(&e, types.StateDone)
+			SetEventState(&e, types.EventStateDone)
 			return nil
 		}
 	}
@@ -170,7 +172,7 @@ func (s *Scheduler) Cancel(uuid uuid.UUID) {
 	defer s.mutex.Unlock()
 
 	if event, exists := s.events[uuid]; exists {
-		event.State = types.StateCancelled
+		event.State = types.EventStateCancelled
 		// Cancel all the events that depend on this event
 		removeEventAndDeps(s, uuid)
 	}
@@ -183,7 +185,7 @@ func (s *Scheduler) CancelAll() {
 	defer s.mutex.Unlock()
 
 	for _, event := range s.events {
-		event.State = types.StateCancelled
+		event.State = types.EventStateCancelled
 	}
 }
 
@@ -194,7 +196,7 @@ func (s *Scheduler) Shutdown() {
 	defer s.mutex.Unlock()
 
 	for _, event := range s.events {
-		event.State = types.StateCancelled
+		event.State = types.EventStateCancelled
 	}
 	s.state = SchedulerStateShutdown
 }
@@ -223,7 +225,7 @@ func (s *Scheduler) SetEventState(uuid uuid.UUID, state types.EventState) {
 // (private method)
 func setEventState(s *Scheduler, uuid uuid.UUID, state types.EventState) {
 	if event, exists := s.events[uuid]; exists {
-		if (state == types.StateDone || state == types.StateCancelled || state == types.StateError) && s.events[uuid].State == types.StateInProcess {
+		if (state == types.EventStateDone || state == types.EventStateCancelled || state == types.EventStateError) && s.events[uuid].State == types.EventStateInProcess {
 			s.CurrentRunningActions--
 		}
 		event.State = state
@@ -246,7 +248,7 @@ func SetEventState(e *types.Event, state types.EventState) {
 	scheduler.mutex.Lock()
 	defer scheduler.mutex.Unlock()
 
-	if (state == types.StateDone || state == types.StateCancelled || state == types.StateError) && scheduler.events[e.UUID].State == types.StateInProcess {
+	if (state == types.EventStateDone || state == types.EventStateCancelled || state == types.EventStateError) && scheduler.events[e.UUID].State == types.EventStateInProcess {
 		scheduler.CurrentRunningActions--
 	}
 
@@ -262,7 +264,7 @@ func removeEventAndDeps(s *Scheduler, uuid uuid.UUID) {
 			if dependUUID == uuid {
 				// If the event depends on the event we are removing, set its state to cancelled
 				// and remove it from the events map
-				event.State = types.StateCancelled
+				event.State = types.EventStateCancelled
 				delete(s.events, event.UUID)
 			}
 		}
@@ -275,7 +277,7 @@ func reschedule(s *Scheduler, event *types.Event) {
 	// If the event is repeatable, schedule it again
 	if event.RepeatEvery == 0 && event.RepeatTimes > 0 {
 		// If the event is repeatable, schedule it again
-		event.State = types.StateProcessable
+		event.State = types.EventStateProcessable
 		event.RepeatTimes--
 		err := schedule(s, event)
 		if err != nil {
@@ -285,7 +287,7 @@ func reschedule(s *Scheduler, event *types.Event) {
 		// If the event is repeatable, schedule it again
 		// Note: this if statement controls both the repeat every and repeat times
 		//       If we need an event to be repeated for ever, we can set RepeatTimes to -1
-		event.State = types.StateProcessable
+		event.State = types.EventStateProcessable
 		event.Timestamp = time.Now()
 		event.RepeatTimes--
 		err := schedule(s, event)
@@ -294,7 +296,7 @@ func reschedule(s *Scheduler, event *types.Event) {
 		}
 	} else if event.RepeatEvery >= 0 && event.RepeatTimes == -1 {
 		// If the event is repeatable, schedule it again (for ever)
-		event.State = types.StateProcessable
+		event.State = types.EventStateProcessable
 		event.Timestamp = time.Now()
 		err := schedule(s, event)
 		if err != nil {
@@ -311,7 +313,7 @@ func isProcessable(s *Scheduler, event *types.Event, config *ProcessConfig) bool
 	// Check if all dependencies are met
 	canProcess := true
 	for _, dependUUID := range event.DependOn {
-		if depEvent, exists := s.events[dependUUID]; exists && depEvent.State != types.StateDone {
+		if depEvent, exists := s.events[dependUUID]; exists && depEvent.State != types.EventStateDone {
 			if config.DebugLevel > 1 {
 				s.logger.Printf("Event '%s' with name '%s' can't be processed because it depends on event '%s', which is not done yet\n", event.UUID, event.Name, dependUUID)
 				s.logger.Printf("Event '%s' with name '%s' is in state %d\n", dependUUID, depEvent.Name, depEvent.State)
@@ -372,10 +374,10 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		event = element.(types.Event)
 		if ok {
 			// If the event in being processed then continue to the next event
-			if s.events[event.UUID].State == types.StateInProcess {
+			if s.events[event.UUID].State == types.EventStateInProcess {
 				if config.ActionTimeout > 0 {
 					if time.Now().After(event.Timeout) {
-						event.State = types.StateError
+						event.State = types.EventStateError
 					}
 				}
 				if config.DebugLevel > 0 {
@@ -392,8 +394,8 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 			// If the event is cancelled, remove it from the events map
 			// and continue to the next event
-			if s.events[event.UUID].State == types.StateCancelled || s.events[event.UUID].State == types.StateError {
-				if event.State == types.StateError {
+			if s.events[event.UUID].State == types.EventStateCancelled || s.events[event.UUID].State == types.EventStateError {
+				if event.State == types.EventStateError {
 					s.logger.Println("The element presented an error: ", event)
 				}
 				removeEventAndDeps(s, event.UUID)
@@ -402,7 +404,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 
 			// If the event is done, check if it needs to be repeated
-			if s.events[event.UUID].State == types.StateDone {
+			if s.events[event.UUID].State == types.EventStateDone {
 				// Event is completed, check if it needs to be repeated
 				reschedule(s, &event)
 				s.mutex.Unlock()
@@ -434,7 +436,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 			// Set the event state to in process
 			if s.CurrentRunningActions < config.MaxConcurrentActions {
-				event.State = types.StateInProcess
+				event.State = types.EventStateInProcess
 			}
 			event.Timeout = time.Now().Add(time.Duration(config.ActionTimeout) * time.Second)
 
@@ -447,7 +449,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				}
 				// Schedule the event again with its new state
 				err := schedule(s, &event)
-				if event.State != types.StateInProcess {
+				if event.State != types.EventStateInProcess {
 					// If we reached the maximum number of concurrent actions, reschedule the event
 					// and continue to the next event
 					s.mutex.Unlock()

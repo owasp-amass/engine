@@ -13,7 +13,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 )
 
@@ -22,10 +22,10 @@ type Server struct {
 	handler http.Handler
 }
 
-func NewServer(logger *log.Logger, scheduler *events.Scheduler, sessionManager *sessions.Storage) *Server {
+func NewServer(logger *log.Logger, sched *scheduler.Scheduler, sessionManager *sessions.Manager) *Server {
 
 	//r = &Resolver{scheduler: s}
-	srv := handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &Resolver{logger: logger, scheduler: scheduler, sessionManager: sessionManager}}))
+	srv := handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &Resolver{logger: logger, sched: sched, sessionManager: sessionManager}}))
 
 	// Needed for subscription
 	srv.AddTransport(&transport.Websocket{})

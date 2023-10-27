@@ -5,19 +5,32 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/owasp-amass/engine/api/graphql/server"
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 )
 
 func main() {
+	pid := os.Getpid()
+	pidStr := strconv.Itoa(pid)
+	filename := fmt.Sprintf("Amass-%s.log", pidStr)
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("failed to open log file: %v", err)
+	}
+	defer file.Close()
 
-	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	scheduler := events.NewScheduler(logger)
+	// Step 2: Create a new logger instance using `log.New()`
+	logger := log.New(file, "custom-prefix: ", log.LstdFlags)
+	//logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 	sessionManager := sessions.NewStorage()
+	Registry := registry.NewRegistry(logger)
+	Scheduler := scheduler.NewScheduler(logger, Registry)
 
-	config := events.ProcessConfig{
+	config := scheduler.ProcessConfig{
 		ExitWhenEmpty:        false,
 		CheckEvent:           false,
 		ExecuteAction:        true,
@@ -27,8 +40,8 @@ func main() {
 		MaxConcurrentActions: 8,
 	}
 
-	go func(config events.ProcessConfig) {
-		scheduler.Process(config)
+	go func(config scheduler.ProcessConfig) {
+		Scheduler.Process(config)
 		/*
 			err := scheduler.Process(config)
 			if err != nil {
@@ -37,7 +50,7 @@ func main() {
 		*/
 	}(config)
 
-	server := server.NewServer(logger, scheduler, sessionManager)
+	server := server.NewServer(logger, Scheduler, sessionManager)
 	fmt.Println("Started server...")
 	server.Start()
 

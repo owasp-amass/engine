@@ -12,7 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine/api/graphql/server/model"
-	"github.com/owasp-amass/engine/events"
+	"github.com/owasp-amass/engine/sessions"
+	"github.com/owasp-amass/engine/types"
 )
 
 // CreateSession is the resolver for the createSession field.
@@ -38,8 +39,8 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 	}
 
 	// TODO: Add new session logging event
-
-	token := r.sessionManager.Add(&config)
+	newSession := sessions.Session{Cfg: &config}
+	token := r.sessionManager.Add(&newSession)
 
 	model := &model.Session{
 		Token: token.String(),
@@ -54,14 +55,14 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 
 	token, _ := uuid.Parse(input.SessionToken)
 
-	event := &events.Event{
+	event := &types.Event{
 		UUID:    uuid.New(),
 		Name:    *input.AssetName,
 		Session: token,
 		Data:    input.Data,
-		Type:    events.EventTypeSay,
+		Type:    types.EventTypeLog,
 	}
-	r.scheduler.Schedule(event)
+	r.sched.Schedule(event)
 	//r.scheduler.SetEventState()
 
 	testSession := &model.Asset{

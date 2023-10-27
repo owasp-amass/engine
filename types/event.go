@@ -40,14 +40,14 @@ var (
 type EventState int
 
 const (
-	StateDefault EventState = iota // Event is in default state
+	EventStateDefault EventState = iota // Event is in default state
 	// (normally used when the event is created)
-	StateProcessable // Event is processable (all dependencies are met)
-	StateWaiting     // Event is waiting (some dependencies are not met)
-	StateDone        // Event is done (already processed)
-	StateInProcess   // Event is in process (being processed)
-	StateCancelled   // Event is cancelled (not processed)
-	StateError       // Event is in error (not processed)
+	EventStateProcessable // Event is processable (all dependencies are met)
+	EventStateWaiting     // Event is waiting (some dependencies are not met)
+	EventStateDone        // Event is done (already processed)
+	EventStateInProcess   // Event is in process (being processed)
+	EventStateCancelled   // Event is cancelled (not processed)
+	EventStateError       // Event is in error (not processed)
 )
 
 // Event is the struct that represents an event
