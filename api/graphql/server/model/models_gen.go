@@ -27,7 +27,7 @@ type CreateAssetInput struct {
 }
 
 type CreateSessionInput struct {
-	Config *Config `json:"config"`
+	Config interface{} `json:"config"`
 }
 
 type CreateSessionJSONInput struct {
@@ -35,5 +35,14 @@ type CreateSessionJSONInput struct {
 }
 
 type Session struct {
-	Token string `json:"token"`
+	SessionToken string `json:"sessionToken"`
+}
+
+type SessionInput struct {
+	SessionToken string `json:"sessionToken"`
+}
+
+type Time struct {
+	UnixTime  int    `json:"unixTime"`
+	TimeStamp string `json:"timeStamp"`
 }

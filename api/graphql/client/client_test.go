@@ -31,11 +31,10 @@ func TestCreateSessionWithJSON(t *testing.T) {
 
 	client := NewClient("http://localhost:4000/graphql")
 
-	fmt.Println("right here JSON!!!!!!")
 	client.createSessionWithJSON(c)
 }
 
-func TestCreateEvent(t *testing.T) {
+func TestCreateAsset(t *testing.T) {
 
 	// We need a an initilaized session before we can create an event
 
@@ -52,7 +51,26 @@ func TestCreateEvent(t *testing.T) {
 
 	for _, a := range assets {
 		fmt.Printf("%v\n", a)
-		client.createEvent(*a, token)
+		client.createAsset(*a, token)
 	}
 
+}
+
+func TestSubscribe(t *testing.T) {
+
+	c := config.NewConfig()
+	err := config.AcquireConfig("", "config.yml", c)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	client := NewClient("http://localhost:4000/graphql")
+	token, _ := client.createSessionWithJSON(c)
+
+	handler := func(message string) {
+		fmt.Println("Received message:", message)
+	}
+
+	client.Subscribe(token, handler)
+	select {}
 }

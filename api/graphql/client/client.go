@@ -9,23 +9,23 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/owasp-amass/config/config"
-	oam "github.com/owasp-amass/open-asset-model"
+	"github.com/owasp-amass/engine/types"
 	fqdn "github.com/owasp-amass/open-asset-model/domain"
 	oamNet "github.com/owasp-amass/open-asset-model/network"
 )
 
+type Handler func(message string)
+
 type Client struct {
 	url        string
 	httpClient http.Client
-}
-
-type DoesAutoBindFindeMe struct {
-	answer string
 }
 
 func NewClient(url string) *Client {
@@ -34,12 +34,55 @@ func NewClient(url string) *Client {
 	return &Client{url: url, httpClient: *httpClient}
 }
 
+func (c *Client) Subscribe(token uuid.UUID, handler Handler) {
+
+	parsedURL, _ := url.Parse(c.url)
+	parsedURL.Scheme = "ws"
+
+	conn, _, err := websocket.DefaultDialer.Dial(parsedURL.String(), nil)
+	if err != nil {
+		fmt.Println("Error connecting to the WebSocket server:", err)
+	}
+	defer conn.Close()
+
+	// Request subscription from the graphql server
+	query := fmt.Sprintf(`{"query": subscription { logger(sessionToken: "%s") {message} } }`, token.String())
+	err = conn.WriteMessage(websocket.TextMessage, []byte(query))
+	if err != nil {
+		//if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+		//}
+		fmt.Println("Failed to send subscription query", err)
+	}
+
+	fmt.Println("out here:", err)
+	go func() {
+		fmt.Println("Inside here:", err)
+		for {
+			messageType, p, err := conn.ReadMessage()
+			fmt.Println("and here:", err)
+			if err != nil {
+				fmt.Println("Error reading message:", err)
+				//close(done)
+				return
+			}
+
+			if messageType == websocket.TextMessage {
+				fmt.Printf("Received message: %s\n", p)
+			} else {
+				fmt.Printf("Received message: %s\n", p)
+			}
+		}
+	}()
+}
+
 func (c *Client) Query(query string) (string, error) {
 
-	escapedQuery, err := json.Marshal(query)
+	//escapedQuery, err := json.Marshal(query)
+
+	quotedStr := strings.Trim(strconv.Quote((string(query))), `"`)
 
 	//body, err := json.Marshal(fmt.Sprintf(`{"query":"%s"}`, query))
-	body := []byte(fmt.Sprintf(`{"query":%s}`, escapedQuery))
+	body := []byte(fmt.Sprintf(`{"query":"%s"}`, quotedStr))
 	//body := []byte(fmt.Sprintf(`{"query":"%s"}`, query))
 
 	fmt.Println("BODY:\n" + string(body))
@@ -73,22 +116,15 @@ func (c *Client) createSession(config *config.Config) (uuid.UUID, error) {
 	err = json.Unmarshal(configJson, &data)
 
 	q := gqlEncoder(data)
-	q = strings.ReplaceAll(q, "->", "_to_")
+	//q = strings.ReplaceAll(q, "->", "_to_")
 
-	queryStr := fmt.Sprintf(`mutation { createSession(input: {config: %s}) {token} }`, string(q))
+	queryStr := fmt.Sprintf(`mutation { createSession(input: {config: %s}) {sessionToken} }`, string(q))
 	res, err := c.Query(queryStr)
 
 	if err != nil {
 		fmt.Println(err)
 	}
 	fmt.Println("Response:" + res)
-
-	type createSession struct {
-		token string
-	}
-	type gqlResponse struct {
-		data createSession
-	}
 
 	var gqlResp struct {
 		Data struct{ CreateSession struct{ Token string } }
@@ -110,16 +146,21 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 	}
 
 	fmt.Println("CONFIG:" + string(configJson))
-	quotedStr := strconv.Quote((string(configJson)))
+	//quotedStr := configJson
+	quotedStr := strings.Trim(strconv.Quote((string(configJson))), `"`)
 	fmt.Println("QUOTED:" + string(quotedStr))
-	queryStr := fmt.Sprintf(`mutation { createSessionFromJson(input: {config: %s}) {token} }`, quotedStr)
+	queryStr := fmt.Sprintf(`mutation { createSessionFromJson(input: {config: "%s"}) {sessionToken} }`, quotedStr)
 
 	res, err := c.Query(queryStr)
+	if err != nil {
+		fmt.Println("Failed to query sever")
+		return token, err
+	}
 
 	fmt.Println("Response:" + res)
 
 	var gqlResp struct {
-		Data struct{ CreateSessionFromJson struct{ Token string } }
+		Data struct{ CreateSessionFromJson struct{ SessionToken string } }
 	}
 	err = json.Unmarshal([]byte(res), &gqlResp)
 	if err != nil {
@@ -127,12 +168,16 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 		return token, err
 	}
 
-	token, _ = uuid.Parse(gqlResp.Data.CreateSessionFromJson.Token)
+	token, err = uuid.Parse(gqlResp.Data.CreateSessionFromJson.SessionToken)
+	if err != nil {
+		fmt.Println("Could not obtain session token from server")
+		return token, err
+	}
 
 	return token, nil
 }
 
-func (c *Client) createEvent(asset Asset, token uuid.UUID) {
+func (c *Client) createAsset(asset types.Asset, token uuid.UUID) {
 
 	asset.Session = token
 
@@ -156,7 +201,7 @@ func (c *Client) createEvent(asset Asset, token uuid.UUID) {
 }
 
 // returns Asset objects by converting the contests of config.Scope
-func makeAssets(config *config.Config) []*Asset {
+func makeAssets(config *config.Config) []*types.Asset {
 
 	assets := convertScopeToAssets(config.Scope)
 	for i, asset := range assets {
@@ -173,12 +218,12 @@ func gqlEncoder(data interface{}) string {
 
 	switch data.(type) {
 	case map[string]interface{}:
-		q += "{\n"
+		q += "{"
 		for key, val := range data.(map[string]interface{}) {
-			q += fmt.Sprintf("%s: %v\n", key, gqlEncoder(val))
+			q += fmt.Sprintf("%s: %v,", key, gqlEncoder(val))
 		}
-		//q = strings.TrimRight(q, ", ")
-		q += "}\n"
+		q = strings.TrimRight(q, ", ")
+		q += "}"
 	case []interface{}:
 		q += "["
 		for _, val := range data.([]interface{}) {
@@ -200,17 +245,6 @@ const (
 	ipv6 = "IPv6"
 )
 
-type Asset struct {
-	Session uuid.UUID `json:"sessionToken,omitempty"`
-	Name    string    `json:"assetName,omitempty"`
-	Data    AssetData `json:"data,omitempty"`
-}
-
-type AssetData struct {
-	OAMAsset oam.Asset     `json:"asset"`
-	OAMType  oam.AssetType `json:"type"`
-}
-
 // ipnet2Prefix converts a net.IPNet to a netip.Prefix.
 func ipnet2Prefix(ipn net.IPNet) netip.Prefix {
 	addr, _ := netip.AddrFromSlice(ipn.IP)
@@ -219,17 +253,17 @@ func ipnet2Prefix(ipn net.IPNet) netip.Prefix {
 }
 
 // convertScopeToAssets converts all items in a Scope to a slice of *Asset.
-func convertScopeToAssets(scope *config.Scope) []*Asset {
-	var assets []*Asset
+func convertScopeToAssets(scope *config.Scope) []*types.Asset {
+	var assets []*types.Asset
 
 	// Convert Domains to assets.
 	for _, domain := range scope.Domains {
 		fqdn := fqdn.FQDN{Name: domain}
-		data := AssetData{
+		data := types.AssetData{
 			OAMAsset: fqdn,
 			OAMType:  fqdn.AssetType(),
 		}
-		asset := &Asset{
+		asset := &types.Asset{
 			Data: data,
 		}
 		assets = append(assets, asset)
@@ -253,11 +287,11 @@ func convertScopeToAssets(scope *config.Scope) []*Asset {
 
 			// Create an asset from the IP address and append it to the assets slice.
 			asset := oamNet.IPAddress{Address: addr, Type: ipType}
-			data := AssetData{
+			data := types.AssetData{
 				OAMAsset: asset,
 				OAMType:  asset.AssetType(),
 			}
-			assets = append(assets, &Asset{Data: data})
+			assets = append(assets, &types.Asset{Data: data})
 		}
 	}
 
@@ -277,21 +311,21 @@ func convertScopeToAssets(scope *config.Scope) []*Asset {
 
 		// Create an asset from the CIDR and append it to the assets slice.
 		asset := oamNet.Netblock{Cidr: prefix, Type: ipType}
-		data := AssetData{
+		data := types.AssetData{
 			OAMAsset: asset,
 			OAMType:  asset.AssetType(),
 		}
-		assets = append(assets, &Asset{Data: data})
+		assets = append(assets, &types.Asset{Data: data})
 	}
 
 	// Convert ASNs to assets.
 	for _, asn := range scope.ASNs {
 		asset := oamNet.AutonomousSystem{Number: asn}
-		data := AssetData{
+		data := types.AssetData{
 			OAMAsset: asset,
 			OAMType:  asset.AssetType(),
 		}
-		assets = append(assets, &Asset{Data: data})
+		assets = append(assets, &types.Asset{Data: data})
 	}
 
 	return assets

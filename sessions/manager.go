@@ -49,9 +49,9 @@ func NewStorage(EngineLog *log.Logger) *Manager {
 }
 
 // Add: adds a session to a session storage after checking the session config.
-func (ss *Manager) Add(s *Session) uuid.UUID {
+func (ss *Manager) Add(s *Session) (uuid.UUID, error) {
 	if s == nil {
-		return uuid.UUID{}
+		return uuid.UUID{}, nil
 	}
 
 	// passes the EngineLog to the session
@@ -65,7 +65,7 @@ func (ss *Manager) Add(s *Session) uuid.UUID {
 
 	// TODO: Need to add the session config checks here (using the Registry)
 
-	return id
+	return id, nil
 }
 
 // Cancel: cancels a session in a session storage.

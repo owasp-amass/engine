@@ -25,7 +25,10 @@ func TestAddSession001(t *testing.T) {
 	s := &Session{
 		// ...
 	}
-	id := ss.Add(s)
+	id, err := ss.Add(s)
+	if err != nil {
+		t.Error(err)
+	}
 	fmt.Println("Session ID:", id)
 	if id == zeroSessionUUID {
 		t.Error("Session ID is zero")
