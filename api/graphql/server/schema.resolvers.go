@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/owasp-amass/config/config"
@@ -24,7 +25,7 @@ func (r *mutationResolver) CreateSession(ctx context.Context, input model.Create
 	//input.Config
 
 	testSession := &model.Session{
-		Token: "00000000-0000-0000-0000-0000000000033", //?
+		SessionToken: "00000000-0000-0000-0000-0000000000033", //?
 	}
 	return testSession, nil
 }
@@ -38,12 +39,15 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 		fmt.Println(err)
 	}
 
-	// TODO: Add new session logging event
-	newSession := sessions.Session{Cfg: &config}
-	token := r.sessionManager.Add(&newSession)
+	newSession, err := sessions.NewSession(&config)
+	if err != nil {
+		fmt.Println("")
+	}
+
+	token, err := r.sessionManager.Add(newSession)
 
 	model := &model.Session{
-		Token: token.String(),
+		SessionToken: token.String(),
 	}
 	return model, nil
 }
@@ -63,12 +67,16 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 		Type:    types.EventTypeLog,
 	}
 	r.sched.Schedule(event)
-	//r.scheduler.SetEventState()
 
-	testSession := &model.Asset{
+	model := &model.Asset{
 		ID: event.UUID.String(),
 	}
-	return testSession, nil
+	return model, nil
+}
+
+// TerminateSession is the resolver for the terminateSession field.
+func (r *mutationResolver) TerminateSession(ctx context.Context, input model.SessionInput) (*bool, error) {
+	panic(fmt.Errorf("not implemented: TerminateSession - terminateSession"))
 }
 
 // Placeholder is the resolver for the placeholder field.
@@ -76,9 +84,38 @@ func (r *queryResolver) Placeholder(ctx context.Context) (string, error) {
 	panic(fmt.Errorf("not implemented: Placeholder - placeholder"))
 }
 
-// Placeholder is the resolver for the placeholder field.
-func (r *subscriptionResolver) Placeholder(ctx context.Context) (<-chan string, error) {
-	panic(fmt.Errorf("not implemented: Placeholder - placeholder"))
+// CurrentTime is the resolver for the currentTime field.
+func (r *subscriptionResolver) CurrentTime(ctx context.Context) (<-chan *model.Time, error) {
+	ch := make(chan *model.Time)
+	go func() {
+		defer close(ch)
+		for {
+			// In our example we'll send the current time every second.
+			time.Sleep(1 * time.Second)
+			fmt.Println("Tick")
+
+			// Prepare your object.
+			currentTime := time.Now()
+			t := &model.Time{
+				UnixTime:  int(currentTime.Unix()),
+				TimeStamp: currentTime.Format(time.RFC3339),
+			}
+
+			// The subscription may have got closed due to the client disconnecting.
+			// Hence we do send in a select block with a check for context cancellation.
+			// This avoids goroutine getting blocked forever or panicking,
+			select {
+			case <-ctx.Done(): // This runs when context gets cancelled. Subscription closes.
+				fmt.Println("Subscription Closed")
+				// Handle deregistration of the channel here. `close(ch)`
+				return // Remember to return to end the routine.
+
+			case ch <- t: // This is the actual send.
+				// Our message went through, do nothing
+			}
+		}
+	}()
+	return ch, nil
 }
 
 // Mutation returns MutationResolver implementation.

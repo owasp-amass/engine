@@ -1,6 +1,7 @@
 package pubsub_test
 
 import (
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -18,12 +19,18 @@ func TestSessionSpecificLogs(t *testing.T) {
 	session1 := &sessions.Session{
 		PubSub: pubsub.NewLogger(),
 	}
-	session1ID := manager.Add(session1)
+	session1ID, err := manager.Add(session1)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	session2 := &sessions.Session{
 		PubSub: pubsub.NewLogger(),
 	}
-	session2ID := manager.Add(session2)
+	session2ID, err := manager.Add(session2)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	// Subscribe to logs from both sessions
 	sub1 := manager.Get(session1ID).PubSub.Subscribe()

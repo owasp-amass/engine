@@ -1,20 +1,16 @@
 package server
 
 import (
-	//"/graph"
-
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	//	"os"
-
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
+	// "github.com/99designs/gqlgen/graphql/playground"
 )
 
 type Server struct {
@@ -24,13 +20,24 @@ type Server struct {
 
 func NewServer(logger *log.Logger, sched *scheduler.Scheduler, sessionManager *sessions.Manager) *Server {
 
-	//r = &Resolver{scheduler: s}
 	srv := handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &Resolver{logger: logger, sched: sched, sessionManager: sessionManager}}))
 
 	// Needed for subscription
+	// Connecting websocket clients need to support the proper subprotocols \
+	// e.g. graphql-ws, graphql-transport-ws, subscriptions-transport-ws, etc
 	srv.AddTransport(&transport.Websocket{})
-
-	http.Handle("/", playground.Handler("GraphQL playground", "/graphql"))
+	/*
+		srv.AddTransport(transport.Websocket{
+			KeepAlivePingInterval: 10 * time.Second,
+			Upgrader: websocket.Upgrader{
+				CheckOrigin: func(r *http.Request) bool {
+					return true
+				},
+			},
+		})
+	*/
+	// Uncomment to enable playground
+	// http.Handle("/", playground.Handler("GraphQL playground", "/graphql"))
 	http.Handle("/graphql", srv)
 
 	return &Server{
