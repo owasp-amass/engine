@@ -46,8 +46,8 @@ func TestSessionSpecificLogs(t *testing.T) {
 	// Check logs for session1
 	select {
 	case logMsg := <-sub1:
-		if logMsg.Msg != "Test message for session1" {
-			t.Errorf("Expected 'Test message for session1', got: %s", logMsg.Msg)
+		if *logMsg != "Test message for session1" {
+			t.Errorf("Expected 'Test message for session1', got: %s", *logMsg)
 		}
 	default:
 		t.Error("Expected a log message for session1 but didn't receive any")
@@ -56,7 +56,7 @@ func TestSessionSpecificLogs(t *testing.T) {
 	// Ensure no logs for session2
 	select {
 	case logMsg := <-sub2:
-		t.Errorf("Didn't expect a log message for session2, but got: %s", logMsg.Msg)
+		t.Errorf("Didn't expect a log message for session2, but got: %s", *logMsg)
 	default:
 		// This is what we expect, no messages for session2
 	}
@@ -70,8 +70,8 @@ func TestSessionSpecificLogs(t *testing.T) {
 	// Check logs for session2
 	select {
 	case logMsg := <-sub2:
-		if logMsg.Msg != "Test message for session2" {
-			t.Errorf("Expected 'Test message for session2', got: %s", logMsg.Msg)
+		if *logMsg != "Test message for session2" {
+			t.Errorf("Expected 'Test message for session2', got: %s", *logMsg)
 		}
 	default:
 		t.Error("Expected a log message for session2 but didn't receive any")
@@ -80,7 +80,7 @@ func TestSessionSpecificLogs(t *testing.T) {
 	// Ensure no additional logs for session1
 	select {
 	case logMsg := <-sub1:
-		t.Errorf("Didn't expect another log message for session1, but got: %s", logMsg.Msg)
+		t.Errorf("Didn't expect another log message for session1, but got: %s", *logMsg)
 	default:
 		// This is what we expect, no additional messages for session1
 	}

@@ -27,7 +27,11 @@ func main() {
 	//logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 	sessionManager := sessions.NewStorage(logger)
 	Registry := registry.NewRegistry(logger)
-	Registry.LoadPlugins("./plugins")
+	pErr := Registry.LoadPlugins("./plugins")
+	if pErr != nil {
+		logger.Println(pErr)
+		//os.Exit(1)
+	}
 
 	Scheduler := scheduler.NewScheduler(logger, Registry)
 

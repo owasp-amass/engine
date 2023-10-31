@@ -30,14 +30,6 @@ func main() {
 	client := client.NewClient("http://localhost:4000/graphql")
 	token, _ := client.CreateSession(c)
 
-	// Send assets to engine
-	assets := makeAssets(c)
-
-	for _, a := range assets {
-		fmt.Printf("%v\n", a)
-		client.CreateAsset(*a, token)
-	}
-
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
@@ -57,7 +49,16 @@ func main() {
 		}
 	}()
 
-	//client.TerminateSession(token)
+	// Send assets to engine
+	assets := makeAssets(c)
+
+	for _, a := range assets {
+		fmt.Printf("%v\n", a)
+		client.CreateAsset(*a, token)
+	}
+
+	<-interrupt
+	client.TerminateSession(token)
 
 }
 
