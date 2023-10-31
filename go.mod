@@ -52,6 +52,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/owasp-amass/asset-db v0.3.3
 	github.com/owasp-amass/open-asset-model v0.2.1-0.20231026212004-a560d4ce92ac
+	github.com/rubenv/sql-migrate v1.5.2
 	github.com/vektah/gqlparser/v2 v2.5.10
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/gorm v1.25.4

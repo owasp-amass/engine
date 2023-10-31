@@ -1,4 +1,4 @@
-package main_test
+package main
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/owasp-amass/config/config"
+	oamConfig "github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
@@ -16,7 +16,7 @@ import (
 	oamNet "github.com/owasp-amass/open-asset-model/network"
 )
 
-func TestIPLookup(t *testing.T) {
+func TestLookup(t *testing.T) {
 	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// Create a new scheduler.
@@ -25,9 +25,15 @@ func TestIPLookup(t *testing.T) {
 	manager := sessions.NewStorage(logger)
 
 	// Create a new config
-	config := config.NewConfig()
+	config := oamConfig.NewConfig()
 
 	config.Scope.Domains = []string{"owasp.org"}
+
+	transformationSub := oamConfig.Transformation{From: "FQDN", To: "ALL"}
+	config.Transformations["FQDN->ALL"] = &transformationSub
+
+	transformationIP := oamConfig.Transformation{From: "IPAddress", To: "ALL"}
+	config.Transformations["IPAddress->ALL"] = &transformationIP
 	// Create a new session.
 	session, err := sessions.NewSession(config)
 	if err != nil {
@@ -76,13 +82,15 @@ func TestIPLookup(t *testing.T) {
 	fmt.Println("ipEvent: ", ipEvent)
 	fmt.Println("fqdnEvent: ", fqdnEvent)
 
+	plugin := &HackerTargetPlugin{}
+
 	// Test the ipLookup function.
-	err = iplookup(&ipEvent)
+	err = plugin.ipLookup(&ipEvent)
 	if err != nil {
 		t.Errorf("ipLookup failed: %v", err)
 	}
 
-	err = lookupdomain(&fqdnEvent)
+	err = plugin.lookupDomain(&fqdnEvent)
 	if err != nil {
 		t.Errorf("LookupDomain failed: %v", err)
 	}

@@ -20,7 +20,7 @@ import (
 
 // Base URL for the HackerTarget API used for domain lookups.
 const (
-	apiBaseURL = "https://api.hackertarget.com/hostsearch/?q=example.com"
+	apiBaseURL = "https://api.hackertarget.com/hostsearch/?q="
 	ipv4       = "IPv4"
 	ipv6       = "IPv6"
 	asnBaseURL = "https://api.hackertarget.com/aslookup/?q="
@@ -34,32 +34,62 @@ func (p *HackerTargetPlugin) Start(r *registry.Registry) error {
 		registry.Handler{
 			Name:       "HackerTarget-Subdomain-IPHandler",
 			Transforms: []string{"FQDN", "IPAddress"},
-			EventType:  engineTypes.EventTypeLog, //from is FQDN
+			EventType:  oam.FQDN, //from is FQDN
 			Handler:    p.lookupDomain,
 		})
-
+	r.RegisterHandler(
+		registry.Handler{
+			Name:       "HackerTarget-IPHandler",
+			Transforms: []string{"Netblock", "ASN", "RIROrg"},
+			EventType:  oam.IPAddress, //from is IP
+			Handler:    p.ipLookup,
+		})
 	return nil
 }
 
+// lookupDomain determines what type of lookups (subdomain or IP) should be performed
+// based on the event's session configuration.
+//
+// Parameters:
+// - e: The event containing relevant session information.
+//
+// Returns:
+// - error: Any error encountered during the lookup.
 func (p *HackerTargetPlugin) lookupDomain(e *engineTypes.Event) error {
 	// get session config and look at the tansforms to determine the type of events generated
 	session := e.Session.(*sessions.Session)
+	// Extract transformation rules from the session configuration.
 	transforms := session.Cfg.Transformations
+	// Flags to determine the type of lookup required.
 	var ipSwitch, subdomainSwitch bool
 
+	// Iterate over each transformation rule.
 	for _, transform := range transforms {
+		// Convert transformation source and target types to lowercase.
 		fromLower := strings.ToLower(transform.From)
 		toLower := strings.ToLower(transform.To)
+
+		// Check if the transformation is for Fully Qualified Domain Names (FQDNs).
 		if fromLower == "fqdn" {
-			if toLower == "ipaddress" {
+			// Set the corresponding flag based on the transformation target.
+			switch toLower {
+			case "ipaddress":
 				ipSwitch = true
-			}
-			if toLower == "fqdn" {
+			case "fqdn":
 				subdomainSwitch = true
-			}
-			if toLower == "all" {
+			case "all":
+				// If transformation target is "all", set both flags but check exclusions.
 				ipSwitch = true
 				subdomainSwitch = true
+				for _, e := range transform.Exclude {
+					e = strings.ToLower(e)
+					if e == "netblock" {
+						subdomainSwitch = false
+					}
+					if e == "ipaddress" {
+						ipSwitch = false
+					}
+				}
 			}
 		}
 	}
@@ -67,9 +97,60 @@ func (p *HackerTargetPlugin) lookupDomain(e *engineTypes.Event) error {
 	return lookupdomain(e, subdomainSwitch, ipSwitch)
 }
 
+// ipLookup determines what type of IP-related lookups (netblock, ASN, or RIR) should be performed
+// based on the event's session configuration.
+//
+// Parameters:
+// - e: The event containing relevant session information.
+//
+// Returns:
+// - error: Any error encountered during the lookup.
 func (p *HackerTargetPlugin) ipLookup(e *engineTypes.Event) error {
 	// get session config and look at the tansforms to determine the type of events generated
-	return nil
+	session := e.Session.(*sessions.Session)
+	// Extract transformation rules from the session configuration.
+	transforms := session.Cfg.Transformations
+	// Flags to determine the type of lookup required.
+	var netblockSwitch, asnSwitch, rirSwitch bool
+
+	// Iterate over each transformation rule.
+	for _, transform := range transforms {
+		// Convert transformation source and target types to lowercase.
+		fromLower := strings.ToLower(transform.From)
+		toLower := strings.ToLower(transform.To)
+
+		// Check if the transformation is for IP addresses.
+		if fromLower == "ipaddress" {
+			// Set the corresponding flag based on the transformation target.
+			switch toLower {
+			case "netblock":
+				netblockSwitch = true
+			case "asn":
+				asnSwitch = true
+			case "rirorg":
+				rirSwitch = true
+			case "all":
+				// If transformation target is "all", set all flags but check exclusions.
+				netblockSwitch = true
+				asnSwitch = true
+				rirSwitch = true
+				for _, e := range transform.Exclude {
+					e = strings.ToLower(e)
+					if e == "netblock" {
+						netblockSwitch = false
+					}
+					if e == "asn" {
+						asnSwitch = false
+					}
+					if e == "rirorg" {
+						rirSwitch = false
+					}
+				}
+			}
+		}
+	}
+
+	return iplookup(e, netblockSwitch, asnSwitch, rirSwitch)
 }
 
 // newAsset function converts a given name to an appropriate asset type.
