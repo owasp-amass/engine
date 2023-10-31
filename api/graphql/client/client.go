@@ -217,6 +217,7 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 	// Connect
 	parsedURL, _ := url.Parse(c.url)
 	parsedURL.Scheme = "ws"
+	id := uuid.New().String()
 
 	conn, _, err := websocket.DefaultDialer.Dial(parsedURL.String(), nil)
 	if err != nil {
@@ -228,17 +229,17 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 	signal.Notify(interrupt, os.Interrupt)
 
 	// Init
-	message := []byte(`{"type": "connection_init","id": "1","payload": {}}`)
-	err = conn.WriteMessage(websocket.TextMessage, message)
+	message := fmt.Sprintf(`{"type": "connection_init","id": "%s","payload": {}}`, id)
+	err = conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
 		fmt.Println("Error sending message:", err)
 		return nil, err
 	}
 
 	// Start the subscription
-	message = []byte(`{"type": "start","id":"2","payload":{"query":"subscription { logMessages(sessionToken: \"` + token.String() + `\")}"} }`)
+	message = fmt.Sprintf(`{"type": "start","id":"%s","payload":{"query":"subscription { logMessages(sessionToken: \"%s\")}"} }`, id, token.String())
 	fmt.Println("Message:" + string(message))
-	err = conn.WriteMessage(websocket.TextMessage, message)
+	err = conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
 		fmt.Println("Error sending message:", err)
 		return nil, err

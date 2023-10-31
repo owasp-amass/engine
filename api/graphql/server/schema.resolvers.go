@@ -65,14 +65,36 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 
 	// TODO validation againts asset types
 
+	a := input.Data.(map[string]interface{})
+
+	//	a1 := a["asset"].(map[string]interface{})
+
+	var a2 types.AssetData
+	/*
+		for _, a4 := range a1 {
+			a2 = a4.(types.AssetData)
+		}
+	*/
+	/*
+		a2 = types.AssetData{
+			OAMAsset: a1["address"].(oam.Asset),
+			OAMType:  a1["type"].(oam.AssetType),
+		}
+
+	*/
+
 	event := &types.Event{
 		UUID:    uuid.New(),
 		Name:    *input.AssetName,
 		Session: token,
-		Data:    input.Data,
-		Type:    types.EventTypeLog,
+		Data:    a2,
+		Type:    types.EventTypeAsset,
 	}
 	r.sched.Schedule(event)
+	session := r.sessionManager.Get(token)
+	if session != nil {
+		session.PubSub.Publish("Log created asset")
+	}
 
 	model := &model.Asset{
 		ID: event.UUID.String(),
@@ -98,52 +120,16 @@ func (r *subscriptionResolver) LogMessages(ctx context.Context, sessionToken str
 	token, _ := uuid.Parse(sessionToken)
 	session := r.sessionManager.Get(token)
 
-	ch := make(chan *string)
-	var messages string
+	session.PubSub.Publish("Channel created")
+	fmt.Println("LogMessages callled")
 	if session != nil {
-		for m := range session.PubSub.Subscribe() {
-			messages = messages + "\n" + m.Msg
-		}
-		ch <- &messages
+
+		ch := session.PubSub.Subscribe()
+
 		return ch, nil
-	} else {
-		// Invalid Session Token
-		return nil, nil
 	}
 
-	/*
-	   	go func() {
-	   		defer close(ch)
-	   		for {
-
-	   			session := r.sessionManager.Get(token)
-
-	   			var messages []*string
-	   			if session != nil {
-	   				time.Sleep(1 * time.Second)
-
-	   				for m := range session.PubSub.Subscribe() {
-	   					messages = append(messages, &m.Msg)
-	   				}
-	   			}
-
-	   			// The subscription may have got closed due to the client disconnecting.
-	   			// Hence we do send in a select block with a check for context cancellation.
-	   			// This avoids goroutine getting blocked forever or panicking,
-	   			select {
-	   			case <-ctx.Done(): // This runs when context gets cancelled. Subscription closes.
-	   				fmt.Println("Subscription Closed")
-	   				// Handle deregistration of the channel here. `close(ch)`
-	   				return // Remember to return to end the routine.
-
-	   			case ch <- messages: // This is the actual send.
-	   				// Our message went through, do nothing
-	   			}
-	   		}
-	   	}()
-
-	   return ch, nil
-	*/
+	return nil, nil
 }
 
 // Mutation returns MutationResolver implementation.

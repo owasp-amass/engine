@@ -14,8 +14,8 @@ func processEvent(e types.Event, errCh chan error) {
 	switch e.Type {
 	case types.EventTypeAsset:
 		// Get the asset data from the event
-		EventData := e.Data.(types.Asset)
-		assetType := EventData.Data.OAMType
+		EventData := e.Data.(types.AssetData)
+		assetType := EventData.OAMType
 
 		// Get the transformers associated with this event type
 		ss := e.Session.(*sessions.Session)

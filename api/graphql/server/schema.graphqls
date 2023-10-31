@@ -45,12 +45,11 @@ type Time {
 }
 
 type Subscription {
-  #currentTime: Time!
-  logMessages(sessionToken: String!): LogMessage
+  logMessages(sessionToken: String!): String
 }
 
 type Query {
-  placeholder: String!
+  sessionState: String!
 }
 
 input CreateAssetInput {
