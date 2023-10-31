@@ -1,9 +1,11 @@
 package scheduler
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
 )
 
@@ -11,8 +13,29 @@ func processEvent(e types.Event, errCh chan error) {
 	sc := e.Sched.(*Scheduler)
 	switch e.Type {
 	case types.EventTypeAsset:
-		handlers, ok := sc.r.GetHandlers(types.EventTypeAsset, "")
-		if ok != nil {
+		// Get the asset data from the event
+		EventData := e.Data.(types.Asset)
+		assetType := EventData.Data.OAMType
+
+		// Get the transformers associated with this event type
+		ss := e.Session.(*sessions.Session)
+		cfg := ss.Cfg
+
+		// Get the transformers associated with this ss.Cfg
+		// Look up the transformation for the asset type
+		transformation, ok := cfg.Transformations[string(assetType)]
+		if !ok {
+			// No transformations configured for this asset type
+			// So set the event as done and return
+			SetEventState(&e, types.EventStateDone)
+			return
+		}
+		tName := string(transformation.To)
+		tName = strings.ToLower(strings.TrimSpace(tName))
+
+		// Get the handlers associated with this event type
+		handlers, err := sc.r.GetHandlers(assetType, tName)
+		if err != nil {
 			return // Or handle the error appropriately
 		}
 

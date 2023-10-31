@@ -49,7 +49,7 @@ require (
 require (
 	github.com/99designs/gqlgen v0.17.40
 	github.com/owasp-amass/asset-db v0.3.3
-	github.com/owasp-amass/open-asset-model v0.2.0
+	github.com/owasp-amass/open-asset-model v0.2.1-0.20231026212004-a560d4ce92ac
 	github.com/vektah/gqlparser/v2 v2.5.10
 )
 

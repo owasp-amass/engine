@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/owasp-amass/engine/types"
+	oam "github.com/owasp-amass/open-asset-model"
 )
 
 func TestNewRegistry(t *testing.T) {
@@ -29,7 +30,7 @@ func TestRegisterHandler(t *testing.T) {
 		Handler{
 			Name:       "Test-MainHandler",
 			Transforms: []string{"Test-Transform"},
-			EventType:  types.EventTypeLog,
+			EventType:  oam.FQDN,
 			Handler:    FakeHandler,
 		})
 

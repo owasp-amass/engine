@@ -2,6 +2,7 @@ package registry
 
 import (
 	"github.com/owasp-amass/engine/types"
+	oam "github.com/owasp-amass/open-asset-model"
 )
 
 // plugin interface
@@ -15,7 +16,7 @@ type AmassPlugin interface {
 
 type Handler struct {
 	Name       string
-	EventType  types.EventType
+	EventType  oam.AssetType
 	Transforms []string
 	Handler    func(*types.Event) error
 }
