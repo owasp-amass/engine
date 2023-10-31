@@ -1,7 +1,6 @@
 package main
 
 import (
-	//	"fmt"
 	"fmt"
 	"log"
 	"os"
@@ -28,6 +27,8 @@ func main() {
 	//logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 	sessionManager := sessions.NewStorage(logger)
 	Registry := registry.NewRegistry(logger)
+	Registry.LoadPlugins("./plugins")
+
 	Scheduler := scheduler.NewScheduler(logger, Registry)
 
 	config := scheduler.ProcessConfig{

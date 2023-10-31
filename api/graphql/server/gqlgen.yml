@@ -95,6 +95,9 @@ models:
     model:
       - github.com/99designs/gqlgen/graphql.Any
 
+#  LogMessaage:
+#    model:
+#      - github.com/owasp-amass/engine/pubsub.LogMessage
  # OAM:
  #   model:
  #     - github.com/owasp-amass/config/config.Scope

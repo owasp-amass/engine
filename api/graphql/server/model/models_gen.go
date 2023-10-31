@@ -38,10 +38,6 @@ type Session struct {
 	SessionToken string `json:"sessionToken"`
 }
 
-type SessionInput struct {
-	SessionToken string `json:"sessionToken"`
-}
-
 type Time struct {
 	UnixTime  int    `json:"unixTime"`
 	TimeStamp string `json:"timeStamp"`

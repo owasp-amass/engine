@@ -57,7 +57,7 @@ type ComplexityRoot struct {
 		CreateAsset           func(childComplexity int, input model.CreateAssetInput) int
 		CreateSession         func(childComplexity int, input model.CreateSessionInput) int
 		CreateSessionFromJSON func(childComplexity int, input model.CreateSessionJSONInput) int
-		TerminateSession      func(childComplexity int, input model.SessionInput) int
+		TerminateSession      func(childComplexity int, sessionToken string) int
 	}
 
 	Query struct {
@@ -69,7 +69,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		CurrentTime func(childComplexity int) int
+		LogMessages func(childComplexity int, sessionToken string) int
 	}
 
 	Time struct {
@@ -82,13 +82,13 @@ type MutationResolver interface {
 	CreateSession(ctx context.Context, input model.CreateSessionInput) (*model.Session, error)
 	CreateSessionFromJSON(ctx context.Context, input model.CreateSessionJSONInput) (*model.Session, error)
 	CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error)
-	TerminateSession(ctx context.Context, input model.SessionInput) (*bool, error)
+	TerminateSession(ctx context.Context, sessionToken string) (*bool, error)
 }
 type QueryResolver interface {
 	Placeholder(ctx context.Context) (string, error)
 }
 type SubscriptionResolver interface {
-	CurrentTime(ctx context.Context) (<-chan *model.Time, error)
+	LogMessages(ctx context.Context, sessionToken string) (<-chan *string, error)
 }
 
 type executableSchema struct {
@@ -163,7 +163,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.TerminateSession(childComplexity, args["input"].(model.SessionInput)), true
+		return e.complexity.Mutation.TerminateSession(childComplexity, args["sessionToken"].(string)), true
 
 	case "Query.placeholder":
 		if e.complexity.Query.Placeholder == nil {
@@ -179,12 +179,17 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Session.SessionToken(childComplexity), true
 
-	case "Subscription.currentTime":
-		if e.complexity.Subscription.CurrentTime == nil {
+	case "Subscription.logMessages":
+		if e.complexity.Subscription.LogMessages == nil {
 			break
 		}
 
-		return e.complexity.Subscription.CurrentTime(childComplexity), true
+		args, err := ec.field_Subscription_logMessages_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.LogMessages(childComplexity, args["sessionToken"].(string)), true
 
 	case "Time.timeStamp":
 		if e.complexity.Time.TimeStamp == nil {
@@ -212,7 +217,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputCreateAssetInput,
 		ec.unmarshalInputCreateSessionInput,
 		ec.unmarshalInputCreateSessionJsonInput,
-		ec.unmarshalInputSessionInput,
 	)
 	first := true
 
@@ -394,15 +398,15 @@ func (ec *executionContext) field_Mutation_createSession_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_terminateSession_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.SessionInput
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNSessionInput2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐSessionInput(ctx, tmp)
+	var arg0 string
+	if tmp, ok := rawArgs["sessionToken"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sessionToken"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["input"] = arg0
+	args["sessionToken"] = arg0
 	return args, nil
 }
 
@@ -418,6 +422,21 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		}
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_logMessages_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["sessionToken"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sessionToken"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["sessionToken"] = arg0
 	return args, nil
 }
 
@@ -685,7 +704,7 @@ func (ec *executionContext) _Mutation_terminateSession(ctx context.Context, fiel
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().TerminateSession(rctx, fc.Args["input"].(model.SessionInput))
+		return ec.resolvers.Mutation().TerminateSession(rctx, fc.Args["sessionToken"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -940,8 +959,8 @@ func (ec *executionContext) fieldContext_Session_sessionToken(ctx context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Subscription_currentTime(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
-	fc, err := ec.fieldContext_Subscription_currentTime(ctx, field)
+func (ec *executionContext) _Subscription_logMessages(ctx context.Context, field graphql.CollectedField) (ret func(ctx context.Context) graphql.Marshaler) {
+	fc, err := ec.fieldContext_Subscription_logMessages(ctx, field)
 	if err != nil {
 		return nil
 	}
@@ -954,21 +973,18 @@ func (ec *executionContext) _Subscription_currentTime(ctx context.Context, field
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Subscription().CurrentTime(rctx)
+		return ec.resolvers.Subscription().LogMessages(rctx, fc.Args["sessionToken"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return nil
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return nil
 	}
 	return func(ctx context.Context) graphql.Marshaler {
 		select {
-		case res, ok := <-resTmp.(<-chan *model.Time):
+		case res, ok := <-resTmp.(<-chan *string):
 			if !ok {
 				return nil
 			}
@@ -976,7 +992,7 @@ func (ec *executionContext) _Subscription_currentTime(ctx context.Context, field
 				w.Write([]byte{'{'})
 				graphql.MarshalString(field.Alias).MarshalGQL(w)
 				w.Write([]byte{':'})
-				ec.marshalNTime2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐTime(ctx, field.Selections, res).MarshalGQL(w)
+				ec.marshalOLogMessage2ᚖstring(ctx, field.Selections, res).MarshalGQL(w)
 				w.Write([]byte{'}'})
 			})
 		case <-ctx.Done():
@@ -985,21 +1001,26 @@ func (ec *executionContext) _Subscription_currentTime(ctx context.Context, field
 	}
 }
 
-func (ec *executionContext) fieldContext_Subscription_currentTime(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Subscription_logMessages(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Subscription",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "unixTime":
-				return ec.fieldContext_Time_unixTime(ctx, field)
-			case "timeStamp":
-				return ec.fieldContext_Time_timeStamp(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Time", field.Name)
+			return nil, errors.New("field of type LogMessage does not have child fields")
 		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Subscription_logMessages_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -3089,35 +3110,6 @@ func (ec *executionContext) unmarshalInputCreateSessionJsonInput(ctx context.Con
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputSessionInput(ctx context.Context, obj interface{}) (model.SessionInput, error) {
-	var it model.SessionInput
-	asMap := map[string]interface{}{}
-	for k, v := range obj.(map[string]interface{}) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"sessionToken"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "sessionToken":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sessionToken"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.SessionToken = data
-		}
-	}
-
-	return it, nil
-}
-
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -3347,8 +3339,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	}
 
 	switch fields[0].Name {
-	case "currentTime":
-		return ec._Subscription_currentTime(ctx, fields[0])
+	case "logMessages":
+		return ec._Subscription_logMessages(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
@@ -3805,11 +3797,6 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) unmarshalNSessionInput2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐSessionInput(ctx context.Context, v interface{}) (model.SessionInput, error) {
-	res, err := ec.unmarshalInputSessionInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -3823,20 +3810,6 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
-}
-
-func (ec *executionContext) marshalNTime2githubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐTime(ctx context.Context, sel ast.SelectionSet, v model.Time) graphql.Marshaler {
-	return ec._Time(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNTime2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐTime(ctx context.Context, sel ast.SelectionSet, v *model.Time) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._Time(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
@@ -4218,6 +4191,22 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 		return graphql.Null
 	}
 	res := graphql.MarshalInt(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOLogMessage2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalString(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOLogMessage2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	res := graphql.MarshalString(*v)
 	return res
 }
 
