@@ -290,16 +290,16 @@ func IpLookup(e *engineTypes.Event, netblockSwitch, asnSwitch, rirSwitch bool) e
 			return fmt.Errorf("failed to store netblock in db: %v", err)
 		}
 		// Relate the provided IP to the netblock.
-		_, err = session.DB.Create(iDB, "contains", ipAsset) /* Error IS checked at line 301-303. The idea was to not have redundant errors for
-		        -											  A scenario where it depends on the conditional. Meaning the possibility of both
-				-											  conditions being true, and the error being thrown twice, is impossible.*/
+		_, err = session.DB.Create(iDB, "contains", ipAsset)
+		if err != nil {
+			return fmt.Errorf("failed to store ip in db: %v", err)
+		}
 	} else {
 		// Store the IP in the database if not processing netblock details.
 		_, err = session.DB.Create(nil, "", ipAsset)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to store ip in db: %v", err)
+		if err != nil {
+			return fmt.Errorf("failed to store ip in db: %v", err)
+		}
 	}
 
 	return nil
