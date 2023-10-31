@@ -48,17 +48,21 @@ require (
 
 require (
 	github.com/99designs/gqlgen v0.17.40
+	github.com/glebarez/sqlite v1.9.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/owasp-amass/asset-db v0.3.3
 	github.com/owasp-amass/open-asset-model v0.2.0
+	github.com/rubenv/sql-migrate v1.5.2
 	github.com/vektah/gqlparser/v2 v2.5.10
+	gorm.io/driver/postgres v1.5.2
+	gorm.io/gorm v1.25.4
 )
 
 require (
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
-	github.com/glebarez/sqlite v1.9.0 // indirect
+	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.3 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
@@ -72,8 +76,6 @@ require (
 	golang.org/x/crypto v0.14.0 // indirect
 	gorm.io/datatypes v1.2.0 // indirect
 	gorm.io/driver/mysql v1.5.1 // indirect
-	gorm.io/driver/postgres v1.5.2 // indirect
-	gorm.io/gorm v1.25.4 // indirect
 	modernc.org/libc v1.24.1 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.7.1 // indirect
