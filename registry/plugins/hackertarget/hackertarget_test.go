@@ -1,13 +1,13 @@
-package api_test
+package main_test
 
 import (
+	"fmt"
 	"log"
 	"net/netip"
 	"os"
 	"testing"
 
 	"github.com/owasp-amass/config/config"
-	. "github.com/owasp-amass/engine/registry/api"
 	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
@@ -73,13 +73,16 @@ func TestIPLookup(t *testing.T) {
 		Session:   session,
 	}
 
+	fmt.Println("ipEvent: ", ipEvent)
+	fmt.Println("fqdnEvent: ", fqdnEvent)
+
 	// Test the ipLookup function.
-	err = IpLookup(&ipEvent, true, true, true)
+	err = iplookup(&ipEvent)
 	if err != nil {
 		t.Errorf("ipLookup failed: %v", err)
 	}
 
-	err = LookupDomain(&fqdnEvent, true, true)
+	err = lookupdomain(&fqdnEvent)
 	if err != nil {
 		t.Errorf("LookupDomain failed: %v", err)
 	}

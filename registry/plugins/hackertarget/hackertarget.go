@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"encoding/csv"
@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	DBtypes "github.com/owasp-amass/asset-db/types"
+	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 	engineTypes "github.com/owasp-amass/engine/types"
@@ -18,11 +20,57 @@ import (
 
 // Base URL for the HackerTarget API used for domain lookups.
 const (
-	apiBaseURL = "https://api.hackertarget.com/hostsearch/?q="
+	apiBaseURL = "https://api.hackertarget.com/hostsearch/?q=example.com"
 	ipv4       = "IPv4"
 	ipv6       = "IPv6"
 	asnBaseURL = "https://api.hackertarget.com/aslookup/?q="
 )
+
+type HackerTargetPlugin struct{}
+
+func (p *HackerTargetPlugin) Start(r *registry.Registry) error {
+	// Register the handler
+	r.RegisterHandler(
+		registry.Handler{
+			Name:       "HackerTarget-Subdomain-IPHandler",
+			Transforms: []string{"FQDN", "IPAddress"},
+			EventType:  engineTypes.EventTypeLog, //from is FQDN
+			Handler:    p.lookupDomain,
+		})
+
+	return nil
+}
+
+func (p *HackerTargetPlugin) lookupDomain(e *engineTypes.Event) error {
+	// get session config and look at the tansforms to determine the type of events generated
+	session := e.Session.(*sessions.Session)
+	transforms := session.Cfg.Transformations
+	var ipSwitch, subdomainSwitch bool
+
+	for _, transform := range transforms {
+		fromLower := strings.ToLower(transform.From)
+		toLower := strings.ToLower(transform.To)
+		if fromLower == "fqdn" {
+			if toLower == "ipaddress" {
+				ipSwitch = true
+			}
+			if toLower == "fqdn" {
+				subdomainSwitch = true
+			}
+			if toLower == "all" {
+				ipSwitch = true
+				subdomainSwitch = true
+			}
+		}
+	}
+
+	return lookupdomain(e, subdomainSwitch, ipSwitch)
+}
+
+func (p *HackerTargetPlugin) ipLookup(e *engineTypes.Event) error {
+	// get session config and look at the tansforms to determine the type of events generated
+	return nil
+}
 
 // newAsset function converts a given name to an appropriate asset type.
 // This function serves as a helper to abstract the details of asset creation.
@@ -71,7 +119,7 @@ func newAsset(name string, assetType oam.AssetType) (oam.Asset, error) {
 }
 
 // LookupDomain function queries the HackerTarget API for subdomains and IPs related to a root domain.
-func LookupDomain(e *engineTypes.Event, subdomainSwitch, ipSwitch bool) error {
+func lookupdomain(e *engineTypes.Event, subdomainSwitch, ipSwitch bool) error {
 	// Extracting the root domain from the event data.
 	rootDomain := e.Data.(engineTypes.AssetData).OAMAsset.(oamDom.FQDN).Name
 
@@ -172,7 +220,7 @@ func LookupDomain(e *engineTypes.Event, subdomainSwitch, ipSwitch bool) error {
 
 // IpLookup function queries the HackerTarget API using an IP address
 // to retrieve related ASN, netblock, and RIR details.
-func IpLookup(e *engineTypes.Event, netblockSwitch, asnSwitch, rirSwitch bool) error {
+func iplookup(e *engineTypes.Event, netblockSwitch, asnSwitch, rirSwitch bool) error {
 
 	// Grab the asset of the data.
 	ipAsset := e.Data.(engineTypes.AssetData).OAMAsset

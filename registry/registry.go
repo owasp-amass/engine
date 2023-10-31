@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/owasp-amass/engine/types"
+	oam "github.com/owasp-amass/open-asset-model"
 )
 
 // Registry storage
@@ -19,7 +19,7 @@ type Registry struct {
 	pluginLock  sync.Mutex
 	plugins     map[string]AmassPlugin
 	handlerLock sync.RWMutex
-	handlers    map[types.EventType]map[string][]Handler
+	handlers    map[oam.AssetType]map[string][]Handler
 	l           *log.Logger
 }
 
@@ -27,7 +27,7 @@ type Registry struct {
 func NewRegistry(l *log.Logger) *Registry {
 	return &Registry{
 		plugins:  make(map[string]AmassPlugin),
-		handlers: make(map[types.EventType]map[string][]Handler),
+		handlers: make(map[oam.AssetType]map[string][]Handler),
 		l:        l,
 	}
 }
@@ -84,12 +84,9 @@ func (r *Registry) loadPlugin(path string) (AmassPlugin, error) {
 // Register a Plugin Handler on the registry:
 func (r *Registry) RegisterHandler(h Handler) error {
 	// Check if the event Type is correct
-	if h.EventType < 0 || h.EventType > types.EventType(types.MaxEventTypes) {
-		return fmt.Errorf("invalid EventType")
-	}
+	// TODO: Check if the event Type is correct against the OAM relationships
 
-	// TODO: Use the Transformation against the OAM relationships to ensure that
-	//       the EventType and Transformation have a relationship
+	// Check if the handler is already registered
 	for _, transformation := range h.Transforms {
 		// Check if this transformation has a relationship with the eventType
 		if transformation == "" {
@@ -99,34 +96,33 @@ func (r *Registry) RegisterHandler(h Handler) error {
 
 	r.handlerLock.Lock()
 	defer r.handlerLock.Unlock()
+
 	// All checks passed, let's add the handler to the registry
-	//r.HandlersMap[h.EventType] = append(r.HandlersMap[h.EventType], h.Handler)
 	if _, ok := r.handlers[h.EventType]; !ok {
 		for _, transformation := range h.Transforms {
 			r.handlers[h.EventType] = make(map[string][]Handler)
-			r.handlers[h.EventType][transformation] = append(r.handlers[h.EventType][transformation], h)
+			tName := strings.ToLower(strings.TrimSpace(transformation))
+			r.handlers[h.EventType][transformation] = append(r.handlers[h.EventType][tName], h)
 		}
 	} else {
 		if _, ok := r.handlers[h.EventType][h.Name]; ok {
-			return fmt.Errorf("handler %s already registered for EventType %d", h.Name, h.EventType)
+			return fmt.Errorf("handler %s already registered for EventType %s", h.Name, h.EventType)
 		}
 	}
 	return nil
 }
 
 // Returns a list of handlers for a given event type. Assets can optionally be specified to filter transforms.
-func (r *Registry) GetHandlers(eventType types.EventType, transforms ...string) ([]Handler, error) {
+func (r *Registry) GetHandlers(eventType oam.AssetType, transforms ...string) ([]Handler, error) {
 	// Check if the event Type is correct
-	if eventType < 0 || eventType > types.EventType(types.MaxEventTypes) {
-		return nil, fmt.Errorf("invalid EventType")
-	}
+	// TODO: Check if the event Type is correct against the OAM relationships
 
 	r.handlerLock.RLock()
 	defer r.handlerLock.RUnlock()
 	// Check if there are any handlers registered for this EventType
 	trans, ok := r.handlers[eventType]
 	if !ok {
-		return nil, fmt.Errorf("no handlers registered for EventType %d", eventType)
+		return nil, fmt.Errorf("no handlers registered for EventType %s", eventType)
 	}
 
 	var results []Handler
