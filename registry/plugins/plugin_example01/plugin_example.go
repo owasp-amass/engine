@@ -8,7 +8,7 @@ import (
 
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/types"
-	// Add OAM dependency (the Plugin has to deal with the response)
+	oam "github.com/owasp-amass/open-asset-model"
 )
 
 type PluginOne struct{}
@@ -26,7 +26,7 @@ func (p *PluginOne) Start(r *registry.Registry) error {
 		registry.Handler{
 			Name:       "PluginOne-MainHandler",
 			Transforms: []string{"Test-Transform"},
-			EventType:  types.EventTypeLog,
+			EventType:  oam.FQDN,
 			Handler:    p.handleSampleEvent,
 		})
 

@@ -372,45 +372,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		var event types.Event
 		element, ok := s.q.Next() // workaround to get all events
 		event = element.(types.Event)
-		if ok {
-			// If the event in being processed then continue to the next event
-			if s.events[event.UUID].State == types.EventStateInProcess {
-				if config.ActionTimeout > 0 {
-					if time.Now().After(event.Timeout) {
-						event.State = types.EventStateError
-					}
-				}
-				if config.DebugLevel > 0 {
-					s.logger.Println("Event in process: ", event)
-				}
-				err := schedule(s, &event)
-				if err == nil {
-					s.mutex.Unlock()
-					continue
-				} else {
-					s.logger.Println(err)
-				}
-			}
-
-			// If the event is cancelled, remove it from the events map
-			// and continue to the next event
-			if s.events[event.UUID].State == types.EventStateCancelled || s.events[event.UUID].State == types.EventStateError {
-				if event.State == types.EventStateError {
-					s.logger.Println("The element presented an error: ", event)
-				}
-				removeEventAndDeps(s, event.UUID)
-				s.mutex.Unlock()
-				continue
-			}
-
-			// If the event is done, check if it needs to be repeated
-			if s.events[event.UUID].State == types.EventStateDone {
-				// Event is completed, check if it needs to be repeated
-				reschedule(s, &event)
-				s.mutex.Unlock()
-				continue
-			}
-		}
 		if !ok {
 			// If the event is not ok, remove it from the events map
 			// and continue to the next event
@@ -418,6 +379,44 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			if config.DebugLevel > 0 {
 				s.logger.Println("The element presented a problem: ", event)
 			}
+			s.mutex.Unlock()
+			continue
+		}
+
+		// If the event in being processed then continue to the next event
+		if s.events[event.UUID].State == types.EventStateInProcess {
+			if config.ActionTimeout > 0 {
+				if time.Now().After(event.Timeout) {
+					event.State = types.EventStateError
+				}
+			}
+			if config.DebugLevel > 0 {
+				s.logger.Println("Event in process: ", event)
+			}
+			err := schedule(s, &event)
+			if err == nil {
+				s.mutex.Unlock()
+				continue
+			} else {
+				s.logger.Println(err)
+			}
+		}
+
+		// If the event is cancelled, remove it from the events map
+		// and continue to the next event
+		if s.events[event.UUID].State == types.EventStateCancelled || s.events[event.UUID].State == types.EventStateError {
+			if event.State == types.EventStateError {
+				s.logger.Println("The element presented an error: ", event)
+			}
+			removeEventAndDeps(s, event.UUID)
+			s.mutex.Unlock()
+			continue
+		}
+
+		// If the event is done, check if it needs to be repeated
+		if s.events[event.UUID].State == types.EventStateDone {
+			// Event is completed, check if it needs to be repeated
+			reschedule(s, &event)
 			s.mutex.Unlock()
 			continue
 		}
@@ -460,13 +459,8 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					// Increment the number of running actions
 					s.CurrentRunningActions++
 
-					// Execute the action in a goroutine
-					go func(e types.Event) {
-						err := e.Action(e)
-						if err != nil {
-							errCh <- err
-						}
-					}(event)
+					// Process the event in a goroutine
+					go processEvent(event, errCh)
 				}
 			}
 
