@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/owasp-amass/config/config"
@@ -39,12 +38,17 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 		fmt.Println(err)
 	}
 
+	// TODO pefrorm check againsts asset list
+
 	newSession, err := sessions.NewSession(&config)
 	if err != nil {
-		fmt.Println("")
+		fmt.Println(err)
 	}
 
 	token, err := r.sessionManager.Add(newSession)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	model := &model.Session{
 		SessionToken: token.String(),
@@ -58,6 +62,8 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 	fmt.Printf("%#v\n", input)
 
 	token, _ := uuid.Parse(input.SessionToken)
+
+	// TODO validation againts asset types
 
 	event := &types.Event{
 		UUID:    uuid.New(),
@@ -75,8 +81,11 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 }
 
 // TerminateSession is the resolver for the terminateSession field.
-func (r *mutationResolver) TerminateSession(ctx context.Context, input model.SessionInput) (*bool, error) {
-	panic(fmt.Errorf("not implemented: TerminateSession - terminateSession"))
+func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken string) (*bool, error) {
+	result := true
+	token, _ := uuid.Parse(sessionToken)
+	r.sessionManager.Cancel(token)
+	return &result, nil
 }
 
 // Placeholder is the resolver for the placeholder field.
@@ -84,38 +93,57 @@ func (r *queryResolver) Placeholder(ctx context.Context) (string, error) {
 	panic(fmt.Errorf("not implemented: Placeholder - placeholder"))
 }
 
-// CurrentTime is the resolver for the currentTime field.
-func (r *subscriptionResolver) CurrentTime(ctx context.Context) (<-chan *model.Time, error) {
-	ch := make(chan *model.Time)
-	go func() {
-		defer close(ch)
-		for {
-			// In our example we'll send the current time every second.
-			time.Sleep(1 * time.Second)
-			fmt.Println("Tick")
+// LogMessages is the resolver for the logMessages field.
+func (r *subscriptionResolver) LogMessages(ctx context.Context, sessionToken string) (<-chan *string, error) {
+	token, _ := uuid.Parse(sessionToken)
+	session := r.sessionManager.Get(token)
 
-			// Prepare your object.
-			currentTime := time.Now()
-			t := &model.Time{
-				UnixTime:  int(currentTime.Unix()),
-				TimeStamp: currentTime.Format(time.RFC3339),
-			}
-
-			// The subscription may have got closed due to the client disconnecting.
-			// Hence we do send in a select block with a check for context cancellation.
-			// This avoids goroutine getting blocked forever or panicking,
-			select {
-			case <-ctx.Done(): // This runs when context gets cancelled. Subscription closes.
-				fmt.Println("Subscription Closed")
-				// Handle deregistration of the channel here. `close(ch)`
-				return // Remember to return to end the routine.
-
-			case ch <- t: // This is the actual send.
-				// Our message went through, do nothing
-			}
+	ch := make(chan *string)
+	var messages string
+	if session != nil {
+		for m := range session.PubSub.Subscribe() {
+			messages = messages + "\n" + m.Msg
 		}
-	}()
-	return ch, nil
+		ch <- &messages
+		return ch, nil
+	} else {
+		// Invalid Session Token
+		return nil, nil
+	}
+
+	/*
+	   	go func() {
+	   		defer close(ch)
+	   		for {
+
+	   			session := r.sessionManager.Get(token)
+
+	   			var messages []*string
+	   			if session != nil {
+	   				time.Sleep(1 * time.Second)
+
+	   				for m := range session.PubSub.Subscribe() {
+	   					messages = append(messages, &m.Msg)
+	   				}
+	   			}
+
+	   			// The subscription may have got closed due to the client disconnecting.
+	   			// Hence we do send in a select block with a check for context cancellation.
+	   			// This avoids goroutine getting blocked forever or panicking,
+	   			select {
+	   			case <-ctx.Done(): // This runs when context gets cancelled. Subscription closes.
+	   				fmt.Println("Subscription Closed")
+	   				// Handle deregistration of the channel here. `close(ch)`
+	   				return // Remember to return to end the routine.
+
+	   			case ch <- messages: // This is the actual send.
+	   				// Our message went through, do nothing
+	   			}
+	   		}
+	   	}()
+
+	   return ch, nil
+	*/
 }
 
 // Mutation returns MutationResolver implementation.

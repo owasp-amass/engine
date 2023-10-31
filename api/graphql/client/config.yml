@@ -23,12 +23,12 @@ scope:
 options:
   resolvers: 
     - 76.76.19.19
-  database: "postgres://username:password@localhost:5432/database?testing=works" # databases URI to be used when adding entries
+  #database: "postgres://username:password@localhost:5432/database?testing=works" # databases URI to be used when adding entries
   bruteforce: # specific option to use when brute forcing is needed
     enabled: true
   alterations: # specific option to use when brute forcing is needed
     enabled: true
-  engine: "https://username:password@localhost:443/graphql?testing=works" # the URI to the engine
+  engine: "https://username:password@localhost:4000/graphql" # the URI to the engine
   confidence: 50 # default confidence level for all transformations unless otherwise specified
 
 transformations:

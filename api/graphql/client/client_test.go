@@ -2,9 +2,12 @@ package client
 
 import (
 	"fmt"
+	"net/netip"
 	"testing"
 
 	"github.com/owasp-amass/config/config"
+	"github.com/owasp-amass/engine/types"
+	oamNet "github.com/owasp-amass/open-asset-model/network"
 )
 
 func TestCreateSession(t *testing.T) {
@@ -17,8 +20,10 @@ func TestCreateSession(t *testing.T) {
 
 	client := NewClient("http://localhost:4000/graphql")
 
-	fmt.Println("right here")
-	client.createSession(c)
+	client.CreateSession(c)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func TestCreateSessionWithJSON(t *testing.T) {
@@ -47,13 +52,18 @@ func TestCreateAsset(t *testing.T) {
 	client := NewClient("http://localhost:4000/graphql")
 	token, _ := client.createSessionWithJSON(c)
 
-	assets := makeAssets(c)
-
-	for _, a := range assets {
-		fmt.Printf("%v\n", a)
-		client.createAsset(*a, token)
+	addr, _ := netip.ParseAddr("192.168.0.1")
+	asset := oamNet.IPAddress{Address: addr, Type: "IPv4"}
+	data := types.AssetData{
+		OAMAsset: asset,
+		OAMType:  asset.AssetType(),
 	}
 
+	a := types.Asset{
+		Session: token, Name: "Asset#1", Data: data,
+	}
+
+	client.CreateAsset(a, token)
 }
 
 func TestSubscribe(t *testing.T) {
@@ -67,10 +77,13 @@ func TestSubscribe(t *testing.T) {
 	client := NewClient("http://localhost:4000/graphql")
 	token, _ := client.createSessionWithJSON(c)
 
-	handler := func(message string) {
-		fmt.Println("Received message:", message)
-	}
-
-	client.Subscribe(token, handler)
+	/*
+		handler := func(message string) {
+			fmt.Println("Received message:", message)
+		}
+	*/
+	ch, err := client.Subscribe(token)
+	m := <-ch
+	fmt.Println(m)
 	select {}
 }

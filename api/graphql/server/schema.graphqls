@@ -1,5 +1,7 @@
 scalar JSON
 scalar Any
+scalar LogMessage
+
 
 input Config {
    scope: [Any]
@@ -15,22 +17,18 @@ input Config {
    alterations: Boolean
 }
 
-scalar OAM
-
-#type Thing {
- # config: String!
-#  mvar: OAM
-#}
-
-
 
 
 type Session {
-  token: ID!
+  sessionToken: ID!
 }
 
+#input SessionInput {
+#  sessionToken: ID!
+#}
+
 input CreateSessionInput {
-  config: Config!
+  config: Any!
 }
 
 input CreateSessionJsonInput {
@@ -41,8 +39,14 @@ type Asset {
   id: ID!
 }
 
+type Time {
+  unixTime: Int!
+  timeStamp: String!
+}
+
 type Subscription {
-  placeholder: String!
+  #currentTime: Time!
+  logMessages(sessionToken: String!): LogMessage
 }
 
 type Query {
@@ -59,6 +63,7 @@ type Mutation {
   createSession(input: CreateSessionInput!): Session
   createSessionFromJson(input: CreateSessionJsonInput!): Session
   createAsset(input: CreateAssetInput!): Asset
+  terminateSession(sessionToken: String!): Boolean
 }
 
 
