@@ -1,4 +1,4 @@
-package main
+package hackertarget
 
 import (
 	"encoding/csv"
@@ -35,14 +35,14 @@ func (p *HackerTargetPlugin) Start(r *registry.Registry) error {
 	r.RegisterHandler(
 		registry.Handler{
 			Name:       "HackerTarget-Subdomain-IPHandler",
-			Transforms: []string{"FQDN", "IPAddress"},
+			Transforms: []string{"fqdn", "ipaddress"},
 			EventType:  oam.FQDN, //from is FQDN
 			Handler:    p.lookupDomain,
 		})
 	r.RegisterHandler(
 		registry.Handler{
 			Name:       "HackerTarget-IPHandler",
-			Transforms: []string{"Netblock", "ASN", "RIROrg"},
+			Transforms: []string{"netblock", "asn", "rirorg"},
 			EventType:  oam.IPAddress, //from is IP
 			Handler:    p.ipLookup,
 		})
@@ -85,7 +85,7 @@ func (p *HackerTargetPlugin) lookupDomain(e *engineTypes.Event) error {
 				subdomainSwitch = true
 				for _, e := range transform.Exclude {
 					e = strings.ToLower(e)
-					if e == "netblock" {
+					if e == "fqdn" {
 						subdomainSwitch = false
 					}
 					if e == "ipaddress" {

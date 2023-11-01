@@ -1,6 +1,6 @@
 module github.com/owasp-amass/engine
 
-go 1.21.1
+go 1.21.3
 
 require github.com/owasp-amass/config v0.1.6-0.20231026223710-8bfab320c129
 

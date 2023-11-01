@@ -8,6 +8,7 @@ import (
 
 	"github.com/owasp-amass/engine/api/graphql/server"
 	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/registry/plugins/hackertarget"
 	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
 )
@@ -27,11 +28,13 @@ func main() {
 	//logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 	sessionManager := sessions.NewStorage(logger)
 	Registry := registry.NewRegistry(logger)
-	pErr := Registry.LoadPlugins("./plugins")
-	if pErr != nil {
-		logger.Println(pErr)
-		//os.Exit(1)
-	}
+	hackertarget.AmassPlugin.Start(Registry)
+
+	// pErr := Registry.LoadPlugins("./plugins")
+	// if pErr != nil {
+	// 	logger.Println(pErr)
+	// 	//os.Exit(1)
+	// }
 
 	Scheduler := scheduler.NewScheduler(logger, Registry, sessionManager)
 
@@ -40,8 +43,8 @@ func main() {
 		CheckEvent:           false,
 		ExecuteAction:        true,
 		ReturnIfFound:        false,
-		DebugLevel:           0,
-		ActionTimeout:        0,
+		DebugLevel:           3,
+		ActionTimeout:        6000,
 		MaxConcurrentActions: 8,
 	}
 
