@@ -130,6 +130,7 @@ func schedule(s *Scheduler, e *types.Event) error {
 	 */
 	eCopy := types.Event{
 		UUID:        e.UUID,
+		SessionID:   e.SessionID,
 		Session:     e.Session,
 		Name:        e.Name,
 		Timestamp:   e.Timestamp,
@@ -465,6 +466,8 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					// Process the event in a goroutine
 					go processEvent(event, errCh)
 				}
+			} else {
+				event.State = types.EventStateProcessable
 			}
 
 			if config.ReturnIfFound {

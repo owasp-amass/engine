@@ -9,9 +9,6 @@ scope:
     - 192.0.2.2
     - 192.168.0.3-8
     - 192.168.0.10-192.168.0.20
-  asns: # ASNs that are to be in scope
-    - 1234
-    - 5678
   cidrs: # CIDR ranges that are to be in scope
     - 192.0.2.0/24
     - 192.0.2.128/25
@@ -32,14 +29,14 @@ options:
   confidence: 50 # default confidence level for all transformations unless otherwise specified
 
 transformations:
-  FQDN->IP:
+  FQDN->IPAddress:
     priority: 1
     confidence: 80
   FQDN->WHOIS:
     priority: 2
   FQDN->ALL: 
     exclude: [TLS,FQDN]
-  IP->IP:
+  IP->IPAddress:
     priority: 1
     confidence: 80
   IP->WHOIS:
