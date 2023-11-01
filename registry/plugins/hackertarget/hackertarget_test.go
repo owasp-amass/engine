@@ -20,7 +20,7 @@ func TestLookup(t *testing.T) {
 	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// Create a new scheduler.
-	scheduler := scheduler.NewScheduler(logger, nil)
+	scheduler := scheduler.NewScheduler(logger, nil, nil)
 
 	manager := sessions.NewStorage(logger)
 

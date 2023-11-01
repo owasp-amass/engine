@@ -61,7 +61,7 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Placeholder func(childComplexity int) int
+		SessionState func(childComplexity int) int
 	}
 
 	Session struct {
@@ -85,7 +85,7 @@ type MutationResolver interface {
 	TerminateSession(ctx context.Context, sessionToken string) (*bool, error)
 }
 type QueryResolver interface {
-	Placeholder(ctx context.Context) (string, error)
+	SessionState(ctx context.Context) (string, error)
 }
 type SubscriptionResolver interface {
 	LogMessages(ctx context.Context, sessionToken string) (<-chan *string, error)
@@ -165,12 +165,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.TerminateSession(childComplexity, args["sessionToken"].(string)), true
 
-	case "Query.placeholder":
-		if e.complexity.Query.Placeholder == nil {
+	case "Query.sessionState":
+		if e.complexity.Query.SessionState == nil {
 			break
 		}
 
-		return e.complexity.Query.Placeholder(childComplexity), true
+		return e.complexity.Query.SessionState(childComplexity), true
 
 	case "Session.sessionToken":
 		if e.complexity.Session.SessionToken == nil {
@@ -742,8 +742,8 @@ func (ec *executionContext) fieldContext_Mutation_terminateSession(ctx context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_placeholder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_placeholder(ctx, field)
+func (ec *executionContext) _Query_sessionState(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_sessionState(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -756,7 +756,7 @@ func (ec *executionContext) _Query_placeholder(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Placeholder(rctx)
+		return ec.resolvers.Query().SessionState(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -773,7 +773,7 @@ func (ec *executionContext) _Query_placeholder(ctx context.Context, field graphq
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Query_placeholder(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_sessionState(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
@@ -3234,7 +3234,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "placeholder":
+		case "sessionState":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -3243,7 +3243,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_placeholder(ctx, field)
+				res = ec._Query_sessionState(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}

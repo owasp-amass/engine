@@ -21,12 +21,13 @@ import (
 	"github.com/caffix/queue"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
 )
 
 // NewScheduler creates a new Scheduler instance
 // Use it to initialize the Scheduler
-func NewScheduler(l *log.Logger, r *registry.Registry) *Scheduler {
+func NewScheduler(l *log.Logger, r *registry.Registry, s *sessions.Manager) *Scheduler {
 	// Initialize the zero UUID (used to indicate that an event has no dependencies)
 	zeroUUID, _ = uuid.Parse("00000000-0000-0000-0000-000000000000")
 	// Initialize the logger
@@ -39,6 +40,7 @@ func NewScheduler(l *log.Logger, r *registry.Registry) *Scheduler {
 		events: make(map[uuid.UUID]*types.Event),
 		logger: l,
 		r:      r,
+		s:      s,
 	}
 }
 
@@ -108,6 +110,7 @@ func (s *Scheduler) Schedule(e *types.Event) error {
 	//}
 	// Using the session, query the Session Handler and the Registry to get the priority, repeat every and repeat times
 	// TODO: Implement this
+	e.Session = s.s.Get(e.SessionID)
 
 	// Make sure the event has the scheduler reference
 	// (this is used to set the event state to cancelled when the scheduler is cancelled)

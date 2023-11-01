@@ -23,18 +23,26 @@ func processEvent(e types.Event, errCh chan error) {
 
 		// Get the transformers associated with this ss.Cfg
 		// Look up the transformation for the asset type
-		transformation, ok := cfg.Transformations[string(assetType)]
-		if !ok {
-			// No transformations configured for this asset type
-			// So set the event as done and return
-			SetEventState(&e, types.EventStateDone)
-			return
+		var tName []string
+		for k, t := range cfg.Transformations {
+			if strings.HasPrefix(strings.ToLower(k), strings.ToLower(string(assetType))) {
+				tName = append(tName, strings.ToLower(t.To))
+			}
 		}
-		tName := string(transformation.To)
-		tName = strings.ToLower(strings.TrimSpace(tName))
+		/*
+			transformation, ok := cfg.Transformations[string(assetType)]
+			if !ok {
+				// No transformations configured for this asset type
+				// So set the event as done and return
+				SetEventState(&e, types.EventStateDone)
+				return
+			}
+		*/
+		//tName := string(transformation.To)
+		//tName = strings.ToLower(strings.TrimSpace(tName))
 
 		// Get the handlers associated with this event type
-		handlers, err := sc.r.GetHandlers(assetType, tName)
+		handlers, err := sc.r.GetHandlers(assetType, tName...)
 		if err != nil {
 			return // Or handle the error appropriately
 		}
