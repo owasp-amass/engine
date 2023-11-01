@@ -38,7 +38,10 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 		fmt.Println(err)
 	}
 
-	// TODO pefrorm check againsts asset list
+	// Populate FROM/TO in transformations
+	for k, t := range config.Transformations {
+		t.Split(k)
+	}
 
 	newSession, err := sessions.NewSession(&config)
 	if err != nil {
@@ -63,32 +66,23 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 
 	token, _ := uuid.Parse(input.SessionToken)
 
-	// TODO validation againts asset types
+	var a types.AssetData
+	data, err := json.Marshal(input.Data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = json.Unmarshal(data, &a)
 
-	a := input.Data.(map[string]interface{})
-
-	//	a1 := a["asset"].(map[string]interface{})
-
-	var a2 types.AssetData
-	/*
-		for _, a4 := range a1 {
-			a2 = a4.(types.AssetData)
-		}
-	*/
-	/*
-		a2 = types.AssetData{
-			OAMAsset: a1["address"].(oam.Asset),
-			OAMType:  a1["type"].(oam.AssetType),
-		}
-
-	*/
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	event := &types.Event{
-		UUID:    uuid.New(),
-		Name:    *input.AssetName,
-		Session: token,
-		Data:    a2,
-		Type:    types.EventTypeAsset,
+		UUID:      uuid.New(),
+		Name:      *input.AssetName,
+		SessionID: token,
+		Data:      a,
+		Type:      types.EventTypeAsset,
 	}
 	r.sched.Schedule(event)
 	session := r.sessionManager.Get(token)
@@ -110,9 +104,9 @@ func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken st
 	return &result, nil
 }
 
-// Placeholder is the resolver for the placeholder field.
-func (r *queryResolver) Placeholder(ctx context.Context) (string, error) {
-	panic(fmt.Errorf("not implemented: Placeholder - placeholder"))
+// SessionState is the resolver for the sessionState field.
+func (r *queryResolver) SessionState(ctx context.Context) (string, error) {
+	panic(fmt.Errorf("not implemented: SessionState - sessionState"))
 }
 
 // LogMessages is the resolver for the logMessages field.
@@ -144,3 +138,13 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//   - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//     it when you're done.
+//   - You have helper methods in this file. Move them out to keep these resolver files clean.
+func (r *queryResolver) Placeholder(ctx context.Context) (string, error) {
+	panic(fmt.Errorf("not implemented: Placeholder - placeholder"))
+}

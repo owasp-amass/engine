@@ -33,7 +33,7 @@ func main() {
 		//os.Exit(1)
 	}
 
-	Scheduler := scheduler.NewScheduler(logger, Registry)
+	Scheduler := scheduler.NewScheduler(logger, Registry, sessionManager)
 
 	config := scheduler.ProcessConfig{
 		ExitWhenEmpty:        false,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
 )
 
@@ -27,6 +28,7 @@ var (
 	setupOnce sync.Once
 	testLog   *log.Logger
 	r         *registry.Registry
+	ss        *sessions.Manager
 )
 
 type TestEvent struct {
@@ -37,6 +39,7 @@ func setup() {
 	// Setup test logger
 	testLog = log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
 	r = registry.NewRegistry(testLog)
+	ss = sessions.NewStorage(testLog)
 
 	exitWhenEmpty := flag.Bool("exitWhenEmpty", true, "Exit when the queue is empty")
 	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
@@ -61,7 +64,7 @@ func setup() {
 func TestNewScheduler(t *testing.T) {
 	setupOnce.Do(setup)
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -74,7 +77,7 @@ func TestSchedule001(t *testing.T) {
 
 	setupOnce.Do(setup)
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -104,7 +107,7 @@ func TestSchedule002(t *testing.T) {
 
 	setupOnce.Do(setup)
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -136,7 +139,7 @@ func TestSchedule003(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -170,7 +173,7 @@ func TestSchedule004(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -206,7 +209,7 @@ func TestSchedule005(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -244,7 +247,7 @@ func TestSchedule006(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -292,7 +295,7 @@ func TestSchedule007(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -339,7 +342,7 @@ func TestSchedule008(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -388,7 +391,7 @@ func TestSchedule009(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -439,7 +442,7 @@ func TestSchedule010(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -483,7 +486,7 @@ func TestSchedule011(t *testing.T) {
 
 	var err error
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -553,7 +556,7 @@ func TestProcess000(t *testing.T) {
 
 	fmt.Println("\nTestProcess000")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -571,7 +574,7 @@ func TestProcess001(t *testing.T) {
 
 	fmt.Println("\nTestProcess001")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -597,7 +600,7 @@ func TestProcess002(t *testing.T) {
 
 	fmt.Println("\nTestProcess002")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -626,7 +629,7 @@ func TestProcess003(t *testing.T) {
 
 	fmt.Println("\nTestProcess003")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -657,7 +660,7 @@ func TestProcess004(t *testing.T) {
 
 	fmt.Println("\nTestProcess004")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -698,7 +701,7 @@ func TestProcess005(t *testing.T) {
 
 	fmt.Println("\nTestProcess005")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -741,7 +744,7 @@ func TestProcess006(t *testing.T) {
 
 	fmt.Println("\nTestProcess006")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -786,7 +789,7 @@ func TestProcess007(t *testing.T) {
 
 	fmt.Println("\nTestProcess007")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -825,7 +828,7 @@ func TestProcess008(t *testing.T) {
 
 	fmt.Println("\nTestProcess008")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -865,7 +868,7 @@ func TestProcess009(t *testing.T) {
 
 	fmt.Println("\nTestProcess009")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -908,7 +911,7 @@ func TestProcess010(t *testing.T) {
 
 	fmt.Println("\nTestProcess010")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -953,7 +956,7 @@ func TestProcess011(t *testing.T) {
 
 	fmt.Println("\nTestProcess011")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -999,7 +1002,7 @@ func TestProcess012(t *testing.T) {
 
 	fmt.Println("\nTestProcess012")
 
-	s := NewScheduler(testLog, r)
+	s := NewScheduler(testLog, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}

@@ -26,6 +26,8 @@ const (
 	asnBaseURL = "https://api.hackertarget.com/aslookup/?q="
 )
 
+var AmassPlugin HackerTargetPlugin
+
 type HackerTargetPlugin struct{}
 
 func (p *HackerTargetPlugin) Start(r *registry.Registry) error {

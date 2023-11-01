@@ -9,6 +9,7 @@ import (
 	"github.com/caffix/queue"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
 )
 
@@ -41,6 +42,7 @@ type Scheduler struct {
 	state                 SchedulerState             // Scheduler state (running, stopped, paused)
 	logger                *log.Logger                // Logger
 	r                     *registry.Registry         // Plugins registry
+	s                     *sessions.Manager
 }
 
 // ProcessConfig is the struct that represents the configuration used to process the events
