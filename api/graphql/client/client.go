@@ -24,6 +24,7 @@ type Handler func(message string)
 type Client struct {
 	url        string
 	httpClient http.Client
+	wsClient   *websocket.Conn
 }
 
 func NewClient(url string) *Client {
@@ -109,6 +110,9 @@ func (c *Client) Query(query string) (string, error) {
 	return string(resBody), nil
 }
 
+// Create a session by sending the config elements as graphql named fields
+// TODO: Not Implemented. The transfromations use "->" in the config YAML, but
+// that is not a valid field name in GraphQL
 func (c *Client) CreateSession(config *config.Config) (uuid.UUID, error) {
 
 	return c.createSessionWithJSON(config)
@@ -179,13 +183,13 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 	return token, nil
 }
 
-func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) {
+func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) error {
 
 	asset.Session = token
 
 	assetJson, err := json.Marshal(asset)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	var data interface{}
@@ -195,11 +199,12 @@ func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) {
 	queryStr := fmt.Sprintf(`mutation { createAsset(input:  %s) {id} }`, string(q))
 
 	res, err := c.Query(queryStr)
-
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	fmt.Println("Response:" + res)
+
+	return nil
 }
 
 func (c *Client) TerminateSession(token uuid.UUID) {
@@ -207,10 +212,17 @@ func (c *Client) TerminateSession(token uuid.UUID) {
 	res, err := c.Query(queryStr)
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(res)
 	}
-	fmt.Println("Response:" + res)
 }
+
+// Creates subscription to receove a stream of log messages from the sever
+// https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
+// Client: {"type": "connection_init","id": "<generated-ID-1>","payload": {}}
+// Server: {"type":"connection_ack"}
+// Client: {"type": "start","id":"<generated-ID-2>","payload":{"query":"subscription { ... }"} }
+// Server: {"payload":{"data":{ ... }},"id":""<generated-ID-2>","type":"data"}
+// Server: {"type":"ka"}
 
 func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 
@@ -224,12 +236,15 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 		fmt.Println("Error connecting to the WebSocket server:", err)
 		return nil, err
 	}
-	defer conn.Close()
+
+	c.wsClient = conn
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	// Init
+	// Subprotocol Init
 	message := fmt.Sprintf(`{"type": "connection_init","id": "%s","payload": {}}`, id)
+	fmt.Println("Message:" + string(message))
 	err = conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
 		fmt.Println("Error sending message:", err)
@@ -237,7 +252,8 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 	}
 
 	// Start the subscription
-	message = fmt.Sprintf(`{"type": "start","id":"%s","payload":{"query":"subscription { logMessages(sessionToken: \"%s\")}"} }`, id, token.String())
+	id = uuid.New().String()
+	message = fmt.Sprintf(`{"type": "start", "id":"%s", "payload":{"query":"subscription { logMessages(sessionToken: \"%s\")}"} }`, id, token.String())
 	fmt.Println("Message:" + string(message))
 	err = conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
@@ -255,30 +271,14 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 				fmt.Println("Received interrupt signal. Closing WebSocket connection...")
 				return
 			default:
-				_, message, err := conn.ReadMessage()
+				mType, message, err := c.wsClient.ReadMessage()
 				if err != nil {
-					fmt.Println("Error reading message:", err)
+					fmt.Printf("Error reading message: %d, %s", mType, err)
 					return
 				}
-
-				fmt.Printf("Received: %s\n", message)
 				ch <- string(message)
-
-				/*
-					// send the subscription message
-					if strings.Contains(string(message), "ka") {
-						message = []byte(`{"type": "start","id":"2","payload":{"query":"subscription { logMessages(sessionToken: \"` + token.String() + `\")}"} }`)
-						fmt.Println(string(message))
-
-						err = conn.WriteMessage(websocket.TextMessage, message)
-						if err != nil {
-							fmt.Println("Error sending message:", err)
-						}
-					}
-				*/
 			}
 		}
-
 	}()
 
 	return ch, nil
