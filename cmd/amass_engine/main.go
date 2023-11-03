@@ -43,8 +43,8 @@ func main() {
 		CheckEvent:           false,
 		ExecuteAction:        true,
 		ReturnIfFound:        false,
-		DebugLevel:           3,
-		ActionTimeout:        6000,
+		DebugLevel:           0,
+		ActionTimeout:        0,
 		MaxConcurrentActions: 8,
 	}
 
