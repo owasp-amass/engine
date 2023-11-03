@@ -7,6 +7,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -31,8 +32,10 @@ func (r *mutationResolver) CreateSession(ctx context.Context, input model.Create
 
 // CreateSessionFromJSON is the resolver for the createSessionFromJson field.
 func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input model.CreateSessionJSONInput) (*model.Session, error) {
-	var config config.Config
+
 	fmt.Println("CreateSessionFromJSON")
+
+	var config config.Config
 	err := json.Unmarshal([]byte(input.Config), &config)
 	if err != nil {
 		fmt.Println(err)
@@ -61,34 +64,42 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 
 // CreateAsset is the resolver for the createAsset field.
 func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error) {
-	//event := &events.Event{Name: "NewSession", Type: events.EventTypeLog, Priority: 1}
-	fmt.Printf("%#v\n", input)
 
 	token, _ := uuid.Parse(input.SessionToken)
+	session := r.sessionManager.Get(token)
+	if session == nil {
+		return nil, errors.New("invalid session")
+	}
 
-	var a types.AssetData
 	data, err := json.Marshal(input.Data)
 	if err != nil {
 		fmt.Println(err)
+		return nil, errors.New("invalid json data")
 	}
-	err = json.Unmarshal(data, &a)
 
+	// Unmarshal json into AssetData struct
+	var assetData types.AssetData
+	err = json.Unmarshal(data, &assetData)
 	if err != nil {
 		fmt.Println(err)
+		return nil, errors.New("invalid json data")
 	}
 
+	// Create and schedule new event
 	event := &types.Event{
 		UUID:      uuid.New(),
 		Name:      *input.AssetName,
 		SessionID: token,
-		Data:      a,
+		Data:      assetData,
 		Type:      types.EventTypeAsset,
 	}
-	r.sched.Schedule(event)
-	session := r.sessionManager.Get(token)
-	if session != nil {
-		session.PubSub.Publish("Log created asset")
+	err = r.sched.Schedule(event)
+	if err != nil {
+		return nil, errors.New("failed to create asset")
 	}
+
+	// TEST: Broadcast asset creation message to client subscribers
+	session.PubSub.Publish("Log created asset")
 
 	model := &model.Asset{
 		ID: event.UUID.String(),
@@ -98,9 +109,16 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 
 // TerminateSession is the resolver for the terminateSession field.
 func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken string) (*bool, error) {
-	result := true
+	result := false
 	token, _ := uuid.Parse(sessionToken)
-	r.sessionManager.Cancel(token)
+
+	if r.sessionManager.Get(token) != nil {
+		r.sessionManager.Cancel(token)
+		result = true
+	} else {
+		return &result, errors.New("invalid session token")
+	}
+
 	return &result, nil
 }
 
@@ -114,10 +132,10 @@ func (r *subscriptionResolver) LogMessages(ctx context.Context, sessionToken str
 	token, _ := uuid.Parse(sessionToken)
 	session := r.sessionManager.Get(token)
 
-	session.PubSub.Publish("Channel created")
 	fmt.Println("LogMessages callled")
 	if session != nil {
 
+		session.PubSub.Publish("Channel created")
 		ch := session.PubSub.Subscribe()
 
 		return ch, nil

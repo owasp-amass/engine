@@ -63,7 +63,7 @@ func (r *Registry) loadPlugin(path string) (AmassPlugin, error) {
 		return nil, err
 	}
 
-	symPlugin, err := plug.Lookup("Plugin")
+	symPlugin, err := plug.Lookup("AmassPlugin")
 	if err != nil {
 		return nil, err
 	}
