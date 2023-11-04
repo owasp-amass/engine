@@ -83,3 +83,18 @@ type Event struct {
 	Sched   interface{} /* Pointer to the scheduler that created the event */
 	Session interface{} /* Pointer to the session that created the event */
 }
+
+// StatsResponse is the struct that represents the response to the Stats request
+type StatsResponse struct {
+	TotalEvents            int
+	TotalEventsDone        int
+	TotalEventsCancelled   int
+	TotalEventsInProcess   int
+	TotalEventsError       int
+	TotalEventsWaiting     int
+	TotalEventsProcessable int
+	TotalEventsSystem      int
+	SessionEvents          int
+	SessionEventsInProcess int
+	SessionEventsWaiting   int
+}

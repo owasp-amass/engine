@@ -19,6 +19,20 @@ var (
 	zeroUUID = uuid.UUID{}
 )
 
+type schedulerStats struct {
+	TotalEventsReceived      int
+	TotalEventsDone          int
+	TotalEventsCancelled     int
+	TotalEventsInProcess     int
+	TotalEventsError         int
+	TotalEventsWaiting       int
+	TotalEventsProcessable   int
+	TotalEventsSystem        int
+	SessionEventsInProcess   int
+	SessionEventsWaiting     int
+	SessionEventsProcessable int
+}
+
 type SchedulerState int
 
 const (
@@ -43,6 +57,7 @@ type Scheduler struct {
 	logger                *log.Logger                // Logger
 	r                     *registry.Registry         // Plugins registry
 	s                     *sessions.Manager
+	stats                 schedulerStats
 }
 
 // ProcessConfig is the struct that represents the configuration used to process the events

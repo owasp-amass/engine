@@ -41,6 +41,16 @@ func NewScheduler(l *log.Logger, r *registry.Registry, s *sessions.Manager) *Sch
 		logger: l,
 		r:      r,
 		s:      s,
+		stats: schedulerStats{
+			TotalEventsReceived:    0,
+			TotalEventsDone:        0,
+			TotalEventsCancelled:   0,
+			TotalEventsInProcess:   0,
+			TotalEventsError:       0,
+			TotalEventsWaiting:     0,
+			TotalEventsProcessable: 0,
+			TotalEventsSystem:      0,
+		},
 	}
 }
 
@@ -118,6 +128,9 @@ func (s *Scheduler) Schedule(e *types.Event) error {
 
 	// Schedule the event
 	err := schedule(s, e)
+	if err == nil {
+		s.stats.TotalEventsReceived++
+	}
 
 	return err
 }
@@ -191,6 +204,7 @@ func (s *Scheduler) CancelAll() {
 	for _, event := range s.events {
 		event.State = types.EventStateCancelled
 	}
+	s.stats.TotalEventsCancelled += len(s.events)
 }
 
 // Shutdown cancels all events and stops the scheduler
@@ -202,7 +216,42 @@ func (s *Scheduler) Shutdown() {
 	for _, event := range s.events {
 		event.State = types.EventStateCancelled
 	}
+	s.stats.TotalEventsCancelled += len(s.events)
 	s.state = SchedulerStateShutdown
+}
+
+// Get Scheduler statistics
+func (s *Scheduler) GetStats(sid uuid.UUID) schedulerStats {
+	if sid == zeroUUID || sid == uuid.Nil {
+		return s.stats
+	}
+	sessionStats := schedulerStats{}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Copy scheduler stats in session stats
+	sessionStats.TotalEventsReceived = s.stats.TotalEventsReceived
+	sessionStats.TotalEventsDone = s.stats.TotalEventsDone
+	sessionStats.TotalEventsCancelled = s.stats.TotalEventsCancelled
+	sessionStats.TotalEventsInProcess = s.stats.TotalEventsInProcess
+	sessionStats.TotalEventsError = s.stats.TotalEventsError
+	sessionStats.TotalEventsWaiting = s.stats.TotalEventsWaiting
+	sessionStats.TotalEventsProcessable = s.stats.TotalEventsProcessable
+	sessionStats.TotalEventsSystem = s.stats.TotalEventsSystem
+
+	for _, event := range s.events {
+		if event.SessionID == sid {
+			if event.State == types.EventStateInProcess {
+				sessionStats.SessionEventsInProcess++
+			} else if event.State == types.EventStateProcessable {
+				sessionStats.SessionEventsProcessable++
+			} else if event.State == types.EventStateWaiting {
+				sessionStats.SessionEventsWaiting++
+			}
+		}
+	}
+	return sessionStats
 }
 
 // GetEvent returns an event by reference
@@ -225,6 +274,38 @@ func (s *Scheduler) SetEventState(uuid uuid.UUID, state types.EventState) {
 	setEventState(s, uuid, state)
 }
 
+func updateSchedulerStats(s *Scheduler, oldState types.EventState, newState types.EventState) {
+	if oldState != newState {
+		// Update stats
+		if newState == types.EventStateCancelled {
+			s.stats.TotalEventsCancelled++
+		} else if newState == types.EventStateDone {
+			s.stats.TotalEventsDone++
+		} else if newState == types.EventStateError {
+			s.stats.TotalEventsError++
+		} else if newState == types.EventStateInProcess {
+			s.stats.TotalEventsInProcess++
+		} else if newState == types.EventStateProcessable {
+			s.stats.TotalEventsProcessable++
+		} else if newState == types.EventStateWaiting {
+			s.stats.TotalEventsWaiting++
+		}
+		if oldState == types.EventStateCancelled {
+			s.stats.TotalEventsCancelled--
+		} else if oldState == types.EventStateDone {
+			s.stats.TotalEventsDone--
+		} else if oldState == types.EventStateError {
+			s.stats.TotalEventsError--
+		} else if oldState == types.EventStateInProcess {
+			s.stats.TotalEventsInProcess--
+		} else if oldState == types.EventStateProcessable {
+			s.stats.TotalEventsProcessable--
+		} else if oldState == types.EventStateWaiting {
+			s.stats.TotalEventsWaiting--
+		}
+	}
+}
+
 // setEventState sets the state of an event in the scheduler queue
 // (private method)
 func setEventState(s *Scheduler, uuid uuid.UUID, state types.EventState) {
@@ -232,8 +313,10 @@ func setEventState(s *Scheduler, uuid uuid.UUID, state types.EventState) {
 		if (state == types.EventStateDone || state == types.EventStateCancelled || state == types.EventStateError) && s.events[uuid].State == types.EventStateInProcess {
 			s.CurrentRunningActions--
 		}
+		oldState := s.events[uuid].State
 		event.State = state
 		s.events[uuid].State = state
+		updateSchedulerStats(s, oldState, state)
 	} else {
 		fmt.Printf("SetEventState: event '%s' not found\n", uuid)
 	}
@@ -255,9 +338,10 @@ func SetEventState(e *types.Event, state types.EventState) {
 	if (state == types.EventStateDone || state == types.EventStateCancelled || state == types.EventStateError) && scheduler.events[e.UUID].State == types.EventStateInProcess {
 		scheduler.CurrentRunningActions--
 	}
-
+	oldState := scheduler.events[e.UUID].State
 	scheduler.events[e.UUID].State = state
 	e.State = state
+	updateSchedulerStats(scheduler, oldState, state)
 }
 
 // removeEventAndDeps removes an event and the events that depends on it from the scheduler queue
@@ -268,7 +352,9 @@ func removeEventAndDeps(s *Scheduler, uuid uuid.UUID) {
 			if dependUUID == uuid {
 				// If the event depends on the event we are removing, set its state to cancelled
 				// and remove it from the events map
+				oldState := event.State
 				event.State = types.EventStateCancelled
+				updateSchedulerStats(s, oldState, event.State)
 				delete(s.events, event.UUID)
 			}
 		}
@@ -281,7 +367,9 @@ func reschedule(s *Scheduler, event *types.Event) {
 	// If the event is repeatable, schedule it again
 	if event.RepeatEvery == 0 && event.RepeatTimes > 0 {
 		// If the event is repeatable, schedule it again
+		oldState := event.State
 		event.State = types.EventStateProcessable
+		updateSchedulerStats(s, oldState, event.State)
 		event.RepeatTimes--
 		err := schedule(s, event)
 		if err != nil {
@@ -291,7 +379,9 @@ func reschedule(s *Scheduler, event *types.Event) {
 		// If the event is repeatable, schedule it again
 		// Note: this if statement controls both the repeat every and repeat times
 		//       If we need an event to be repeated for ever, we can set RepeatTimes to -1
+		oldState := event.State
 		event.State = types.EventStateProcessable
+		updateSchedulerStats(s, oldState, event.State)
 		event.Timestamp = time.Now()
 		event.RepeatTimes--
 		err := schedule(s, event)
@@ -300,7 +390,9 @@ func reschedule(s *Scheduler, event *types.Event) {
 		}
 	} else if event.RepeatEvery >= 0 && event.RepeatTimes == -1 {
 		// If the event is repeatable, schedule it again (for ever)
+		oldState := event.State
 		event.State = types.EventStateProcessable
+		updateSchedulerStats(s, oldState, event.State)
 		event.Timestamp = time.Now()
 		err := schedule(s, event)
 		if err != nil {
@@ -391,7 +483,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		if s.events[event.UUID].State == types.EventStateInProcess {
 			if config.ActionTimeout > 0 {
 				if time.Now().After(event.Timeout) {
+					oldState := event.State
 					event.State = types.EventStateError
+					updateSchedulerStats(s, oldState, event.State)
 				}
 			}
 			if config.DebugLevel > 0 {
@@ -439,7 +533,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 
 			// Set the event state to in process
 			if s.CurrentRunningActions < config.MaxConcurrentActions {
+				oldState := event.State
 				event.State = types.EventStateInProcess
+				updateSchedulerStats(s, oldState, event.State)
 			}
 			event.Timeout = time.Now().Add(time.Duration(config.ActionTimeout) * time.Second)
 
@@ -467,7 +563,9 @@ func (s *Scheduler) Process(config ProcessConfig) {
 					go processEvent(event, errCh)
 				}
 			} else {
+				oldState := event.State
 				event.State = types.EventStateProcessable
+				updateSchedulerStats(s, oldState, event.State)
 			}
 
 			if config.ReturnIfFound {
