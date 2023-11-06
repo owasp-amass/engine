@@ -89,18 +89,18 @@ type Event struct {
 
 // StatsResponse is the struct that represents the response to the Stats request
 type SystemStatsResponse struct {
-	TotalWorkItemsReceived    int
-	TotalWorkItemsDone        int
-	TotalWorkItemsCancelled   int
-	TotalWorkItemsProcess     int
-	TotalWorkItemsError       int
-	TotalWorkItemsWaiting     int
-	TotalWorkItemsProcessable int
-	TotalWorkItemsSystem      int
+	TotalWorkItemsReceived    int `json:"workItemsReceived"`
+	TotalWorkItemsDone        int `json:"workItemsDone"`
+	TotalWorkItemsCancelled   int `json:"workItemsCancelled"`
+	TotalWorkItemsProcess     int `json:"workItemsProcess"`
+	TotalWorkItemsError       int `json:"workItemsError"`
+	TotalWorkItemsWaiting     int `json:"workItemsWaiting"`
+	TotalWorkItemsProcessable int `json:"workItemsProcessable"`
+	TotalWorkItemsSystem      int `json:"workItemsSystem"`
 }
 
 type SessionStatsResponse struct {
-	SessionWorkItemsInProcess   int
-	SessionWorkItemsWaiting     int
-	SessionWorkItemsProcessable int
+	SessionWorkItemsInProcess   int `json:"workItemsInProcess"`
+	SessionWorkItemsWaiting     int `json:"workItemsWaiting"`
+	SessionWorkItemsProcessable int `json:"workItemsProcessable"`
 }
