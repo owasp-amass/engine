@@ -220,38 +220,52 @@ func (s *Scheduler) Shutdown() {
 	s.state = SchedulerStateShutdown
 }
 
-// Get Scheduler statistics
-func (s *Scheduler) GetStats(sid uuid.UUID) schedulerStats {
+// Get Session statistics
+// Use it to get the statistics of a session
+// sid = Session ID
+// itmType = Item type (asset, system, custom, log, all = unknown)
+func (s *Scheduler) GetSessionStats(sid uuid.UUID, itmType types.EventType) types.SessionStatsResponse {
+	sessionStats := types.SessionStatsResponse{}
 	if sid == zeroUUID || sid == uuid.Nil {
-		return s.stats
+		return sessionStats
 	}
-	sessionStats := schedulerStats{}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Copy scheduler stats in session stats
-	sessionStats.TotalEventsReceived = s.stats.TotalEventsReceived
-	sessionStats.TotalEventsDone = s.stats.TotalEventsDone
-	sessionStats.TotalEventsCancelled = s.stats.TotalEventsCancelled
-	sessionStats.TotalEventsInProcess = s.stats.TotalEventsInProcess
-	sessionStats.TotalEventsError = s.stats.TotalEventsError
-	sessionStats.TotalEventsWaiting = s.stats.TotalEventsWaiting
-	sessionStats.TotalEventsProcessable = s.stats.TotalEventsProcessable
-	sessionStats.TotalEventsSystem = s.stats.TotalEventsSystem
-
 	for _, event := range s.events {
-		if event.SessionID == sid {
-			if event.State == types.EventStateInProcess {
-				sessionStats.SessionEventsInProcess++
-			} else if event.State == types.EventStateProcessable {
-				sessionStats.SessionEventsProcessable++
-			} else if event.State == types.EventStateWaiting {
-				sessionStats.SessionEventsWaiting++
+		if event.Type == itmType || itmType == types.EventTypeUnknown {
+			if event.SessionID == sid {
+				if event.State == types.EventStateInProcess {
+					sessionStats.SessionWorkItemsInProcess++
+				} else if event.State == types.EventStateProcessable {
+					sessionStats.SessionWorkItemsProcessable++
+				} else if event.State == types.EventStateWaiting {
+					sessionStats.SessionWorkItemsWaiting++
+				}
 			}
 		}
 	}
 	return sessionStats
+}
+
+// Get System statistics
+func (s *Scheduler) GetSystemStats() types.SystemStatsResponse {
+	systemStats := types.SystemStatsResponse{}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	systemStats.TotalWorkItemsReceived = s.stats.TotalEventsReceived
+	systemStats.TotalWorkItemsDone = s.stats.TotalEventsDone
+	systemStats.TotalWorkItemsCancelled = s.stats.TotalEventsCancelled
+	systemStats.TotalWorkItemsProcess = s.stats.TotalEventsInProcess
+	systemStats.TotalWorkItemsError = s.stats.TotalEventsError
+	systemStats.TotalWorkItemsWaiting = s.stats.TotalEventsWaiting
+	systemStats.TotalWorkItemsProcessable = s.stats.TotalEventsProcessable
+	systemStats.TotalWorkItemsSystem = s.stats.TotalEventsSystem
+
+	return systemStats
 }
 
 // GetEvent returns an event by reference
