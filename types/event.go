@@ -18,6 +18,8 @@ const (
 	EventTypeCustom
 	// AssetType is used to identify asset events
 	EventTypeAsset
+	// UnknownType is used to identify unknown events (or all events)
+	EventTypeUnknown
 	// Add more event types here:
 	// ...
 )
@@ -25,10 +27,11 @@ const (
 var (
 	// Event types names (used to query the Registry)
 	EventTypeNames = map[EventType]string{
-		EventTypeSystem: "System",
-		EventTypeLog:    "Log",
-		EventTypeCustom: "Custom",
-		EventTypeAsset:  "Asset",
+		EventTypeSystem:  "System",
+		EventTypeLog:     "Log",
+		EventTypeCustom:  "Custom",
+		EventTypeAsset:   "Asset",
+		EventTypeUnknown: "Unknown",
 		// Add more event types here:
 		// ...
 	}
@@ -85,16 +88,19 @@ type Event struct {
 }
 
 // StatsResponse is the struct that represents the response to the Stats request
-type StatsResponse struct {
-	TotalEvents            int
-	TotalEventsDone        int
-	TotalEventsCancelled   int
-	TotalEventsInProcess   int
-	TotalEventsError       int
-	TotalEventsWaiting     int
-	TotalEventsProcessable int
-	TotalEventsSystem      int
-	SessionEvents          int
-	SessionEventsInProcess int
-	SessionEventsWaiting   int
+type SystemStatsResponse struct {
+	TotalWorkItemsReceived    int
+	TotalWorkItemsDone        int
+	TotalWorkItemsCancelled   int
+	TotalWorkItemsProcess     int
+	TotalWorkItemsError       int
+	TotalWorkItemsWaiting     int
+	TotalWorkItemsProcessable int
+	TotalWorkItemsSystem      int
+}
+
+type SessionStatsResponse struct {
+	SessionWorkItemsInProcess   int
+	SessionWorkItemsWaiting     int
+	SessionWorkItemsProcessable int
 }

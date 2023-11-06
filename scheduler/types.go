@@ -20,18 +20,17 @@ var (
 )
 
 type schedulerStats struct {
-	TotalEventsReceived      int
-	TotalEventsDone          int
-	TotalEventsCancelled     int
-	TotalEventsInProcess     int
-	TotalEventsError         int
-	TotalEventsWaiting       int
-	TotalEventsProcessable   int
-	TotalEventsSystem        int
-	SessionEventsInProcess   int
-	SessionEventsWaiting     int
-	SessionEventsProcessable int
+	TotalEventsReceived    int
+	TotalEventsDone        int
+	TotalEventsCancelled   int
+	TotalEventsInProcess   int
+	TotalEventsError       int
+	TotalEventsWaiting     int
+	TotalEventsProcessable int
+	TotalEventsSystem      int
 }
+
+// SchedulerState is the struct that represents the scheduler state
 
 type SchedulerState int
 
