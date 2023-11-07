@@ -1,5 +1,7 @@
 package main
 
+// Client example that utilizes the API and new Amass engine
+
 import (
 	"fmt"
 	"net"
@@ -24,12 +26,13 @@ func main() {
 		fmt.Println(err)
 	}
 
-	// Parse commandline flags
+	// TODO: Parse commandline flags
 
 	// connect to amass-engine
 	client := client.NewClient("http://localhost:4000/graphql")
 	token, _ := client.CreateSession(c)
 
+	// Create interrupt channel and subscribe to server log messages
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
@@ -57,10 +60,23 @@ func main() {
 		client.CreateAsset(*a, token)
 	}
 
+	// Query session stats
+	ssResp, err := client.SessionStats(token)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("== Session Stats ==\n")
+	fmt.Printf("In Process: %d\n", ssResp.SessionWorkItemsInProcess)
+	fmt.Printf("Waiting: %d\n", ssResp.SessionWorkItemsWaiting)
+	fmt.Printf("Processable: %d\n", ssResp.SessionWorkItemsProcessable)
+
+	// Terminate client session
 	<-interrupt
 	client.TerminateSession(token)
 
 }
+
+// Below are helper functions for converting an Amass config / scope into OAM assets
 
 const (
 	ipv4 = "IPv4"

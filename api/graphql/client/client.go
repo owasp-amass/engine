@@ -216,6 +216,30 @@ func (c *Client) TerminateSession(token uuid.UUID) {
 	}
 }
 
+func (c *Client) SessionStats(token uuid.UUID) (types.SessionStatsResponse, error) {
+
+	queryStr := fmt.Sprintf(`query { sessionStats(sessionToken: "%s"){
+		workItemsInProcess 
+		workItemsWaiting 
+		workItemsProcessable} }`, token.String())
+
+	res, err := c.Query(queryStr)
+	if err != nil {
+		return types.SessionStatsResponse{}, err
+	}
+
+	var gqlResp struct {
+		Data struct{ SessionStats types.SessionStatsResponse }
+	}
+
+	err = json.Unmarshal([]byte(res), &gqlResp)
+	if err != nil {
+		return types.SessionStatsResponse{}, err
+	}
+
+	return gqlResp.Data.SessionStats, nil
+}
+
 // Creates subscription to receove a stream of log messages from the sever
 // https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
 // Client: {"type": "connection_init","id": "<generated-ID-1>","payload": {}}

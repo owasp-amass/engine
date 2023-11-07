@@ -32,7 +32,6 @@ func (r *mutationResolver) CreateSession(ctx context.Context, input model.Create
 
 // CreateSessionFromJSON is the resolver for the createSessionFromJson field.
 func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input model.CreateSessionJSONInput) (*model.Session, error) {
-
 	fmt.Println("CreateSessionFromJSON")
 
 	var config config.Config
@@ -64,7 +63,6 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 
 // CreateAsset is the resolver for the createAsset field.
 func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error) {
-
 	token, _ := uuid.Parse(input.SessionToken)
 	session := r.sessionManager.Get(token)
 	if session == nil {
@@ -122,9 +120,28 @@ func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken st
 	return &result, nil
 }
 
-// SessionState is the resolver for the sessionState field.
-func (r *queryResolver) SessionState(ctx context.Context) (string, error) {
-	panic(fmt.Errorf("not implemented: SessionState - sessionState"))
+// SessionStats is the resolver for the sessionStats field.
+func (r *queryResolver) SessionStats(ctx context.Context, sessionToken string) (*model.SessionStats, error) {
+	token, _ := uuid.Parse(sessionToken)
+
+	if r.sessionManager.Get(token) == nil {
+		return nil, errors.New("invalid session token")
+	}
+
+	ssResp := r.sched.GetSessionStats(token, types.EventTypeAsset)
+
+	model := &model.SessionStats{
+		WorkItemsInProcess:   &ssResp.SessionWorkItemsInProcess,
+		WorkItemsWaiting:     &ssResp.SessionWorkItemsWaiting,
+		WorkItemsProcessable: &ssResp.SessionWorkItemsProcessable,
+	}
+
+	return model, nil
+}
+
+// SystemStats is the resolver for the systemStats field.
+func (r *queryResolver) SystemStats(ctx context.Context, sessionToken string) (*model.SystemStats, error) {
+	panic(fmt.Errorf("not implemented: SystemStats - systemStats"))
 }
 
 // LogMessages is the resolver for the logMessages field.
@@ -156,13 +173,3 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//   - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//     it when you're done.
-//   - You have helper methods in this file. Move them out to keep these resolver files clean.
-func (r *queryResolver) Placeholder(ctx context.Context) (string, error) {
-	panic(fmt.Errorf("not implemented: Placeholder - placeholder"))
-}

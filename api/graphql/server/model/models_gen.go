@@ -38,7 +38,19 @@ type Session struct {
 	SessionToken string `json:"sessionToken"`
 }
 
-type Time struct {
-	UnixTime  int    `json:"unixTime"`
-	TimeStamp string `json:"timeStamp"`
+type SessionStats struct {
+	WorkItemsInProcess   *int `json:"workItemsInProcess,omitempty"`
+	WorkItemsWaiting     *int `json:"workItemsWaiting,omitempty"`
+	WorkItemsProcessable *int `json:"workItemsProcessable,omitempty"`
+}
+
+type SystemStats struct {
+	TotalWorkItemsReceived    *int `json:"totalWorkItemsReceived,omitempty"`
+	TotalWorkItemsDone        *int `json:"totalWorkItemsDone,omitempty"`
+	TotalWorkItemsCancelled   *int `json:"totalWorkItemsCancelled,omitempty"`
+	TotalWorkItemsProcess     *int `json:"totalWorkItemsProcess,omitempty"`
+	TotalWorkItemsError       *int `json:"totalWorkItemsError,omitempty"`
+	TotalWorkItemsWaiting     *int `json:"totalWorkItemsWaiting,omitempty"`
+	TotalWorkItemsProcessable *int `json:"totalWorkItemsProcessable,omitempty"`
+	TotalWorkItemsSystem      *int `json:"totalWorkItemsSystem,omitempty"`
 }

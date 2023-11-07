@@ -39,9 +39,21 @@ type Asset {
   id: ID!
 }
 
-type Time {
-  unixTime: Int!
-  timeStamp: String!
+type SystemStats {
+	totalWorkItemsReceived:    Int
+	totalWorkItemsDone:        Int
+	totalWorkItemsCancelled:   Int
+	totalWorkItemsProcess:     Int
+	totalWorkItemsError:       Int
+	totalWorkItemsWaiting:     Int
+	totalWorkItemsProcessable: Int
+	totalWorkItemsSystem:      Int
+}
+
+type SessionStats {
+	workItemsInProcess:   Int
+	workItemsWaiting:     Int
+	workItemsProcessable: Int
 }
 
 type Subscription {
@@ -49,7 +61,8 @@ type Subscription {
 }
 
 type Query {
-  sessionState: String!
+  sessionStats(sessionToken: String!): SessionStats
+  systemStats(sessionToken: String!): SystemStats
 }
 
 input CreateAssetInput {
