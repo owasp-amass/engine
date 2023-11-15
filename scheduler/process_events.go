@@ -29,6 +29,12 @@ func processEvent(e types.Event, errCh chan error) {
 				tName = append(tName, strings.ToLower(t.To))
 			}
 		}
+		if tName == nil {
+			// No transformations configured for this asset type
+			// So set the event as done and return
+			SetEventState(&e, types.EventStateDone)
+			return
+		}
 		/*
 			transformation, ok := cfg.Transformations[string(assetType)]
 			if !ok {
@@ -50,7 +56,9 @@ func processEvent(e types.Event, errCh chan error) {
 		var wg sync.WaitGroup
 		errCh := make(chan error, len(handlers)) // Buffered channel to collect errors
 
+		var numHandlers int
 		for _, handler := range handlers {
+			numHandlers++
 			wg.Add(1)
 			eventCopy := e // Make a shallow copy of the event for each goroutine
 			go func(handler registry.Handler, e types.Event) {
@@ -60,6 +68,10 @@ func processEvent(e types.Event, errCh chan error) {
 					errCh <- err // Send the error to the channel
 				}
 			}(handler, eventCopy)
+		}
+		if numHandlers == 0 {
+			SetEventState(&e, types.EventStateDone)
+			return
 		}
 
 		wg.Wait()    // Wait for all handler goroutines to finish
