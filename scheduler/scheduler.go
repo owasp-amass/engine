@@ -13,7 +13,7 @@
 package scheduler
 
 import (
-	"fmt"
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -27,7 +27,7 @@ import (
 
 // NewScheduler creates a new Scheduler instance
 // Use it to initialize the Scheduler
-func NewScheduler(l *log.Logger, r *registry.Registry, s *sessions.Manager) *Scheduler {
+func NewScheduler(l *log.Logger, r *registry.Registry, mgr *sessions.Manager) *Scheduler {
 	// Initialize the zero UUID (used to indicate that an event has no dependencies)
 	zeroUUID, _ = uuid.Parse("00000000-0000-0000-0000-000000000000")
 	// Initialize the logger
@@ -40,7 +40,7 @@ func NewScheduler(l *log.Logger, r *registry.Registry, s *sessions.Manager) *Sch
 		events: make(map[uuid.UUID]*types.Event),
 		logger: l,
 		r:      r,
-		s:      s,
+		mgr:    mgr,
 		stats: schedulerStats{
 			TotalEventsReceived:    0,
 			TotalEventsDone:        0,
@@ -59,16 +59,13 @@ func setupEvent(e *types.Event) {
 	if e.UUID == zeroUUID {
 		e.UUID = uuid.New() // Assign a UUID to the event
 	}
-
 	// Assign a timestamp to the event which
 	// indicate when the event was created
 	e.Timestamp = time.Now()
-
 	// There is only one special negative value for RepeatTimes (-1)
 	if e.RepeatTimes < -1 {
 		e.RepeatTimes = -1
 	}
-
 	// There are no valid negative values for RepeatEvery
 	if e.RepeatEvery < 0 {
 		e.RepeatEvery = 0
@@ -78,23 +75,22 @@ func setupEvent(e *types.Event) {
 // Schedule schedules an event (public method)
 // Use it to add your events to the scheduler
 func (s *Scheduler) Schedule(e *types.Event) error {
-
-	// Check if the scheduler is nil
-	if s == nil {
-		return fmt.Errorf("the scheduler has not been initialized")
-	}
-
-	// Check if the event is nil
 	if e == nil {
-		return fmt.Errorf("the event is nil")
+		return errors.New("the event is nil")
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	session := s.mgr.Get(e.SessionID)
+	// Do not schedule the same asset more than once
+	if d, ok := e.Data.(*types.AssetData); ok {
+		if a, hit := session.Cache.GetAsset(d.OAMAsset); a != nil && hit {
+			return errors.New("this event has been scheduled previously")
+		}
+	}
 
-	// Setup the event
 	setupEvent(e)
 
+	s.Lock()
+	defer s.Unlock()
 	// Set the event state to waiting
 	e.State = types.EventStateWaiting
 	for _, dependUUID := range e.DependOn {
@@ -114,25 +110,16 @@ func (s *Scheduler) Schedule(e *types.Event) error {
 		e.Priority = 1 // Assign a priority to the event
 	}
 
-	// If the event has no Session, assign one
-	//if e.Session == zeroUUID {
-	// Query the Session Handler to get the default session
-	//}
-	// Using the session, query the Session Handler and the Registry to get the priority, repeat every and repeat times
-	// TODO: Implement this
-	e.Session = s.s.Get(e.SessionID)
-
-	// Make sure the event has the scheduler reference
-	// (this is used to set the event state to cancelled when the scheduler is cancelled)
 	e.Sched = s
-
+	e.Session = session
 	// Schedule the event
-	err := schedule(s, e)
-	if err == nil {
-		s.stats.TotalEventsReceived++
+	if err := schedule(s, e); err != nil {
+		return err
 	}
+	s.stats.TotalEventsReceived++
 
-	return err
+	go processEvent(e)
+	return nil
 }
 
 // schedule schedules an event (private method)
@@ -162,31 +149,27 @@ func schedule(s *Scheduler, e *types.Event) error {
 	if e.Sched == nil {
 		eCopy.Sched = s
 	}
-
 	// If the event has no Action, assign one
 	if eCopy.Action == nil {
 		// Query the Registry to get the action (using the EventType)
-		eCopy.Action = func(e types.Event) error {
-			SetEventState(&e, types.EventStateDone)
+		eCopy.Action = func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		}
 	}
-
 	// Store the types.Event in the map
 	delete(s.events, e.UUID) // Remove the event from the map (if it exists)
 	s.events[e.UUID] = &eCopy
-
 	// Append the event to the queue with the correct priority
 	s.q.AppendPriority(eCopy, eCopy.Priority)
-
 	return nil
 }
 
 // Cancel cancels an event
 // Use it to cancel an event
 func (s *Scheduler) Cancel(uuid uuid.UUID) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	if event, exists := s.events[uuid]; exists {
 		event.State = types.EventStateCancelled
@@ -198,8 +181,8 @@ func (s *Scheduler) Cancel(uuid uuid.UUID) {
 // CancelAll cancels all events
 // Use it to cancel all events
 func (s *Scheduler) CancelAll() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	for _, event := range s.events {
 		event.State = types.EventStateCancelled
@@ -210,8 +193,8 @@ func (s *Scheduler) CancelAll() {
 // Shutdown cancels all events and stops the scheduler
 // Use it to stop the scheduler
 func (s *Scheduler) Shutdown() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	for _, event := range s.events {
 		event.State = types.EventStateCancelled
@@ -230,8 +213,8 @@ func (s *Scheduler) GetSessionStats(sid uuid.UUID, itmType types.EventType) type
 		return sessionStats
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	for _, event := range s.events {
 		if event.Type == itmType || itmType == types.EventTypeUnknown {
@@ -253,8 +236,8 @@ func (s *Scheduler) GetSessionStats(sid uuid.UUID, itmType types.EventType) type
 func (s *Scheduler) GetSystemStats() types.SystemStatsResponse {
 	systemStats := types.SystemStatsResponse{}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	systemStats.TotalWorkItemsReceived = s.stats.TotalEventsReceived
 	systemStats.TotalWorkItemsDone = s.stats.TotalEventsDone
@@ -264,33 +247,21 @@ func (s *Scheduler) GetSystemStats() types.SystemStatsResponse {
 	systemStats.TotalWorkItemsWaiting = s.stats.TotalEventsWaiting
 	systemStats.TotalWorkItemsProcessable = s.stats.TotalEventsProcessable
 	systemStats.TotalWorkItemsSystem = s.stats.TotalEventsSystem
-
 	return systemStats
 }
-
-// GetEvent returns an event by reference
-// Use it to get an event by UUID (to transform its state for example)
-// (private method)
-/*func getEvent(s *Scheduler, uuid uuid.UUID) *types.Event {
-	if event, exists := s.events[uuid]; exists {
-		return event
-	}
-	return nil
-}*/
 
 // SetEventState sets the state of an event in the scheduler queue
 // Use it to set the state of an event by UUID
 // (public method)
 func (s *Scheduler) SetEventState(uuid uuid.UUID, state types.EventState) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
 	setEventState(s, uuid, state)
 }
 
 func updateSchedulerStats(s *Scheduler, oldState types.EventState, newState types.EventState) {
 	if oldState != newState {
-		// Update stats
 		if newState == types.EventStateCancelled {
 			s.stats.TotalEventsCancelled++
 		} else if newState == types.EventStateDone {
@@ -332,30 +303,36 @@ func setEventState(s *Scheduler, uuid uuid.UUID, state types.EventState) {
 		s.events[uuid].State = state
 		updateSchedulerStats(s, oldState, state)
 	} else {
-		fmt.Printf("SetEventState: event '%s' not found\n", uuid)
+		s.logger.Printf("SetEventState: event '%s' not found\n", uuid)
 	}
 }
 
 // SetEventState sets the state of an event in the scheduler queue
 // Use it to set the state of an event by UUID
-// (public method)
 func SetEventState(e *types.Event, state types.EventState) {
-	scheduler := e.Sched.(*Scheduler)
-	if e == nil {
-		scheduler.logger.Println("SetEventState: event is nil\n", e.UUID)
+	if e == nil || e.Sched == nil {
 		return
 	}
 
-	scheduler.mutex.Lock()
-	defer scheduler.mutex.Unlock()
+	s, ok := e.Sched.(*Scheduler)
 
-	if (state == types.EventStateDone || state == types.EventStateCancelled || state == types.EventStateError) && scheduler.events[e.UUID].State == types.EventStateInProcess {
-		scheduler.CurrentRunningActions--
+	if !ok {
+		return
 	}
-	oldState := scheduler.events[e.UUID].State
-	scheduler.events[e.UUID].State = state
+
+	s.Lock()
+	defer s.Unlock()
+
+	if (state == types.EventStateDone || state == types.EventStateCancelled ||
+
+		state == types.EventStateError) && s.events[e.UUID].State == types.EventStateInProcess {
+		s.CurrentRunningActions--
+	}
+
+	oldState := s.events[e.UUID].State
+	s.events[e.UUID].State = state
 	e.State = state
-	updateSchedulerStats(scheduler, oldState, state)
+	updateSchedulerStats(s, oldState, state)
 }
 
 // removeEventAndDeps removes an event and the events that depends on it from the scheduler queue
@@ -462,15 +439,15 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			// If we have an average waiting time, wait for it
 			time.Sleep(averageWaitingTime)
 		}
-		s.mutex.Lock()
 
+		s.Lock()
 		// If the queue is empty, wait for a second and continue
 		if s.q.Len() == 0 || s.q.Empty() {
 			if config.ExitWhenEmpty {
-				s.mutex.Unlock()
+				s.Unlock()
 				return
 			}
-			s.mutex.Unlock()
+			s.Unlock()
 			time.Sleep(1 * time.Second)
 			continue
 		}
@@ -489,7 +466,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			if config.DebugLevel > 0 {
 				s.logger.Println("The element presented a problem: ", event)
 			}
-			s.mutex.Unlock()
+			s.Unlock()
 			continue
 		}
 
@@ -507,7 +484,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 			err := schedule(s, &event)
 			if err == nil {
-				s.mutex.Unlock()
+				s.Unlock()
 				continue
 			} else {
 				s.logger.Println(err)
@@ -521,7 +498,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				s.logger.Println("The element presented an error: ", event)
 			}
 			removeEventAndDeps(s, event.UUID)
-			s.mutex.Unlock()
+			s.Unlock()
 			continue
 		}
 
@@ -529,7 +506,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 		if s.events[event.UUID].State == types.EventStateDone {
 			// Event is completed, check if it needs to be repeated
 			reschedule(s, &event)
-			s.mutex.Unlock()
+			s.Unlock()
 			continue
 		}
 
@@ -554,7 +531,6 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			event.Timeout = time.Now().Add(time.Duration(config.ActionTimeout) * time.Second)
 
 			// Execute the action
-			errCh := make(chan error)
 			if config.ExecuteAction && event.Action != nil {
 				if averageWaitingTime > 0 {
 					// reset average waiting time
@@ -565,16 +541,15 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				if event.State != types.EventStateInProcess {
 					// If we reached the maximum number of concurrent actions, reschedule the event
 					// and continue to the next event
-					s.mutex.Unlock()
+					s.Unlock()
 					continue
 				}
 
 				if err == nil {
 					// Increment the number of running actions
 					s.CurrentRunningActions++
-
 					// Process the event in a goroutine
-					go processEvent(event, errCh)
+					go processEvent(&event)
 				}
 			} else {
 				oldState := event.State
@@ -583,7 +558,7 @@ func (s *Scheduler) Process(config ProcessConfig) {
 			}
 
 			if config.ReturnIfFound {
-				s.mutex.Unlock()
+				s.Unlock()
 				return
 			}
 		} else {
@@ -592,20 +567,17 @@ func (s *Scheduler) Process(config ProcessConfig) {
 				// calculate average waiting time
 				targetTime := event.Timestamp.Add(time.Duration(event.RepeatEvery) * time.Millisecond)
 				waitingTime := time.Until(targetTime) // current waiting time
-
 				// compute the new average waiting time considering current waiting time and previous average
 				averageWaitingTime := (waitingTime + previousAverage) / 2
-
 				// store the new average for future computations
 				previousAverage = averageWaitingTime
 			}
-
 			// If it can't be processed, append it back to the queue
 			err := schedule(s, &event)
 			if err != nil {
 				s.logger.Fatal(err)
 			}
 		}
-		s.mutex.Unlock()
+		s.Unlock()
 	}
 }

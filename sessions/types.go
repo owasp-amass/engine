@@ -9,20 +9,22 @@ import (
 	"github.com/google/uuid"
 	assetdb "github.com/owasp-amass/asset-db"
 	"github.com/owasp-amass/config/config"
+	"github.com/owasp-amass/engine/cache"
 	"github.com/owasp-amass/engine/pubsub"
 )
 
 // Session
 type Session struct {
-	Cfg       *config.Config
-	PubSub    *pubsub.Logger
-	EngineLog *log.Logger
-	DB        *assetdb.AssetDB
+	Log    *log.Logger
+	PubSub *pubsub.Logger
+	Cfg    *config.Config
+	DB     *assetdb.AssetDB
+	Cache  cache.Cache
 }
 
 // SessionStorage is a struct that holds the sessions in memory.
 type Manager struct {
-	mu        sync.RWMutex // Mutex for thread-safety
-	sessions  map[uuid.UUID]*Session
-	EngineLog *log.Logger
+	sync.RWMutex // Mutex for thread-safety
+	Log          *log.Logger
+	sessions     map[uuid.UUID]*Session
 }

@@ -37,14 +37,14 @@ var (
 	zeroSessionUUID = uuid.UUID{}
 )
 
-// NewStorage: creates a new session storage.
-func NewStorage(EngineLog *log.Logger) *Manager {
+// NewManager: creates a new session storage.
+func NewManager(l *log.Logger) *Manager {
 	if zeroSessionUUID == uuid.Nil {
 		zeroSessionUUID = uuid.UUID{}
 	}
 	return &Manager{
-		sessions:  make(map[uuid.UUID]*Session),
-		EngineLog: EngineLog,
+		Log:      l,
+		sessions: make(map[uuid.UUID]*Session),
 	}
 }
 
@@ -54,17 +54,14 @@ func (ss *Manager) Add(s *Session) (uuid.UUID, error) {
 		return uuid.UUID{}, nil
 	}
 
-	// passes the EngineLog to the session
-	s.EngineLog = ss.EngineLog
+	s.Log = ss.Log
 
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	id := uuid.New()
 	ss.sessions[id] = s
-
 	// TODO: Need to add the session config checks here (using the Registry)
-
 	return id, nil
 }
 
@@ -74,8 +71,8 @@ func (ss *Manager) Cancel(id uuid.UUID) {
 		return
 	}
 
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	delete(ss.sessions, id)
 }
@@ -86,16 +83,16 @@ func (ss *Manager) Get(id uuid.UUID) *Session {
 		return nil
 	}
 
-	ss.mu.RLock()
-	defer ss.mu.RUnlock()
+	ss.RLock()
+	defer ss.RUnlock()
 
 	return ss.sessions[id]
 }
 
 // CleanAll: cleans all sessions from a session storage.
 func (ss *Manager) CleanAll() {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
+	ss.Lock()
+	defer ss.Unlock()
 
 	for k := range ss.sessions {
 		delete(ss.sessions, k)
@@ -105,5 +102,4 @@ func (ss *Manager) CleanAll() {
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
 func (ss *Manager) Shutdown() {
 	ss.CleanAll()
-	ss = nil
 }

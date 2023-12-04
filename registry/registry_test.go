@@ -1,3 +1,7 @@
+// Copyright © by Jeff Foley 2023. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package registry
 
 import (
@@ -10,8 +14,11 @@ import (
 )
 
 func TestNewRegistry(t *testing.T) {
-	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	r := NewRegistry(logger)
+	r := NewRegistry(log.New(
+		os.Stdout,
+		"Test: ",
+		log.Ldate|log.Ltime|log.Lshortfile,
+	))
 	if r == nil {
 		t.Error("Registry is nil")
 	}
@@ -22,33 +29,20 @@ func FakeHandler(e *types.Event) error {
 }
 
 func TestRegisterHandler(t *testing.T) {
-	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	r := NewRegistry(logger)
+	r := NewRegistry(log.New(
+		os.Stdout,
+		"Test: ",
+		log.Ldate|log.Ltime|log.Lshortfile,
+	))
 
 	// Register a handler
-	r.RegisterHandler(
-		Handler{
-			Name:       "Test-MainHandler",
-			Transforms: []string{"Test-Transform"},
-			EventType:  oam.FQDN,
-			Handler:    FakeHandler,
-		})
-
-	// Check if the handler was registered
-	if r.HandlersMapSize() == 0 {
+	err := r.RegisterHandler(&Handler{
+		Name:       "Test-MainHandler",
+		Transforms: []string{"Test-Transform"},
+		EventType:  oam.FQDN,
+		Handler:    FakeHandler,
+	})
+	if err != nil || r.HandlersMapSize() == 0 {
 		t.Error("No handlers registered")
 	}
 }
-
-/* Can't run this test because we don't have plugins yet
-func TestLoadPlugins(t *testing.T) {
-	r := NewRegistry()
-	err := r.LoadPlugins("../plugins")
-	if err != nil {
-		t.Error("Error loading plugins:", err)
-	}
-	if len(r.Plugins) == 0 {
-		t.Error("No plugins loaded")
-	}
-}
-*/

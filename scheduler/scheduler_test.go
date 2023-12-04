@@ -1,10 +1,10 @@
 package scheduler
 
 import (
+	"errors"
 	"flag"
-	"fmt"
+	"io"
 	"log"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +26,7 @@ const (
 var (
 	config    ProcessConfig
 	setupOnce sync.Once
-	testLog   *log.Logger
+	l         *log.Logger
 	r         *registry.Registry
 	ss        *sessions.Manager
 )
@@ -36,10 +36,9 @@ type TestEvent struct {
 }
 
 func setup() {
-	// Setup test logger
-	testLog = log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	r = registry.NewRegistry(testLog)
-	ss = sessions.NewStorage(testLog)
+	l = log.New(io.Discard, "", log.Lmicroseconds)
+	r = registry.NewRegistry(l)
+	ss = sessions.NewManager(l)
 
 	exitWhenEmpty := flag.Bool("exitWhenEmpty", true, "Exit when the queue is empty")
 	checkEvent := flag.Bool("checkEvent", true, "Print event details when processing")
@@ -57,27 +56,22 @@ func setup() {
 		ActionTimeout:        60,
 		MaxConcurrentActions: 10,
 	}
-	fmt.Println("Tests config:")
-	fmt.Printf("%+v\n", config)
 }
 
 func TestNewScheduler(t *testing.T) {
 	setupOnce.Do(setup)
 
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 }
 
 func TestSchedule001(t *testing.T) {
-	fmt.Println("\nTestSchedule001")
-
 	var err error
 
 	setupOnce.Do(setup)
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -88,12 +82,10 @@ func TestSchedule001(t *testing.T) {
 			Message: testMsg,
 		},
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(&e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -101,13 +93,10 @@ func TestSchedule001(t *testing.T) {
 // Test Schedule to add an Event in Queue and:
 // - UUID
 func TestSchedule002(t *testing.T) {
-	fmt.Println("\nTestSchedule002")
-
 	var err error
 
 	setupOnce.Do(setup)
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -119,12 +108,10 @@ func TestSchedule002(t *testing.T) {
 			Message: testMsg,
 		},
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(&e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -133,13 +120,10 @@ func TestSchedule002(t *testing.T) {
 // - UUID
 // - State
 func TestSchedule003(t *testing.T) {
-	fmt.Println("\nTestSchedule003")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -152,12 +136,10 @@ func TestSchedule003(t *testing.T) {
 			Message: testMsg,
 		},
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(&e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -167,13 +149,10 @@ func TestSchedule003(t *testing.T) {
 // - State
 // - DependOn
 func TestSchedule004(t *testing.T) {
-	fmt.Println("\nTestSchedule004")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -187,12 +166,10 @@ func TestSchedule004(t *testing.T) {
 			Message: testMsg,
 		},
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(&e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -203,13 +180,10 @@ func TestSchedule004(t *testing.T) {
 // - DependOn
 // - Timestamp
 func TestSchedule005(t *testing.T) {
-	fmt.Println("\nTestSchedule005")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
@@ -224,12 +198,10 @@ func TestSchedule005(t *testing.T) {
 			Message: testMsg,
 		},
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(&e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -241,42 +213,36 @@ func TestSchedule005(t *testing.T) {
 // - Timestamp
 // - Action
 func TestSchedule006(t *testing.T) {
-	fmt.Println("\nTestSchedule006")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID:      uuid.New(),
 		Name:      "Test event (TestSchedule006)",
 		State:     types.EventStateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func(e types.Event) error {
-			data, ok := e.Data.(TestEvent) // Type assertion
+		Action: func(e *types.Event) error {
+			_, ok := e.Data.(TestEvent) // Type assertion
 			if ok {
-				fmt.Println(data)
 				return nil
 			}
-			SetEventState(&e, types.EventStateError)
-			return fmt.Errorf("Error: Type assertion failed")
+			SetEventState(e, types.EventStateError)
+			return errors.New("Error: Type assertion failed")
 		},
 		Data: TestEvent{
 			Message: testMsg,
 		},
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -289,26 +255,22 @@ func TestSchedule006(t *testing.T) {
 // - Action
 // - Type
 func TestSchedule007(t *testing.T) {
-	fmt.Println("\nTestSchedule007")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID:      uuid.New(),
 		Name:      "Test event (TestSchedule007)",
 		State:     types.EventStateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -316,12 +278,10 @@ func TestSchedule007(t *testing.T) {
 		},
 		Type: types.EventTypeCustom,
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -335,27 +295,22 @@ func TestSchedule007(t *testing.T) {
 // - Type
 // - Priority
 func TestSchedule008(t *testing.T) {
-
-	fmt.Println("\nTestSchedule008")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID:      uuid.New(),
 		Name:      "Test event (TestSchedule008)",
 		State:     types.EventStateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -364,12 +319,10 @@ func TestSchedule008(t *testing.T) {
 		Type:     types.EventTypeCustom,
 		Priority: 1,
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -384,27 +337,22 @@ func TestSchedule008(t *testing.T) {
 // - Priority
 // - RepeatEvery
 func TestSchedule009(t *testing.T) {
-
-	fmt.Println("\nTestSchedule009")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID:      uuid.New(),
 		Name:      "Test event (TestSchedule009)",
 		State:     types.EventStateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -414,12 +362,10 @@ func TestSchedule009(t *testing.T) {
 		Priority:    1,
 		RepeatEvery: 1,
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -435,27 +381,22 @@ func TestSchedule009(t *testing.T) {
 // - RepeatEvery
 // - RepeatTimes
 func TestSchedule010(t *testing.T) {
-
-	fmt.Println("\nTestSchedule010")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID:      uuid.New(),
 		Name:      "Test event (TestSchedule010) Random UUID as dependency",
 		State:     types.EventStateDone,
 		DependOn:  []uuid.UUID{uuid.New()},
 		Timestamp: time.Now(),
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -466,12 +407,10 @@ func TestSchedule010(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	err = s.Schedule(&e)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) != 1 {
+	if err = s.Schedule(e); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) != 1 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 }
@@ -479,53 +418,45 @@ func TestSchedule010(t *testing.T) {
 // Test Schedule to add an Event in Queue and:
 // Ensure there are multiple layers of dependencies
 func TestSchedule011(t *testing.T) {
-
-	fmt.Println("\nTestSchedule011")
-
+	var err error
 	setupOnce.Do(setup)
 
-	var err error
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e0 := types.Event{
-		Name: "Test event 0 (TestSchedule011)",
-	}
-	err = s.Schedule(&e0)
-	if err != nil {
+	e0 := &types.Event{Name: "Test event 0 (TestSchedule011)"}
+	if err = s.Schedule(e0); err != nil {
 		t.Errorf(err.Error())
 	}
 
-	e1 := types.Event{
+	e1 := &types.Event{
 		Name:     "Test event 1 (TestSchedule011)",
 		DependOn: []uuid.UUID{e0.UUID},
 	}
-	err = s.Schedule(&e1)
-	if err != nil {
+
+	if err = s.Schedule(e1); err != nil {
 		t.Errorf(err.Error())
 	}
 
-	e2 := types.Event{
+	e2 := &types.Event{
 		Name:     "Test event 2 (TestSchedule011)",
 		DependOn: []uuid.UUID{e0.UUID},
 	}
-	err = s.Schedule(&e2)
-	if err != nil {
+
+	if err = s.Schedule(e2); err != nil {
 		t.Errorf(err.Error())
 	}
 
-	e3 := types.Event{
+	e3 := &types.Event{
 		Name:  "Test event 3 (TestSchedule011)",
 		State: types.EventStateDone,
 		// list of events that must be completed before this event can be processed
 		DependOn:  []uuid.UUID{e1.UUID, e2.UUID},
 		Timestamp: time.Now(),
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -536,87 +467,70 @@ func TestSchedule011(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	err = s.Schedule(&e3)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
 
-	if err == nil && len(s.events) < 3 {
+	if err = s.Schedule(e3); err != nil {
+		t.Errorf(err.Error())
+	} else if len(s.events) < 3 {
 		t.Errorf(errMsgEventScheduleFailed)
 	}
 
 	s.Process(config)
-
 }
 
 // Test with empty Queue
 func TestProcess000(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess000")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
-
 	// ... schedule types.Events ...
-
 	s.Process(config)
-
 }
 
 // Test with Event in Queue
 func TestProcess001(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess001")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
 	// ... schedule types.Events ...
-
-	e := types.Event{
+	e := &types.Event{
 		Name: "Test event (TestProcess001)",
-		Action: func(e types.Event) error {
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
 // Test with Event in Queue and:
 // - Action
 func TestProcess002(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess002")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		Name: "Test event (TestProcess002)",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
 			Message: testMsg,
 		},
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -624,21 +538,17 @@ func TestProcess002(t *testing.T) {
 // - Action
 // - Timestamp
 func TestProcess003(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess003")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		Name: "Test event (TestProcess003)",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -646,7 +556,7 @@ func TestProcess003(t *testing.T) {
 		},
 		Timestamp: time.Now(),
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -655,29 +565,25 @@ func TestProcess003(t *testing.T) {
 // - Timestamp
 // - DependOn
 func TestProcess004(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess004")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e0 := types.Event{
+	e0 := &types.Event{
 		Name: "Test event 0 (TestProcess004)",
-		Action: func(e types.Event) error {
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 	}
-	_ = s.Schedule(&e0)
-	e1 := types.Event{
+	_ = s.Schedule(e0)
+	e1 := &types.Event{
 		Name: "Test event 1 (TestProcess004)",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -686,7 +592,7 @@ func TestProcess004(t *testing.T) {
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
 	}
-	_ = s.Schedule(&e1)
+	_ = s.Schedule(e1)
 	s.Process(config)
 }
 
@@ -696,30 +602,26 @@ func TestProcess004(t *testing.T) {
 // - DependOn
 // - State
 func TestProcess005(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess005")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e0 := types.Event{
+	e0 := &types.Event{
 		Name:  "Test event 0 (TestProcess005)",
 		State: types.EventStateDone,
-		Action: func(e types.Event) error {
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 	}
-	_ = s.Schedule(&e0)
-	e1 := types.Event{
+	_ = s.Schedule(e0)
+	e1 := &types.Event{
 		Name: "Test event 1 (TestProcess005)",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -728,7 +630,7 @@ func TestProcess005(t *testing.T) {
 		Timestamp: time.Now(),
 		DependOn:  []uuid.UUID{e0.UUID},
 	}
-	_ = s.Schedule(&e1)
+	_ = s.Schedule(e1)
 	s.Process(config)
 }
 
@@ -739,29 +641,25 @@ func TestProcess005(t *testing.T) {
 // - State
 // - Type
 func TestProcess006(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess006")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e0 := types.Event{
+	e0 := &types.Event{
 		Name: "Test event 0 (TestProcess006)",
-		Action: func(e types.Event) error {
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 	}
-	_ = s.Schedule(&e0)
-	e1 := types.Event{
+	_ = s.Schedule(e0)
+	e1 := &types.Event{
 		Name: "Test event 1 (TestProcess006)",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -772,7 +670,7 @@ func TestProcess006(t *testing.T) {
 		State:     types.EventStateDone,
 		Type:      types.EventTypeCustom,
 	}
-	_ = s.Schedule(&e1)
+	_ = s.Schedule(e1)
 	s.Process(config)
 }
 
@@ -784,21 +682,17 @@ func TestProcess006(t *testing.T) {
 // - Type
 // - Priority
 func TestProcess007(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess007")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		Name: "Test event (TestProcess007) Random UUID as dependency",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -810,7 +704,7 @@ func TestProcess007(t *testing.T) {
 		Type:      types.EventTypeCustom,
 		Priority:  1,
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -823,21 +717,17 @@ func TestProcess007(t *testing.T) {
 // - Priority
 // - RepeatEvery
 func TestProcess008(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess008")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		Name: "Test event (TestProcess008) Random UUID as dependency",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -849,7 +739,7 @@ func TestProcess008(t *testing.T) {
 		Priority:    1,
 		RepeatEvery: 1,
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -863,21 +753,17 @@ func TestProcess008(t *testing.T) {
 // - RepeatEvery
 // - RepeatTimes
 func TestProcess009(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess009")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		Name: "Test event (TestProcess009) Random UUID as dependency",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -891,7 +777,7 @@ func TestProcess009(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -906,22 +792,18 @@ func TestProcess009(t *testing.T) {
 // - RepeatTimes
 // - UUID
 func TestProcess010(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess010")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID: uuid.New(),
 		Name: "Test event (TestProcess010) Random UUID as dependency",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -935,7 +817,7 @@ func TestProcess010(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -951,22 +833,18 @@ func TestProcess010(t *testing.T) {
 // - UUID
 // - Mutex
 func TestProcess011(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess011")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID: uuid.New(),
 		Name: "Test event (TestProcess011) Random UUID as dependency",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -980,7 +858,7 @@ func TestProcess011(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 1,
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }
 
@@ -997,22 +875,18 @@ func TestProcess011(t *testing.T) {
 // - Mutex
 // - Queue
 func TestProcess012(t *testing.T) {
-
 	setupOnce.Do(setup)
 
-	fmt.Println("\nTestProcess012")
-
-	s := NewScheduler(testLog, r, ss)
+	s := NewScheduler(l, r, ss)
 	if s == nil {
 		t.Errorf(errMsgSchedulerFailedToInit)
 	}
 
-	e := types.Event{
+	e := &types.Event{
 		UUID: uuid.New(),
 		Name: "Test event (TestProcess012) Random UUID as dependency",
-		Action: func(e types.Event) error {
-			fmt.Println(e.Data.(TestEvent).Message)
-			SetEventState(&e, types.EventStateDone)
+		Action: func(e *types.Event) error {
+			SetEventState(e, types.EventStateDone)
 			return nil
 		},
 		Data: TestEvent{
@@ -1026,6 +900,6 @@ func TestProcess012(t *testing.T) {
 		RepeatEvery: 1,
 		RepeatTimes: 3,
 	}
-	_ = s.Schedule(&e)
+	_ = s.Schedule(e)
 	s.Process(config)
 }

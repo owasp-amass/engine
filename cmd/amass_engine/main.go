@@ -4,41 +4,45 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
-	"github.com/owasp-amass/engine/api/graphql/server"
-	"github.com/owasp-amass/engine/registry"
-	"github.com/owasp-amass/engine/registry/plugins/hackertarget"
+	"github.com/owasp-amass/engine"
+	"github.com/owasp-amass/engine/plugins"
 	"github.com/owasp-amass/engine/scheduler"
-	"github.com/owasp-amass/engine/sessions"
 )
 
 func main() {
 	pid := os.Getpid()
-	pidStr := strconv.Itoa(pid)
-	filename := fmt.Sprintf("Amass-%s.log", pidStr)
+	pidstr := strconv.Itoa(pid)
+	filename := fmt.Sprintf("amass-%s.log", pidstr)
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("failed to open log file: %v", err)
+		log.Fatalf("Failed to open log file: %v", err)
+		os.Exit(1)
 	}
 	defer file.Close()
 
-	// Step 2: Create a new logger instance using `log.New()`
-	logger := log.New(file, "custom-prefix: ", log.LstdFlags)
-	//logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	sessionManager := sessions.NewStorage(logger)
-	Registry := registry.NewRegistry(logger)
-	hackertarget.AmassPlugin.Start(Registry)
+	l := log.New(file, "", log.Lmicroseconds)
+	e, err := engine.NewEngine(l)
+	if err != nil {
+		log.Fatalf("Failed to start the engine: %v", err)
+		os.Exit(1)
+	}
+	defer e.Shutdown()
 
-	// pErr := Registry.LoadPlugins("./plugins")
-	// if pErr != nil {
-	// 	logger.Println(pErr)
-	// 	//os.Exit(1)
-	// }
+	if err := plugins.LoadAndStartPlugins(e.Reg); err != nil {
+		l.Printf("Failed to start the plugins: %v", err)
+		os.Exit(1)
+	}
 
-	Scheduler := scheduler.NewScheduler(logger, Registry, sessionManager)
+	if err := e.Reg.BuildPipelines(); err != nil {
+		l.Printf("Failed to build the handler pipelines: %v", err)
+		os.Exit(1)
+	}
 
-	config := scheduler.ProcessConfig{
+	go e.Sched.Process(scheduler.ProcessConfig{
 		ExitWhenEmpty:        false,
 		CheckEvent:           false,
 		ExecuteAction:        true,
@@ -46,22 +50,10 @@ func main() {
 		DebugLevel:           0,
 		ActionTimeout:        0,
 		MaxConcurrentActions: 8,
-	}
+	})
 
-	go func(config scheduler.ProcessConfig) {
-		Scheduler.Process(config)
-		/*
-			err := scheduler.Process(config)
-			if err != nil {
-				errCh <- err
-			}
-		*/
-	}(config)
-
-	server := server.NewServer(logger, Scheduler, sessionManager)
-	fmt.Println("Started server...")
-	server.Start()
-
-	// Wait
-
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
+	<-quit
 }

@@ -1,35 +1,22 @@
 package sessions
 
 import (
-	"fmt"
+	"io"
 	"log"
-	"os"
 	"testing"
 )
 
-var (
-	ss *Manager
-)
-
-func TestMain(m *testing.M) {
-	// Create a new logger for testing.
-	logger := log.New(os.Stdout, "Test: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ss := NewStorage(logger)
-	defer ss.Shutdown()
-
-	m.Run()
-}
-
 func TestAddSession001(t *testing.T) {
-	// Create a session
-	s := &Session{
-		// ...
-	}
-	id, err := ss.Add(s)
+	l := log.New(io.Discard, "T", log.Lmicroseconds)
+	mgr := NewManager(l)
+	defer mgr.Shutdown()
+
+	s := &Session{}
+	id, err := mgr.Add(s)
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println("Session ID:", id)
+
 	if id == zeroSessionUUID {
 		t.Error("Session ID is zero")
 	}

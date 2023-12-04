@@ -48,14 +48,14 @@ const (
 //   - Sub schedulers, used to schedule and process events, they are allocated on the stack and
 //     they are initialized by calling the NewScheduler() function.
 type Scheduler struct {
+	sync.Mutex                                       // Mutex to protect the queue when fetching the next event
 	q                     queue.Queue                // Events Queue (Queue to store events)
-	mutex                 sync.Mutex                 // Mutex to protect the queue when fetching the next event
 	events                map[uuid.UUID]*types.Event // Map to quickly look up events by UUID
 	CurrentRunningActions int                        // Number of actions currently running
 	state                 SchedulerState             // Scheduler state (running, stopped, paused)
 	logger                *log.Logger                // Logger
 	r                     *registry.Registry         // Plugins registry
-	s                     *sessions.Manager
+	mgr                   *sessions.Manager
 	stats                 schedulerStats
 }
 

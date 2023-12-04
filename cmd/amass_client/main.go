@@ -17,17 +17,14 @@ import (
 )
 
 func main() {
-
 	c := config.NewConfig()
-
 	// Load config from file
-	err := config.AcquireConfig("", "../../api/graphql/client/config.yml", c)
+	err := config.AcquireConfig("", "./api/graphql/client/config.yml", c)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	// TODO: Parse commandline flags
-
 	// connect to amass-engine
 	client := client.NewClient("http://localhost:4000/graphql")
 	token, _ := client.CreateSession(c)
@@ -52,12 +49,9 @@ func main() {
 		}
 	}()
 
-	// Send assets to engine
-	assets := makeAssets(c)
-
-	for _, a := range assets {
+	for _, a := range makeAssets(c) {
 		fmt.Printf("%v\n", a)
-		client.CreateAsset(*a, token)
+		_ = client.CreateAsset(*a, token)
 	}
 
 	// Query session stats
@@ -85,8 +79,8 @@ const (
 
 // returns Asset objects by converting the contests of config.Scope
 func makeAssets(config *config.Config) []*types.Asset {
-
 	assets := convertScopeToAssets(config.Scope)
+
 	for i, asset := range assets {
 		asset.Name = fmt.Sprintf("asset#%d", i+1)
 	}

@@ -15,15 +15,13 @@ import (
 	"github.com/owasp-amass/engine/api/graphql/server/model"
 	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
+	oam "github.com/owasp-amass/open-asset-model"
+	"github.com/owasp-amass/open-asset-model/domain"
+	"github.com/owasp-amass/open-asset-model/network"
 )
 
 // CreateSession is the resolver for the createSession field.
 func (r *mutationResolver) CreateSession(ctx context.Context, input model.CreateSessionInput) (*model.Session, error) {
-	fmt.Println("Create Session Called")
-
-	//r.scheduler.Schedule()
-	//input.Config
-
 	testSession := &model.Session{
 		SessionToken: "00000000-0000-0000-0000-0000000000033", //?
 	}
@@ -32,55 +30,51 @@ func (r *mutationResolver) CreateSession(ctx context.Context, input model.Create
 
 // CreateSessionFromJSON is the resolver for the createSessionFromJson field.
 func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input model.CreateSessionJSONInput) (*model.Session, error) {
-	fmt.Println("CreateSessionFromJSON")
-
 	var config config.Config
-	err := json.Unmarshal([]byte(input.Config), &config)
-	if err != nil {
+
+	if err := json.Unmarshal([]byte(input.Config), &config); err != nil {
 		fmt.Println(err)
 	}
-
 	// Populate FROM/TO in transformations
 	for k, t := range config.Transformations {
 		t.Split(k)
 	}
 
-	newSession, err := sessions.NewSession(&config)
+	session, err := sessions.NewSession(&config)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
-	token, err := r.sessionManager.Add(newSession)
+	token, err := r.Mgr.Add(session)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
-	model := &model.Session{
-		SessionToken: token.String(),
-	}
-	return model, nil
+	return &model.Session{SessionToken: token.String()}, nil
 }
 
 // CreateAsset is the resolver for the createAsset field.
 func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error) {
 	token, _ := uuid.Parse(input.SessionToken)
-	session := r.sessionManager.Get(token)
+
+	session := r.Mgr.Get(token)
 	if session == nil {
 		return nil, errors.New("invalid session")
 	}
 
 	data, err := json.Marshal(input.Data)
 	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("invalid json data")
+		return nil, err
 	}
-
 	// Unmarshal json into AssetData struct
 	var assetData types.AssetData
-	err = json.Unmarshal(data, &assetData)
-	if err != nil {
-		fmt.Println(err)
-		return nil, errors.New("invalid json data")
+	if err := json.Unmarshal(data, &assetData); err != nil {
+		return nil, err
+	}
+
+	ad := fixAssetData(&assetData)
+	if ad == nil {
+		return nil, errors.New("failed to build the AssetData")
 	}
 
 	// Create and schedule new event
@@ -88,21 +82,16 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 		UUID:      uuid.New(),
 		Name:      *input.AssetName,
 		SessionID: token,
-		Data:      assetData,
+		Data:      ad,
 		Type:      types.EventTypeAsset,
 	}
-	err = r.sched.Schedule(event)
-	if err != nil {
+
+	if err := r.Sched.Schedule(event); err != nil {
 		return nil, errors.New("failed to create asset")
 	}
-
 	// TEST: Broadcast asset creation message to client subscribers
 	session.PubSub.Publish("Log created asset")
-
-	model := &model.Asset{
-		ID: event.UUID.String(),
-	}
-	return model, nil
+	return &model.Asset{ID: event.UUID.String()}, nil
 }
 
 // TerminateSession is the resolver for the terminateSession field.
@@ -110,13 +99,12 @@ func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken st
 	result := false
 	token, _ := uuid.Parse(sessionToken)
 
-	if r.sessionManager.Get(token) != nil {
-		r.sessionManager.Cancel(token)
+	if r.Mgr.Get(token) != nil {
+		r.Mgr.Cancel(token)
 		result = true
 	} else {
 		return &result, errors.New("invalid session token")
 	}
-
 	return &result, nil
 }
 
@@ -124,19 +112,16 @@ func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken st
 func (r *queryResolver) SessionStats(ctx context.Context, sessionToken string) (*model.SessionStats, error) {
 	token, _ := uuid.Parse(sessionToken)
 
-	if r.sessionManager.Get(token) == nil {
+	if r.Mgr.Get(token) == nil {
 		return nil, errors.New("invalid session token")
 	}
 
-	ssResp := r.sched.GetSessionStats(token, types.EventTypeAsset)
-
-	model := &model.SessionStats{
+	ssResp := r.Sched.GetSessionStats(token, types.EventTypeAsset)
+	return &model.SessionStats{
 		WorkItemsInProcess:   &ssResp.SessionWorkItemsInProcess,
 		WorkItemsWaiting:     &ssResp.SessionWorkItemsWaiting,
 		WorkItemsProcessable: &ssResp.SessionWorkItemsProcessable,
-	}
-
-	return model, nil
+	}, nil
 }
 
 // SystemStats is the resolver for the systemStats field.
@@ -147,17 +132,14 @@ func (r *queryResolver) SystemStats(ctx context.Context, sessionToken string) (*
 // LogMessages is the resolver for the logMessages field.
 func (r *subscriptionResolver) LogMessages(ctx context.Context, sessionToken string) (<-chan *string, error) {
 	token, _ := uuid.Parse(sessionToken)
-	session := r.sessionManager.Get(token)
+	session := r.Mgr.Get(token)
 
 	fmt.Println("LogMessages callled")
 	if session != nil {
-
 		session.PubSub.Publish("Channel created")
 		ch := session.PubSub.Subscribe()
-
 		return ch, nil
 	}
-
 	return nil, nil
 }
 
@@ -173,3 +155,34 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+func fixAssetData(ad *types.AssetData) *types.AssetData {
+	switch v := ad.OAMAsset.(type) {
+	case domain.FQDN:
+		return &types.AssetData{
+			OAMAsset: &v,
+			OAMType:  oam.FQDN,
+		}
+	case network.IPAddress:
+		return &types.AssetData{
+			OAMAsset: &v,
+			OAMType:  oam.IPAddress,
+		}
+	case network.Netblock:
+		return &types.AssetData{
+			OAMAsset: &v,
+			OAMType:  oam.Netblock,
+		}
+	case network.AutonomousSystem:
+		return &types.AssetData{
+			OAMAsset: &v,
+			OAMType:  oam.ASN,
+		}
+	case network.RIROrganization:
+		return &types.AssetData{
+			OAMAsset: &v,
+			OAMType:  oam.RIROrg,
+		}
+	}
+	return nil
+}

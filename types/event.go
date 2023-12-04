@@ -57,14 +57,14 @@ const (
 // This struct it's kind of the "currency of exchange" between the scheduler
 // and the functions that create and process the events
 type Event struct {
-	UUID      uuid.UUID           /* Event UUID */
-	SessionID uuid.UUID           /* Session UUID */
-	Name      string              /* Event name */
-	Timestamp time.Time           /* Event timestamp */
-	Type      EventType           /* Event type */
-	State     EventState          /* Event state (processable, waiting, done, in process) */
-	DependOn  []uuid.UUID         /* Events this event "depends on" */
-	Action    func(e Event) error /* Event handler function (action) (normally populated by querying the
+	UUID      uuid.UUID            /* Event UUID */
+	SessionID uuid.UUID            /* Session UUID */
+	Name      string               /* Event name */
+	Timestamp time.Time            /* Event timestamp */
+	Type      EventType            /* Event type */
+	State     EventState           /* Event state (processable, waiting, done, in process) */
+	DependOn  []uuid.UUID          /* Events this event "depends on" */
+	Action    func(e *Event) error /* Event handler function (action) (normally populated by querying the
 	-                                Registry)
 	-                              */
 	Priority    int /* Event priority (normally populated by querying the Registry) */

@@ -28,8 +28,8 @@ type Client struct {
 }
 
 func NewClient(url string) *Client {
-
 	httpClient := &http.Client{}
+
 	return &Client{url: url, httpClient: *httpClient}
 }
 
@@ -77,16 +77,9 @@ func (c *Client) Subscribe(token uuid.UUID, handler Handler) {
 */
 
 func (c *Client) Query(query string) (string, error) {
-
-	//escapedQuery, err := json.Marshal(query)
-
 	quotedStr := strings.Trim(strconv.Quote((string(query))), `"`)
-
-	//body, err := json.Marshal(fmt.Sprintf(`{"query":"%s"}`, query))
 	body := []byte(fmt.Sprintf(`{"query":"%s"}`, quotedStr))
-	//body := []byte(fmt.Sprintf(`{"query":"%s"}`, query))
 
-	fmt.Println("BODY:\n" + string(body))
 	req, err := http.NewRequest(http.MethodPost, c.url, bytes.NewBuffer(body))
 	if err != nil {
 		return "", err
@@ -148,11 +141,9 @@ func (c *Client) CreateSession(config *config.Config) (uuid.UUID, error) {
 }
 
 func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error) {
-
 	var token uuid.UUID
 	configJson, err := json.Marshal(config)
 	if err != nil {
-		fmt.Println(err)
 		return token, err
 	}
 
@@ -161,30 +152,24 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 
 	res, err := c.Query(queryStr)
 	if err != nil {
-		fmt.Println("Failed to query sever")
 		return token, err
 	}
 
 	var gqlResp struct {
 		Data struct{ CreateSessionFromJson struct{ SessionToken string } }
 	}
-	err = json.Unmarshal([]byte(res), &gqlResp)
-	if err != nil {
-		fmt.Println(err)
+	if err := json.Unmarshal([]byte(res), &gqlResp); err != nil {
 		return token, err
 	}
 
 	token, err = uuid.Parse(gqlResp.Data.CreateSessionFromJson.SessionToken)
 	if err != nil {
-		fmt.Println("Could not obtain session token from server")
 		return token, err
 	}
-
 	return token, nil
 }
 
 func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) error {
-
 	asset.Session = token
 
 	assetJson, err := json.Marshal(asset)
@@ -193,7 +178,9 @@ func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) error {
 	}
 
 	var data interface{}
-	err = json.Unmarshal(assetJson, &data)
+	if err := json.Unmarshal(assetJson, &data); err != nil {
+		return err
+	}
 	q := gqlEncoder(data)
 
 	queryStr := fmt.Sprintf(`mutation { createAsset(input:  %s) {id} }`, string(q))
@@ -203,21 +190,18 @@ func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) error {
 		return err
 	}
 	fmt.Println("Response:" + res)
-
 	return nil
 }
 
 func (c *Client) TerminateSession(token uuid.UUID) {
 	queryStr := fmt.Sprintf(`mutation { terminateSession(sessionToken: "%s") }`, token.String())
-	res, err := c.Query(queryStr)
 
-	if err != nil {
+	if res, err := c.Query(queryStr); err != nil {
 		fmt.Println(res)
 	}
 }
 
 func (c *Client) SessionStats(token uuid.UUID) (types.SessionStatsResponse, error) {
-
 	queryStr := fmt.Sprintf(`query { sessionStats(sessionToken: "%s"){
 		workItemsInProcess 
 		workItemsWaiting 
@@ -231,9 +215,7 @@ func (c *Client) SessionStats(token uuid.UUID) (types.SessionStatsResponse, erro
 	var gqlResp struct {
 		Data struct{ SessionStats types.SessionStatsResponse }
 	}
-
-	err = json.Unmarshal([]byte(res), &gqlResp)
-	if err != nil {
+	if err := json.Unmarshal([]byte(res), &gqlResp); err != nil {
 		return types.SessionStatsResponse{}, err
 	}
 
@@ -249,7 +231,6 @@ func (c *Client) SessionStats(token uuid.UUID) (types.SessionStatsResponse, erro
 // Server: {"type":"ka"}
 
 func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
-
 	// Connect
 	parsedURL, _ := url.Parse(c.url)
 	parsedURL.Scheme = "ws"
@@ -313,17 +294,17 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 func gqlEncoder(data interface{}) string {
 	var q string
 
-	switch data.(type) {
+	switch data := data.(type) {
 	case map[string]interface{}:
 		q += "{"
-		for key, val := range data.(map[string]interface{}) {
+		for key, val := range data {
 			q += fmt.Sprintf("%s: %v,", key, gqlEncoder(val))
 		}
 		q = strings.TrimRight(q, ", ")
 		q += "}"
 	case []interface{}:
 		q += "["
-		for _, val := range data.([]interface{}) {
+		for _, val := range data {
 			q += fmt.Sprintf("%v, ", gqlEncoder(val))
 		}
 		q = strings.TrimRight(q, ", ")

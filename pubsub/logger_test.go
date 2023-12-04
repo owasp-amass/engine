@@ -13,13 +13,13 @@ import (
 func TestSessionSpecificLogs(t *testing.T) {
 	log := log.Logger{}
 	// Create a new session storage
-	manager := sessions.NewStorage(&log)
+	mgr := sessions.NewManager(&log)
 
 	// Create two sessions
 	session1 := &sessions.Session{
 		PubSub: pubsub.NewLogger(),
 	}
-	session1ID, err := manager.Add(session1)
+	session1ID, err := mgr.Add(session1)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -27,18 +27,16 @@ func TestSessionSpecificLogs(t *testing.T) {
 	session2 := &sessions.Session{
 		PubSub: pubsub.NewLogger(),
 	}
-	session2ID, err := manager.Add(session2)
+	session2ID, err := mgr.Add(session2)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	// Subscribe to logs from both sessions
-	sub1 := manager.Get(session1ID).PubSub.Subscribe()
-	sub2 := manager.Get(session2ID).PubSub.Subscribe()
-
+	sub1 := mgr.Get(session1ID).PubSub.Subscribe()
+	sub2 := mgr.Get(session2ID).PubSub.Subscribe()
 	// Send a log only to session1's logger
-	manager.Get(session1ID).PubSub.Publish("Test message for session1")
-
+	mgr.Get(session1ID).PubSub.Publish("Test message for session1")
 	// Wait a little bit to ensure the message is received.
 	// Note: In a real-world scenario, we'd probably avoid sleeps and use synchronization mechanisms.
 	time.Sleep(50 * time.Millisecond)
@@ -52,7 +50,6 @@ func TestSessionSpecificLogs(t *testing.T) {
 	default:
 		t.Error("Expected a log message for session1 but didn't receive any")
 	}
-
 	// Ensure no logs for session2
 	select {
 	case logMsg := <-sub2:
@@ -60,13 +57,10 @@ func TestSessionSpecificLogs(t *testing.T) {
 	default:
 		// This is what we expect, no messages for session2
 	}
-
 	// Now, send a log only to session2's logger
-	manager.Get(session2ID).PubSub.Publish("Test message for session2")
-
+	mgr.Get(session2ID).PubSub.Publish("Test message for session2")
 	// Again, wait a little to ensure the message is received
 	time.Sleep(50 * time.Millisecond)
-
 	// Check logs for session2
 	select {
 	case logMsg := <-sub2:
@@ -76,7 +70,6 @@ func TestSessionSpecificLogs(t *testing.T) {
 	default:
 		t.Error("Expected a log message for session2 but didn't receive any")
 	}
-
 	// Ensure no additional logs for session1
 	select {
 	case logMsg := <-sub1:

@@ -12,6 +12,7 @@ import (
 	sqlitemigrations "github.com/owasp-amass/asset-db/migrations/sqlite3"
 	"github.com/owasp-amass/asset-db/repository"
 	"github.com/owasp-amass/config/config"
+	"github.com/owasp-amass/engine/cache"
 	"github.com/owasp-amass/engine/pubsub"
 	migrate "github.com/rubenv/sql-migrate"
 	"gorm.io/driver/postgres"
@@ -35,7 +36,6 @@ func NewSession(cfg *config.Config) (*Session, error) {
 	if cfg == nil {
 		cfg = config.NewConfig()
 	}
-
 	// If no graph databases are specified, use a default SQLite database.
 	if cfg.GraphDBs == nil {
 		cfg.GraphDBs = []*config.Database{
@@ -65,18 +65,16 @@ func NewSession(cfg *config.Config) (*Session, error) {
 			break
 		}
 	}
-
 	// Check if a valid database connection string was generated.
 	if dsn == "" || dbtype == "" {
 		return nil, fmt.Errorf("no primary graph database specified in the configuration")
 	}
-
 	// Create a new session object.
 	newSes := &Session{
 		Cfg:    cfg,                // Store the provided configuration.
 		PubSub: pubsub.NewLogger(), // Initialize a new logger for publishing/subscribing.
+		Cache:  cache.NewOAMCache(nil),
 	}
-
 	// Initialize the database store
 	store := assetdb.New(dbtype, dsn)
 	if store == nil {
@@ -99,33 +97,27 @@ func NewSession(cfg *config.Config) (*Session, error) {
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", dbtype)
 	}
-
 	// Initialize the GORM database connection
 	sql, err := gorm.Open(database, &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %s", err)
 	}
-
 	// Set up migrations
 	migrationsSource := migrate.EmbedFileSystemMigrationSource{
 		FileSystem: fs,
 		Root:       "/",
 	}
-
 	// Extract the raw SQL database instance
 	sqlDb, err := sql.DB()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract raw SQL DB from GORM: %s", err)
 	}
-
 	// Run migrations
 	_, err = migrate.Exec(sqlDb, name, migrationsSource, migrate.Up)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute migrations: %s", err)
 	}
-
 	// Assign the GORM DB instance to the Session's DB field
 	newSes.DB = store
-
 	return newSes, nil
 }

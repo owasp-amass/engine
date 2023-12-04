@@ -1,60 +1,71 @@
 package server
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"net"
 	"net/http"
-	"os"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
-	// "github.com/99designs/gqlgen/graphql/playground"
 )
 
+const keyServerAddr key = "serverAddr"
+
+type key string
+
 type Server struct {
-	port    string
-	handler http.Handler
+	ctx    context.Context
+	cancel context.CancelFunc
+	ch     chan struct{}
+	srv    *http.Server
 }
 
-func NewServer(logger *log.Logger, sched *scheduler.Scheduler, sessionManager *sessions.Manager) *Server {
-
-	srv := handler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: &Resolver{logger: logger, sched: sched, sessionManager: sessionManager}}))
-
+func NewServer(logger *log.Logger, sched *scheduler.Scheduler, mgr *sessions.Manager) *Server {
+	hdr := handler.NewDefaultServer(NewExecutableSchema(Config{
+		Resolvers: &Resolver{
+			Log:   logger,
+			Sched: sched,
+			Mgr:   mgr,
+		},
+	}))
 	// Needed for subscription
 	// Connecting websocket clients need to support the proper subprotocols \
 	// e.g. graphql-ws, graphql-transport-ws, subscriptions-transport-ws, etc
-	srv.AddTransport(&transport.Websocket{})
-	/*
-		srv.AddTransport(transport.Websocket{
-			KeepAlivePingInterval: 10 * time.Second,
-			Upgrader: websocket.Upgrader{
-				CheckOrigin: func(r *http.Request) bool {
-					return true
-				},
-			},
-		})
-	*/
-	// Uncomment to enable playground
-	// http.Handle("/", playground.Handler("GraphQL playground", "/graphql"))
-	http.Handle("/graphql", srv)
+	hdr.AddTransport(&transport.Websocket{})
 
+	mux := http.NewServeMux()
+	mux.Handle("/graphql", hdr)
+
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		port:    "4000",
-		handler: srv,
+		ctx:    ctx,
+		cancel: cancel,
+		ch:     make(chan struct{}),
+		srv: &http.Server{
+			Addr:    ":4000",
+			Handler: mux,
+			BaseContext: func(l net.Listener) context.Context {
+				ctx = context.WithValue(ctx, keyServerAddr, l.Addr().String())
+				return ctx
+			},
+		},
 	}
 }
 
-func (s *Server) Start() {
+func (s *Server) Start() error {
+	err := s.srv.ListenAndServe()
 
-	err := http.ListenAndServe(":"+s.port, nil)
-	if err != nil {
-		fmt.Println("Error starting the server:", err)
-		os.Exit(1)
-	}
+	s.cancel()
+	close(s.ch)
+	return err
 }
 
-func (s *Server) Shutdown() {
+func (s *Server) Shutdown() error {
+	err := s.srv.Shutdown(s.ctx)
 
+	<-s.ch
+	return err
 }
