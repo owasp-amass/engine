@@ -12,14 +12,12 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/engine/graph"
 	amassnet "github.com/owasp-amass/engine/net"
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/sessions"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
-	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/open-asset-model/network"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
@@ -81,37 +79,14 @@ func (d *dnsReverse) handler(e *et.Event) error {
 		return nil
 	}
 
-	// check that the IP address is related to a FQDN that is in scope
-	if addr, hit := session.Cache.GetAsset(ip); hit && addr != nil {
-		rtype := "a_record"
-		if ip.Type == "IPv6" {
-			rtype = "aaaa_record"
-		}
-
-		var inscope bool
-		if relations, hit := session.Cache.GetRelations(&dbt.Relation{
-			Type:    rtype,
-			ToAsset: addr,
-		}); hit && len(relations) > 0 {
-			for _, relation := range relations {
-				a := relation.FromAsset.Asset
-
-				if fqdn, ok := a.(*domain.FQDN); ok && session.Cfg.IsDomainInScope(fqdn.Name) {
-					inscope = true
-					break
-				}
-			}
-		}
-
-		if inscope {
-			d.sweep(e, ip)
-		}
+	// check that the IP address is related to a FQDN in scope
+	if isAddressInScope(session, ip) {
+		d.sweep(e, ip)
 	}
-
 	return nil
 }
 
-func (d dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
+func (d *dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
 	session := e.Session.(*sessions.Session)
 
 	n, err := ipToNetblockWithAttempts(session, address, 10, 500*time.Millisecond)
@@ -156,13 +131,11 @@ func (d *dnsReverse) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) 
 	g := graph.Graph{DB: session.DB}
 
 	for _, record := range rr {
-		go func(event *et.Event, r *resolve.ExtractedAnswer) {
-			if !session.Cfg.IsDomainInScope(r.Data) {
-				return
-			}
-			if a, err := g.UpsertPTR(context.TODO(), r.Name, r.Data); err == nil && a != nil {
-				scheduleAssetEvent(event, r.Data, a)
-			}
-		}(e, record)
+		if !session.Cfg.IsDomainInScope(record.Data) {
+			return
+		}
+		if a, err := g.UpsertPTR(context.TODO(), record.Name, record.Data); err == nil && a != nil {
+			scheduleAssetEvent(e, record.Data, a)
+		}
 	}
 }

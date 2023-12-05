@@ -6,6 +6,7 @@ package plugins
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/owasp-amass/engine/sessions"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
+	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/open-asset-model/network"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
@@ -36,6 +38,7 @@ func scheduleAssetEvent(e *et.Event, name string, a *dbt.Asset) {
 			OAMType:  a.Asset.AssetType(),
 		},
 	}); err == nil {
+		fmt.Println(name)
 		session.Cache.SetAsset(a)
 	}
 }
@@ -139,4 +142,31 @@ func ipToNetblock(session *sessions.Session, ip *network.IPAddress) (*network.Ne
 		}
 	}
 	return nil, errors.New("no netblock match in the cache")
+}
+
+func isAddressInScope(session *sessions.Session, ip *network.IPAddress) bool {
+	addr, hit := session.Cache.GetAsset(ip)
+	if !hit || addr == nil {
+		return false
+	}
+
+	rtype := "a_record"
+	if ip.Type == "IPv6" {
+		rtype = "aaaa_record"
+	}
+
+	if relations, hit := session.Cache.GetRelations(&dbt.Relation{
+		Type:    rtype,
+		ToAsset: addr,
+	}); hit && len(relations) > 0 {
+		for _, relation := range relations {
+			a := relation.FromAsset.Asset
+
+			if fqdn, ok := a.(*domain.FQDN); ok && session.Cfg.IsDomainInScope(fqdn.Name) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

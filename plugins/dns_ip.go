@@ -83,40 +83,45 @@ func (d *dnsIP) handler(e *et.Event) error {
 }
 
 func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
-	now := time.Now()
 	session := e.Session.(*sessions.Session)
 	g := graph.Graph{DB: session.DB}
 
 	for _, record := range rr {
+		var rel string
+		var name *dbt.Asset
+		var addr *dbt.Asset
+
 		if record.Type == dns.TypeA {
 			if ip, err := g.UpsertA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {
 				scheduleAssetEvent(e, record.Data, ip)
-				ip, _ = session.Cache.GetAsset(ip.Asset)
+				addr, _ = session.Cache.GetAsset(ip.Asset)
 				if fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: record.Name}); hit && fqdn != nil {
-					session.Cache.SetRelation(&dbt.Relation{
-						Type:      "a_record",
-						CreatedAt: now,
-						LastSeen:  now,
-						FromAsset: fqdn,
-						ToAsset:   ip,
-					})
+					rel = "a_record"
+					name = fqdn
 				}
 			}
 		}
 		if record.Type == dns.TypeAAAA {
 			if ip, err := g.UpsertAAAA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {
 				scheduleAssetEvent(e, record.Data, ip)
-				ip, _ = session.Cache.GetAsset(ip.Asset)
+				addr, _ = session.Cache.GetAsset(ip.Asset)
 				if fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: record.Name}); hit && fqdn != nil {
-					session.Cache.SetRelation(&dbt.Relation{
-						Type:      "aaaa_record",
-						CreatedAt: now,
-						LastSeen:  now,
-						FromAsset: fqdn,
-						ToAsset:   ip,
-					})
+					rel = "aaaa_record"
+					name = fqdn
 				}
 			}
+		}
+
+		if name != nil && addr != nil && rel != "" {
+			now := time.Now()
+
+			session.Cache.SetRelation(&dbt.Relation{
+				Type:      rel,
+				CreatedAt: now,
+				LastSeen:  now,
+				FromAsset: name,
+				ToAsset:   addr,
+			})
 		}
 	}
 }
