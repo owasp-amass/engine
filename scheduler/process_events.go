@@ -12,6 +12,7 @@ func processEvent(e *types.Event) {
 		edata := e.Data.(*types.AssetData)
 		ap, err := sc.r.GetPipeline(edata.OAMType)
 		if err != nil {
+			SetEventState(e, types.EventStateDone)
 			return
 		}
 
@@ -26,6 +27,9 @@ func processEvent(e *types.Event) {
 				}
 
 				SetEventState(e, state)
+			} else {
+				sc.logger.Printf("%s: Failed to obtain the element", e.Name)
+				SetEventState(e, types.EventStateError)
 			}
 		}
 	case types.EventTypeSystem, types.EventTypeCustom:
