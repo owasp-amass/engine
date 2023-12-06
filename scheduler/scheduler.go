@@ -323,8 +323,7 @@ func SetEventState(e *types.Event, state types.EventState) {
 	s.Lock()
 	defer s.Unlock()
 
-	_, ok = s.events[e.UUID]
-	if !ok {
+	if _, ok := s.events[e.UUID]; !ok {
 		s.events[e.UUID] = e
 	}
 

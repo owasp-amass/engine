@@ -12,7 +12,6 @@ func processEvent(e *types.Event) {
 		edata := e.Data.(*types.AssetData)
 		ap, err := sc.r.GetPipeline(edata.OAMType)
 		if err != nil {
-			sc.logger.Printf("%s: Failed to obtain the pipeline: %v", e.Name, err)
 			SetEventState(e, types.EventStateDone)
 			return
 		}
