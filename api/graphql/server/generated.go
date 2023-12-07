@@ -62,7 +62,6 @@ type ComplexityRoot struct {
 
 	Query struct {
 		SessionStats func(childComplexity int, sessionToken string) int
-		SystemStats  func(childComplexity int, sessionToken string) int
 	}
 
 	Session struct {
@@ -70,24 +69,12 @@ type ComplexityRoot struct {
 	}
 
 	SessionStats struct {
-		WorkItemsInProcess   func(childComplexity int) int
-		WorkItemsProcessable func(childComplexity int) int
-		WorkItemsWaiting     func(childComplexity int) int
+		WorkItemsCompleted func(childComplexity int) int
+		WorkItemsTotal     func(childComplexity int) int
 	}
 
 	Subscription struct {
 		LogMessages func(childComplexity int, sessionToken string) int
-	}
-
-	SystemStats struct {
-		TotalWorkItemsCancelled   func(childComplexity int) int
-		TotalWorkItemsDone        func(childComplexity int) int
-		TotalWorkItemsError       func(childComplexity int) int
-		TotalWorkItemsProcess     func(childComplexity int) int
-		TotalWorkItemsProcessable func(childComplexity int) int
-		TotalWorkItemsReceived    func(childComplexity int) int
-		TotalWorkItemsSystem      func(childComplexity int) int
-		TotalWorkItemsWaiting     func(childComplexity int) int
 	}
 }
 
@@ -99,7 +86,6 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	SessionStats(ctx context.Context, sessionToken string) (*model.SessionStats, error)
-	SystemStats(ctx context.Context, sessionToken string) (*model.SystemStats, error)
 }
 type SubscriptionResolver interface {
 	LogMessages(ctx context.Context, sessionToken string) (<-chan *string, error)
@@ -191,18 +177,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Query.SessionStats(childComplexity, args["sessionToken"].(string)), true
 
-	case "Query.systemStats":
-		if e.complexity.Query.SystemStats == nil {
-			break
-		}
-
-		args, err := ec.field_Query_systemStats_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.SystemStats(childComplexity, args["sessionToken"].(string)), true
-
 	case "Session.sessionToken":
 		if e.complexity.Session.SessionToken == nil {
 			break
@@ -210,26 +184,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Session.SessionToken(childComplexity), true
 
-	case "SessionStats.workItemsInProcess":
-		if e.complexity.SessionStats.WorkItemsInProcess == nil {
+	case "SessionStats.WorkItemsCompleted":
+		if e.complexity.SessionStats.WorkItemsCompleted == nil {
 			break
 		}
 
-		return e.complexity.SessionStats.WorkItemsInProcess(childComplexity), true
+		return e.complexity.SessionStats.WorkItemsCompleted(childComplexity), true
 
-	case "SessionStats.workItemsProcessable":
-		if e.complexity.SessionStats.WorkItemsProcessable == nil {
+	case "SessionStats.WorkItemsTotal":
+		if e.complexity.SessionStats.WorkItemsTotal == nil {
 			break
 		}
 
-		return e.complexity.SessionStats.WorkItemsProcessable(childComplexity), true
-
-	case "SessionStats.workItemsWaiting":
-		if e.complexity.SessionStats.WorkItemsWaiting == nil {
-			break
-		}
-
-		return e.complexity.SessionStats.WorkItemsWaiting(childComplexity), true
+		return e.complexity.SessionStats.WorkItemsTotal(childComplexity), true
 
 	case "Subscription.logMessages":
 		if e.complexity.Subscription.LogMessages == nil {
@@ -242,62 +209,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Subscription.LogMessages(childComplexity, args["sessionToken"].(string)), true
-
-	case "SystemStats.totalWorkItemsCancelled":
-		if e.complexity.SystemStats.TotalWorkItemsCancelled == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsCancelled(childComplexity), true
-
-	case "SystemStats.totalWorkItemsDone":
-		if e.complexity.SystemStats.TotalWorkItemsDone == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsDone(childComplexity), true
-
-	case "SystemStats.totalWorkItemsError":
-		if e.complexity.SystemStats.TotalWorkItemsError == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsError(childComplexity), true
-
-	case "SystemStats.totalWorkItemsProcess":
-		if e.complexity.SystemStats.TotalWorkItemsProcess == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsProcess(childComplexity), true
-
-	case "SystemStats.totalWorkItemsProcessable":
-		if e.complexity.SystemStats.TotalWorkItemsProcessable == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsProcessable(childComplexity), true
-
-	case "SystemStats.totalWorkItemsReceived":
-		if e.complexity.SystemStats.TotalWorkItemsReceived == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsReceived(childComplexity), true
-
-	case "SystemStats.totalWorkItemsSystem":
-		if e.complexity.SystemStats.TotalWorkItemsSystem == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsSystem(childComplexity), true
-
-	case "SystemStats.totalWorkItemsWaiting":
-		if e.complexity.SystemStats.TotalWorkItemsWaiting == nil {
-			break
-		}
-
-		return e.complexity.SystemStats.TotalWorkItemsWaiting(childComplexity), true
 
 	}
 	return 0, false
@@ -520,21 +431,6 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 }
 
 func (ec *executionContext) field_Query_sessionStats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["sessionToken"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sessionToken"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["sessionToken"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_systemStats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
@@ -902,12 +798,10 @@ func (ec *executionContext) fieldContext_Query_sessionStats(ctx context.Context,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "workItemsInProcess":
-				return ec.fieldContext_SessionStats_workItemsInProcess(ctx, field)
-			case "workItemsWaiting":
-				return ec.fieldContext_SessionStats_workItemsWaiting(ctx, field)
-			case "workItemsProcessable":
-				return ec.fieldContext_SessionStats_workItemsProcessable(ctx, field)
+			case "WorkItemsCompleted":
+				return ec.fieldContext_SessionStats_WorkItemsCompleted(ctx, field)
+			case "WorkItemsTotal":
+				return ec.fieldContext_SessionStats_WorkItemsTotal(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type SessionStats", field.Name)
 		},
@@ -920,76 +814,6 @@ func (ec *executionContext) fieldContext_Query_sessionStats(ctx context.Context,
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_sessionStats_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Query_systemStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Query_systemStats(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().SystemStats(rctx, fc.Args["sessionToken"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.SystemStats)
-	fc.Result = res
-	return ec.marshalOSystemStats2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐSystemStats(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Query_systemStats(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Query",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "totalWorkItemsReceived":
-				return ec.fieldContext_SystemStats_totalWorkItemsReceived(ctx, field)
-			case "totalWorkItemsDone":
-				return ec.fieldContext_SystemStats_totalWorkItemsDone(ctx, field)
-			case "totalWorkItemsCancelled":
-				return ec.fieldContext_SystemStats_totalWorkItemsCancelled(ctx, field)
-			case "totalWorkItemsProcess":
-				return ec.fieldContext_SystemStats_totalWorkItemsProcess(ctx, field)
-			case "totalWorkItemsError":
-				return ec.fieldContext_SystemStats_totalWorkItemsError(ctx, field)
-			case "totalWorkItemsWaiting":
-				return ec.fieldContext_SystemStats_totalWorkItemsWaiting(ctx, field)
-			case "totalWorkItemsProcessable":
-				return ec.fieldContext_SystemStats_totalWorkItemsProcessable(ctx, field)
-			case "totalWorkItemsSystem":
-				return ec.fieldContext_SystemStats_totalWorkItemsSystem(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type SystemStats", field.Name)
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Query_systemStats_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1169,8 +993,8 @@ func (ec *executionContext) fieldContext_Session_sessionToken(ctx context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _SessionStats_workItemsInProcess(ctx context.Context, field graphql.CollectedField, obj *model.SessionStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SessionStats_workItemsInProcess(ctx, field)
+func (ec *executionContext) _SessionStats_WorkItemsCompleted(ctx context.Context, field graphql.CollectedField, obj *model.SessionStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_SessionStats_WorkItemsCompleted(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1183,7 +1007,7 @@ func (ec *executionContext) _SessionStats_workItemsInProcess(ctx context.Context
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.WorkItemsInProcess, nil
+		return obj.WorkItemsCompleted, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1197,7 +1021,7 @@ func (ec *executionContext) _SessionStats_workItemsInProcess(ctx context.Context
 	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_SessionStats_workItemsInProcess(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SessionStats_WorkItemsCompleted(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "SessionStats",
 		Field:      field,
@@ -1210,8 +1034,8 @@ func (ec *executionContext) fieldContext_SessionStats_workItemsInProcess(ctx con
 	return fc, nil
 }
 
-func (ec *executionContext) _SessionStats_workItemsWaiting(ctx context.Context, field graphql.CollectedField, obj *model.SessionStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SessionStats_workItemsWaiting(ctx, field)
+func (ec *executionContext) _SessionStats_WorkItemsTotal(ctx context.Context, field graphql.CollectedField, obj *model.SessionStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_SessionStats_WorkItemsTotal(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1224,7 +1048,7 @@ func (ec *executionContext) _SessionStats_workItemsWaiting(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.WorkItemsWaiting, nil
+		return obj.WorkItemsTotal, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1238,48 +1062,7 @@ func (ec *executionContext) _SessionStats_workItemsWaiting(ctx context.Context, 
 	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_SessionStats_workItemsWaiting(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SessionStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SessionStats_workItemsProcessable(ctx context.Context, field graphql.CollectedField, obj *model.SessionStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SessionStats_workItemsProcessable(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.WorkItemsProcessable, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SessionStats_workItemsProcessable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SessionStats_WorkItemsTotal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "SessionStats",
 		Field:      field,
@@ -1354,334 +1137,6 @@ func (ec *executionContext) fieldContext_Subscription_logMessages(ctx context.Co
 	if fc.Args, err = ec.field_Subscription_logMessages_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsReceived(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsReceived(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsReceived, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsReceived(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsDone(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsDone(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsDone, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsDone(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsCancelled(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsCancelled(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsCancelled, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsCancelled(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsProcess(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsProcess(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsProcess, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsProcess(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsError(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsError(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsError, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsError(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsWaiting(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsWaiting(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsWaiting, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsWaiting(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsProcessable(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsProcessable(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsProcessable, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsProcessable(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _SystemStats_totalWorkItemsSystem(ctx context.Context, field graphql.CollectedField, obj *model.SystemStats) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SystemStats_totalWorkItemsSystem(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.TotalWorkItemsSystem, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*int)
-	fc.Result = res
-	return ec.marshalOInt2ᚖint(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_SystemStats_totalWorkItemsSystem(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "SystemStats",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
 	}
 	return fc, nil
 }
@@ -3474,8 +2929,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 		}
 		switch k {
 		case "scope":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("scope"))
 			data, err := ec.unmarshalOAny2ᚕinterface(ctx, v)
 			if err != nil {
@@ -3483,8 +2936,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Scope = data
 		case "ports":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("ports"))
 			data, err := ec.unmarshalOInt2ᚕᚖint(ctx, v)
 			if err != nil {
@@ -3492,8 +2943,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Ports = data
 		case "blacklist":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("blacklist"))
 			data, err := ec.unmarshalOString2ᚕᚖstring(ctx, v)
 			if err != nil {
@@ -3501,8 +2950,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Blacklist = data
 		case "domains":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("domains"))
 			data, err := ec.unmarshalOString2ᚕᚖstring(ctx, v)
 			if err != nil {
@@ -3510,8 +2957,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Domains = data
 		case "resolvers":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("resolvers"))
 			data, err := ec.unmarshalOString2ᚕᚖstring(ctx, v)
 			if err != nil {
@@ -3519,8 +2964,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Resolvers = data
 		case "ips":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("ips"))
 			data, err := ec.unmarshalOString2ᚕᚖstring(ctx, v)
 			if err != nil {
@@ -3528,8 +2971,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Ips = data
 		case "cirds":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("cirds"))
 			data, err := ec.unmarshalOAny2ᚕinterface(ctx, v)
 			if err != nil {
@@ -3537,8 +2978,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Cirds = data
 		case "transformations":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("transformations"))
 			data, err := ec.unmarshalOAny2ᚕinterface(ctx, v)
 			if err != nil {
@@ -3546,8 +2985,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Transformations = data
 		case "database":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("database"))
 			data, err := ec.unmarshalOAny2ᚕinterface(ctx, v)
 			if err != nil {
@@ -3555,8 +2992,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.Database = data
 		case "bruteForce":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("bruteForce"))
 			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
 			if err != nil {
@@ -3564,8 +2999,6 @@ func (ec *executionContext) unmarshalInputConfig(ctx context.Context, obj interf
 			}
 			it.BruteForce = data
 		case "alterations":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("alterations"))
 			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
 			if err != nil {
@@ -3593,8 +3026,6 @@ func (ec *executionContext) unmarshalInputCreateAssetInput(ctx context.Context, 
 		}
 		switch k {
 		case "sessionToken":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sessionToken"))
 			data, err := ec.unmarshalNID2string(ctx, v)
 			if err != nil {
@@ -3602,8 +3033,6 @@ func (ec *executionContext) unmarshalInputCreateAssetInput(ctx context.Context, 
 			}
 			it.SessionToken = data
 		case "assetName":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assetName"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
@@ -3611,8 +3040,6 @@ func (ec *executionContext) unmarshalInputCreateAssetInput(ctx context.Context, 
 			}
 			it.AssetName = data
 		case "data":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("data"))
 			data, err := ec.unmarshalOAny2interface(ctx, v)
 			if err != nil {
@@ -3640,8 +3067,6 @@ func (ec *executionContext) unmarshalInputCreateSessionInput(ctx context.Context
 		}
 		switch k {
 		case "config":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("config"))
 			data, err := ec.unmarshalNAny2interface(ctx, v)
 			if err != nil {
@@ -3669,8 +3094,6 @@ func (ec *executionContext) unmarshalInputCreateSessionJsonInput(ctx context.Con
 		}
 		switch k {
 		case "config":
-			var err error
-
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("config"))
 			data, err := ec.unmarshalNString2string(ctx, v)
 			if err != nil {
@@ -3826,25 +3249,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
-		case "systemStats":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_systemStats(ctx, field)
-				return res
-			}
-
-			rrm := func(ctx context.Context) graphql.Marshaler {
-				return ec.OperationContext.RootResolverMiddleware(ctx,
-					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -3926,12 +3330,10 @@ func (ec *executionContext) _SessionStats(ctx context.Context, sel ast.Selection
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("SessionStats")
-		case "workItemsInProcess":
-			out.Values[i] = ec._SessionStats_workItemsInProcess(ctx, field, obj)
-		case "workItemsWaiting":
-			out.Values[i] = ec._SessionStats_workItemsWaiting(ctx, field, obj)
-		case "workItemsProcessable":
-			out.Values[i] = ec._SessionStats_workItemsProcessable(ctx, field, obj)
+		case "WorkItemsCompleted":
+			out.Values[i] = ec._SessionStats_WorkItemsCompleted(ctx, field, obj)
+		case "WorkItemsTotal":
+			out.Values[i] = ec._SessionStats_WorkItemsTotal(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3973,56 +3375,6 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
-}
-
-var systemStatsImplementors = []string{"SystemStats"}
-
-func (ec *executionContext) _SystemStats(ctx context.Context, sel ast.SelectionSet, obj *model.SystemStats) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, systemStatsImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SystemStats")
-		case "totalWorkItemsReceived":
-			out.Values[i] = ec._SystemStats_totalWorkItemsReceived(ctx, field, obj)
-		case "totalWorkItemsDone":
-			out.Values[i] = ec._SystemStats_totalWorkItemsDone(ctx, field, obj)
-		case "totalWorkItemsCancelled":
-			out.Values[i] = ec._SystemStats_totalWorkItemsCancelled(ctx, field, obj)
-		case "totalWorkItemsProcess":
-			out.Values[i] = ec._SystemStats_totalWorkItemsProcess(ctx, field, obj)
-		case "totalWorkItemsError":
-			out.Values[i] = ec._SystemStats_totalWorkItemsError(ctx, field, obj)
-		case "totalWorkItemsWaiting":
-			out.Values[i] = ec._SystemStats_totalWorkItemsWaiting(ctx, field, obj)
-		case "totalWorkItemsProcessable":
-			out.Values[i] = ec._SystemStats_totalWorkItemsProcessable(ctx, field, obj)
-		case "totalWorkItemsSystem":
-			out.Values[i] = ec._SystemStats_totalWorkItemsSystem(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
 }
 
 var __DirectiveImplementors = []string{"__Directive"}
@@ -4874,13 +4226,6 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	}
 	res := graphql.MarshalString(*v)
 	return res
-}
-
-func (ec *executionContext) marshalOSystemStats2ᚖgithubᚗcomᚋowaspᚑamassᚋengineᚋapiᚋgraphqlᚋserverᚋmodelᚐSystemStats(ctx context.Context, sel ast.SelectionSet, v *model.SystemStats) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._SystemStats(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

@@ -6,42 +6,18 @@ package plugins
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
-	"github.com/owasp-amass/engine/scheduler"
 	"github.com/owasp-amass/engine/sessions"
-	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/open-asset-model/network"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
 )
-
-func scheduleAssetEvent(e *et.Event, name string, a *dbt.Asset) {
-	session := e.Session.(*sessions.Session)
-	s := e.Sched.(*scheduler.Scheduler)
-
-	if err := s.Schedule(&et.Event{
-		UUID:      uuid.New(),
-		SessionID: e.SessionID,
-		Name:      name,
-		Type:      et.EventTypeAsset,
-		State:     et.EventStateDefault,
-		Data: &et.AssetData{
-			OAMAsset: a.Asset,
-			OAMType:  a.Asset.AssetType(),
-		},
-	}); err == nil {
-		fmt.Println(name)
-		session.Cache.SetAsset(a)
-	}
-}
 
 func checkTransformations(session *sessions.Session, from string, tos ...string) (map[string]struct{}, error) {
 	lower := strings.ToLower(from)

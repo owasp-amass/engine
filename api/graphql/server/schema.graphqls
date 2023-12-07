@@ -17,8 +17,6 @@ input Config {
    alterations: Boolean
 }
 
-
-
 type Session {
   sessionToken: ID!
 }
@@ -39,21 +37,9 @@ type Asset {
   id: ID!
 }
 
-type SystemStats {
-	totalWorkItemsReceived:    Int
-	totalWorkItemsDone:        Int
-	totalWorkItemsCancelled:   Int
-	totalWorkItemsProcess:     Int
-	totalWorkItemsError:       Int
-	totalWorkItemsWaiting:     Int
-	totalWorkItemsProcessable: Int
-	totalWorkItemsSystem:      Int
-}
-
 type SessionStats {
-	workItemsInProcess:   Int
-	workItemsWaiting:     Int
-	workItemsProcessable: Int
+	WorkItemsCompleted: Int
+	WorkItemsTotal:     Int
 }
 
 type Subscription {
@@ -62,7 +48,6 @@ type Subscription {
 
 type Query {
   sessionStats(sessionToken: String!): SessionStats
-  systemStats(sessionToken: String!): SystemStats
 }
 
 input CreateAssetInput {
@@ -77,9 +62,3 @@ type Mutation {
   createAsset(input: CreateAssetInput!): Asset
   terminateSession(sessionToken: String!): Boolean
 }
-
-
-
-
-
-

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/sessions"
 	et "github.com/owasp-amass/engine/types"
@@ -46,18 +47,12 @@ func (ht *hackerTarget) Stop() {}
 
 // lookup function queries the HackerTarget API for subdomains related to a root domain.
 func (ht *hackerTarget) lookup(e *et.Event) error {
-	session := e.Session.(*sessions.Session)
-
-	d, ok := e.Data.(*et.AssetData)
-	if !ok {
-		return errors.New("failed to extract the event data")
-	}
-
-	fqdn, ok := d.OAMAsset.(*domain.FQDN)
+	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
+	session := e.Session.(*sessions.Session)
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if session.Cfg.WhichDomain(domlt) != domlt {
 		return nil
@@ -92,6 +87,7 @@ func (ht *hackerTarget) query(name string) ([][]string, error) {
 
 func (ht *hackerTarget) process(e *et.Event, records [][]string) {
 	session := e.Session.(*sessions.Session)
+	d := e.Dispatcher.(*dispatcher.Dispatcher)
 
 	for _, record := range records {
 		if len(record) < 2 {
@@ -101,7 +97,12 @@ func (ht *hackerTarget) process(e *et.Event, records [][]string) {
 		name := strings.ToLower(strings.TrimSpace(record[0]))
 		if name != "" && session.Cfg.IsDomainInScope(name) {
 			if a, err := session.DB.Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
-				scheduleAssetEvent(e, name, a)
+				_ = d.DispatchEvent(&et.Event{
+					Name:       name,
+					Asset:      a,
+					Dispatcher: d,
+					Session:    session,
+				})
 			}
 		}
 	}

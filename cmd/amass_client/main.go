@@ -38,12 +38,13 @@ func main() {
 		fmt.Println(err)
 	}
 
+	done := make(chan struct{})
 	go func() {
 		for {
 			select {
 			case message := <-messages:
 				fmt.Println(message)
-			case <-interrupt:
+			case <-done:
 				return
 			}
 		}
@@ -55,19 +56,18 @@ func main() {
 	}
 
 	// Query session stats
-	ssResp, err := client.SessionStats(token)
+	stats, err := client.SessionStats(token)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Printf("== Session Stats ==\n")
-	fmt.Printf("In Process: %d\n", ssResp.SessionWorkItemsInProcess)
-	fmt.Printf("Waiting: %d\n", ssResp.SessionWorkItemsWaiting)
-	fmt.Printf("Processable: %d\n", ssResp.SessionWorkItemsProcessable)
+
+	fmt.Printf("Total work items: %d\n", stats.WorkItemsTotal)
+	fmt.Printf("Work items completed: %d\n", stats.WorkItemsCompleted)
 
 	// Terminate client session
 	<-interrupt
+	close(done)
 	client.TerminateSession(token)
-
 }
 
 // Below are helper functions for converting an Amass config / scope into OAM assets

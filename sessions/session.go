@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -21,24 +22,41 @@ import (
 
 // NewSession initializes a new Session object based on the provided configuration.
 // The session object represents the state of an active engine enumeration.
-//
-// Parameters:
-// - cfg: Configuration settings for the session. If nil, a default configuration is used.
-//
-// Returns:
-// - A pointer to the initialized Session object.
-// - An error if the session initialization fails (e.g., invalid database configuration).
 func NewSession(cfg *config.Config) (*Session, error) {
-	var dsn string               // Data Source Name: Represents the database connection string.
-	var dbtype repository.DBType // Type of the database (e.g., Postgres, SQLite).
-
-	// Use default configuration if none is provided.
+	// Use default configuration if none is provided
 	if cfg == nil {
 		cfg = config.NewConfig()
 	}
+
+	// Create a new session object
+	s := &Session{
+		Cfg:    cfg,
+		PubSub: pubsub.NewLogger(),
+		Cache:  cache.NewOAMCache(nil),
+		Stats:  new(SessionStats),
+	}
+
+	if err := s.setupDB(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (s *Session) setupDB() error {
+	if err := s.selectDBMS(); err != nil {
+		return err
+	}
+	if err := s.migrations(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Session) selectDBMS() error {
 	// If no graph databases are specified, use a default SQLite database.
-	if cfg.GraphDBs == nil {
-		cfg.GraphDBs = []*config.Database{
+	if s.Cfg.GraphDBs == nil {
+		s.Cfg.GraphDBs = []*config.Database{
 			{
 				Primary: true,
 				System:  "sqlite",
@@ -47,60 +65,59 @@ func NewSession(cfg *config.Config) (*Session, error) {
 	}
 	// Iterate over the GraphDBs specified in the configuration.
 	// The goal is to determine the primary database's connection details.
-	for _, db := range cfg.GraphDBs {
+	for _, db := range s.Cfg.GraphDBs {
 		if db.Primary {
 			// Convert the database system name to lowercase for consistent comparison.
 			db.System = strings.ToLower(db.System)
 			if db.System == "postgres" {
 				// Construct the connection string for a Postgres database.
-				dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s", db.Host, db.Port, db.Username, db.Password, db.DBName)
-				dbtype = repository.Postgres
+				s.dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s", db.Host, db.Port, db.Username, db.Password, db.DBName)
+				s.dbtype = repository.Postgres
 			} else if db.System == "sqlite" || db.System == "sqlite3" {
 				// Define the connection path for an SQLite database.
-				path := filepath.Join(config.OutputDirectory(cfg.Dir), "amass.sqlite")
-				dsn = path
-				dbtype = repository.SQLite
+				path := filepath.Join(config.OutputDirectory(s.Cfg.Dir), "amass.sqlite")
+				s.dsn = path
+				s.dbtype = repository.SQLite
 			}
 			// Break the loop once the primary database is found.
 			break
 		}
 	}
 	// Check if a valid database connection string was generated.
-	if dsn == "" || dbtype == "" {
-		return nil, fmt.Errorf("no primary graph database specified in the configuration")
-	}
-	// Create a new session object.
-	newSes := &Session{
-		Cfg:    cfg,                // Store the provided configuration.
-		PubSub: pubsub.NewLogger(), // Initialize a new logger for publishing/subscribing.
-		Cache:  cache.NewOAMCache(nil),
+	if s.dsn == "" || s.dbtype == "" {
+		return errors.New("no primary database specified in the configuration")
 	}
 	// Initialize the database store
-	store := assetdb.New(dbtype, dsn)
+	store := assetdb.New(s.dbtype, s.dsn)
 	if store == nil {
-		return nil, fmt.Errorf("failed to initialize database store")
+		return errors.New("failed to initialize database store")
 	}
 
+	s.DB = store
+	return nil
+}
+
+func (s *Session) migrations() error {
 	var name string
 	var fs embed.FS
 	var database gorm.Dialector
 
-	switch dbtype {
+	switch s.dbtype {
 	case repository.SQLite:
 		name = "sqlite3"
 		fs = sqlitemigrations.Migrations()
-		database = sqlite.Open(dsn)
+		database = sqlite.Open(s.dsn)
 	case repository.Postgres:
 		name = "postgres"
 		fs = pgmigrations.Migrations()
-		database = postgres.Open(dsn)
+		database = postgres.Open(s.dsn)
 	default:
-		return nil, fmt.Errorf("unsupported database type: %s", dbtype)
+		return fmt.Errorf("unsupported database type: %s", s.dbtype)
 	}
 	// Initialize the GORM database connection
 	sql, err := gorm.Open(database, &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %s", err)
+		return fmt.Errorf("failed to open database: %s", err)
 	}
 	// Set up migrations
 	migrationsSource := migrate.EmbedFileSystemMigrationSource{
@@ -110,14 +127,13 @@ func NewSession(cfg *config.Config) (*Session, error) {
 	// Extract the raw SQL database instance
 	sqlDb, err := sql.DB()
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract raw SQL DB from GORM: %s", err)
+		return fmt.Errorf("failed to extract raw SQL DB from GORM: %s", err)
 	}
 	// Run migrations
 	_, err = migrate.Exec(sqlDb, name, migrationsSource, migrate.Up)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute migrations: %s", err)
+		return fmt.Errorf("failed to execute migrations: %s", err)
 	}
-	// Assign the GORM DB instance to the Session's DB field
-	newSes.DB = store
-	return newSes, nil
+
+	return nil
 }

@@ -7,11 +7,11 @@ package plugins
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
+	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/graph"
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/sessions"
@@ -50,22 +50,12 @@ func (d *dnsIP) Start(r *registry.Registry) error {
 func (d *dnsIP) Stop() {}
 
 func (d *dnsIP) handler(e *et.Event) error {
-	session := e.Session.(*sessions.Session)
-
-	data, ok := e.Data.(*et.AssetData)
+	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
-		return errors.New("failed to extract the event data")
-	}
-
-	fqdn, ok := data.OAMAsset.(*domain.FQDN)
-	if !ok {
-		switch v := data.OAMAsset.(type) {
-		default:
-			fmt.Printf("Bad type: %T\n", v)
-		}
 		return errors.New("failed to extract the FQDN asset")
 	}
 
+	session := e.Session.(*sessions.Session)
 	matches, err := checkTransformations(session, "fqdn", "ipaddress", "dns")
 	if err != nil {
 		return err
@@ -85,6 +75,7 @@ func (d *dnsIP) handler(e *et.Event) error {
 func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	session := e.Session.(*sessions.Session)
 	g := graph.Graph{DB: session.DB}
+	dis := e.Dispatcher.(*dispatcher.Dispatcher)
 
 	for _, record := range rr {
 		var rel string
@@ -93,7 +84,12 @@ func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 
 		if record.Type == dns.TypeA {
 			if ip, err := g.UpsertA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {
-				scheduleAssetEvent(e, record.Data, ip)
+				_ = dis.DispatchEvent(&et.Event{
+					Name:       record.Data,
+					Asset:      ip,
+					Dispatcher: dis,
+					Session:    session,
+				})
 				addr, _ = session.Cache.GetAsset(ip.Asset)
 				if fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: record.Name}); hit && fqdn != nil {
 					rel = "a_record"
@@ -103,7 +99,12 @@ func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 		}
 		if record.Type == dns.TypeAAAA {
 			if ip, err := g.UpsertAAAA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {
-				scheduleAssetEvent(e, record.Data, ip)
+				_ = dis.DispatchEvent(&et.Event{
+					Name:       record.Data,
+					Asset:      ip,
+					Dispatcher: dis,
+					Session:    session,
+				})
 				addr, _ = session.Cache.GetAsset(ip.Asset)
 				if fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: record.Name}); hit && fqdn != nil {
 					rel = "aaaa_record"

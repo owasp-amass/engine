@@ -45,18 +45,12 @@ func (d *ipNetblock) Stop() {}
 // ipLookup function queries the bgptools whois server using an
 // IP address to retrieve related ASN, netblock, and RIR details.
 func (d *ipNetblock) lookup(e *et.Event) error {
-	session := e.Session.(*sessions.Session)
-
-	data, ok := e.Data.(*et.AssetData)
-	if !ok {
-		return errors.New("failed to extract the event data")
-	}
-
-	ip, ok := data.OAMAsset.(*oamnet.IPAddress)
+	ip, ok := e.Asset.Asset.(*oamnet.IPAddress)
 	if !ok {
 		return errors.New("failed to extract the IPAddress asset")
 	}
 
+	session := e.Session.(*sessions.Session)
 	matches, err := checkTransformations(session, "ipaddress", "netblock")
 	if err != nil {
 		return err

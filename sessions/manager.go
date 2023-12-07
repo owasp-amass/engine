@@ -1,3 +1,7 @@
+// Copyright © by Jeff Foley 2023. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package sessions
 
 /*
@@ -5,12 +9,6 @@ package sessions
  * Each session has its own configuration.
  * The session manager is responsible for managing all sessions,
  * it's a singleton object and it's thread-safe.
- *
- * How to use the session manager:
- * The session manager should be initialized when the engine
- * starts and it should shutdown when the engine stops.
- * There are methods to do both of these things (look at the
- * main_session_manager_api.go for more details).
  */
 
 import (
@@ -18,20 +16,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-/*
- * The session manager also offer an API to build sub-sessions
- * managers if needed. But, as of now, it's not used.
- *
- * The session manager API to create sub-sessions managers:
- * NewStorage: creates a new session storage.
- * Add: adds a session to the session storage.
- * Cancel: cancels a session in the session storage.
- * Get: gets a session from the session storage.
- * CleanAll: cleans all sessions from the session storage.
- * Shutdown: cleans all sessions from the session storage and shutdown the session storage.
- *
- */
 
 var (
 	zeroSessionUUID = uuid.UUID{}
@@ -60,6 +44,7 @@ func (ss *Manager) Add(s *Session) (uuid.UUID, error) {
 	defer ss.Unlock()
 
 	id := uuid.New()
+	s.ID = id
 	ss.sessions[id] = s
 	// TODO: Need to add the session config checks here (using the Registry)
 	return id, nil

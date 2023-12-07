@@ -17,6 +17,7 @@ import (
 
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
+	"github.com/owasp-amass/engine/dispatcher"
 	amassnet "github.com/owasp-amass/engine/net"
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/sessions"
@@ -60,12 +61,7 @@ func (bt *bgpTools) Stop() {}
 // lookup function queries the bgptools whois server using an
 // IP address to retrieve related ASN, netblock, and RIR details.
 func (bt *bgpTools) lookup(e *et.Event) error {
-	d, ok := e.Data.(*et.AssetData)
-	if !ok {
-		return errors.New("failed to extract the event data")
-	}
-
-	ip, ok := d.OAMAsset.(*oamnet.IPAddress)
+	ip, ok := e.Asset.Asset.(*oamnet.IPAddress)
 	if !ok {
 		return errors.New("failed to extract the IPAddress asset")
 	}
@@ -126,6 +122,7 @@ func (bt *bgpTools) query(ipstr string) ([]string, error) {
 func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, matches map[string]struct{}) {
 	now := time.Now()
 	session := e.Session.(*sessions.Session)
+	d := e.Dispatcher.(*dispatcher.Dispatcher)
 
 	var as *dbt.Asset
 	if asnstr := record[0]; asnstr != "" {
@@ -135,7 +132,12 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 			if _, found := matches["asn"]; found {
 				as, err = session.DB.Create(nil, "", oamas)
 				if err == nil {
-					scheduleAssetEvent(e, asnstr, as)
+					_ = d.DispatchEvent(&et.Event{
+						Name:       asnstr,
+						Asset:      as,
+						Dispatcher: d,
+						Session:    session,
+					})
 				}
 			} else {
 				as = &dbt.Asset{
@@ -165,7 +167,12 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 
 			rir, err = session.DB.Create(as, rel, oamrir)
 			if err == nil {
-				scheduleAssetEvent(e, desc, rir)
+				_ = d.DispatchEvent(&et.Event{
+					Name:       desc,
+					Asset:      rir,
+					Dispatcher: d,
+					Session:    session,
+				})
 				if as != nil {
 					session.Cache.SetRelation(&dbt.Relation{
 						Type:      rel,
@@ -207,7 +214,12 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 
 				nb, err = session.DB.Create(as, rel, oamnb)
 				if err == nil {
-					scheduleAssetEvent(e, cidr, nb)
+					_ = d.DispatchEvent(&et.Event{
+						Name:       cidr,
+						Asset:      nb,
+						Dispatcher: d,
+						Session:    session,
+					})
 					if as != nil {
 						session.Cache.SetRelation(&dbt.Relation{
 							Type:      rel,

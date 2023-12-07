@@ -47,7 +47,7 @@ require (
 )
 
 require (
-	github.com/99designs/gqlgen v0.17.40
+	github.com/99designs/gqlgen v0.17.41
 	github.com/caffix/pipeline v0.2.2
 	github.com/glebarez/sqlite v1.9.0
 	github.com/gorilla/websocket v1.5.0

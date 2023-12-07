@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/owasp-amass/config/config"
+	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
 )
 
@@ -107,37 +108,7 @@ func (c *Client) Query(query string) (string, error) {
 // TODO: Not Implemented. The transfromations use "->" in the config YAML, but
 // that is not a valid field name in GraphQL
 func (c *Client) CreateSession(config *config.Config) (uuid.UUID, error) {
-
 	return c.createSessionWithJSON(config)
-
-	/*
-
-		// TODO: handle creating a session through graphql fields instead of JSON object
-
-		var data interface{}
-		configJson, err := json.Marshal(config)
-		err = json.Unmarshal(configJson, &data)
-
-		q := gqlEncoder(data)
-		//q = strings.ReplaceAll(q, "->", "_to_")
-
-		queryStr := fmt.Sprintf(`mutation { createSession(input: {config: %s}) {sessionToken} }`, string(q))
-		res, err := c.Query(queryStr)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println("Response:" + res)
-
-		var gqlResp struct {
-			Data struct{ CreateSession struct{ Token string } }
-		}
-		err = json.Unmarshal([]byte(res), &gqlResp)
-
-		token, _ := uuid.Parse(gqlResp.Data.CreateSession.Token)
-
-		return token, nil
-	*/
 }
 
 func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error) {
@@ -183,7 +154,7 @@ func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) error {
 	}
 	q := gqlEncoder(data)
 
-	queryStr := fmt.Sprintf(`mutation { createAsset(input:  %s) {id} }`, string(q))
+	queryStr := fmt.Sprintf(`mutation { createAsset(input: %s) {id} }`, string(q))
 
 	res, err := c.Query(queryStr)
 	if err != nil {
@@ -201,22 +172,21 @@ func (c *Client) TerminateSession(token uuid.UUID) {
 	}
 }
 
-func (c *Client) SessionStats(token uuid.UUID) (types.SessionStatsResponse, error) {
+func (c *Client) SessionStats(token uuid.UUID) (sessions.SessionStats, error) {
 	queryStr := fmt.Sprintf(`query { sessionStats(sessionToken: "%s"){
-		workItemsInProcess 
-		workItemsWaiting 
-		workItemsProcessable} }`, token.String())
+		WorkItemsCompleted 
+		WorkItemsTotal} }`, token.String())
 
 	res, err := c.Query(queryStr)
 	if err != nil {
-		return types.SessionStatsResponse{}, err
+		return sessions.SessionStats{}, err
 	}
 
 	var gqlResp struct {
-		Data struct{ SessionStats types.SessionStatsResponse }
+		Data struct{ SessionStats sessions.SessionStats }
 	}
 	if err := json.Unmarshal([]byte(res), &gqlResp); err != nil {
-		return types.SessionStatsResponse{}, err
+		return sessions.SessionStats{}, err
 	}
 
 	return gqlResp.Data.SessionStats, nil
@@ -229,9 +199,7 @@ func (c *Client) SessionStats(token uuid.UUID) (types.SessionStatsResponse, erro
 // Client: {"type": "start","id":"<generated-ID-2>","payload":{"query":"subscription { ... }"} }
 // Server: {"payload":{"data":{ ... }},"id":""<generated-ID-2>","type":"data"}
 // Server: {"type":"ka"}
-
 func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
-	// Connect
 	parsedURL, _ := url.Parse(c.url)
 	parsedURL.Scheme = "ws"
 	id := uuid.New().String()

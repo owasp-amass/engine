@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/miekg/dns"
+	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/graph"
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/sessions"
@@ -42,18 +43,12 @@ func (d *dnsCNAME) Start(r *registry.Registry) error {
 func (d *dnsCNAME) Stop() {}
 
 func (d *dnsCNAME) handler(e *et.Event) error {
-	session := e.Session.(*sessions.Session)
-
-	data, ok := e.Data.(*et.AssetData)
-	if !ok {
-		return errors.New("failed to extract the event data")
-	}
-
-	fqdn, ok := data.OAMAsset.(*domain.FQDN)
+	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
+	session := e.Session.(*sessions.Session)
 	matches, err := checkTransformations(session, "fqdn", "fqdn", "dns")
 	if err != nil {
 		return err
@@ -71,10 +66,16 @@ func (d *dnsCNAME) handler(e *et.Event) error {
 func (d *dnsCNAME) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	session := e.Session.(*sessions.Session)
 	g := graph.Graph{DB: session.DB}
+	dis := e.Dispatcher.(*dispatcher.Dispatcher)
 
 	for _, record := range rr {
 		if a, err := g.UpsertCNAME(context.TODO(), record.Name, record.Data); err == nil && a != nil {
-			scheduleAssetEvent(e, record.Data, a)
+			_ = dis.DispatchEvent(&et.Event{
+				Name:       record.Data,
+				Asset:      a,
+				Dispatcher: dis,
+				Session:    session,
+			})
 		}
 	}
 }

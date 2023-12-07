@@ -4,12 +4,13 @@ import (
 	"io"
 	"log"
 	"testing"
+	"time"
 
+	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine"
 	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 )
 
@@ -38,22 +39,24 @@ func TestLookup(t *testing.T) {
 		t.Fatalf("Failed to create a new session: %v", err)
 	}
 
-	uuid, err := e.Mgr.Add(session)
+	_, err = e.Manager.Add(session)
 	if err != nil {
 		t.Fatalf("Failed to add the session: %v", err)
 	}
 
-	// Create a FQDN event.
+	now := time.Now()
 	fqdn := "owasp.org"
-	fqdnAsset := &types.AssetData{
-		OAMAsset: &domain.FQDN{Name: fqdn},
-		OAMType:  oam.FQDN,
+	a := &dbt.Asset{
+		CreatedAt: now,
+		LastSeen:  now,
+		Asset:     &domain.FQDN{Name: fqdn},
 	}
+
 	fqdnEvent := types.Event{
-		SessionID: uuid,
-		Data:      fqdnAsset,
-		Sched:     e.Sched,
-		Session:   session,
+		Name:       fqdn,
+		Asset:      a,
+		Dispatcher: e.Dispatcher,
+		Session:    session,
 	}
 
 	plugin := &hackerTarget{}

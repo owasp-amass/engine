@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/graph"
 	amassnet "github.com/owasp-amass/engine/net"
 	"github.com/owasp-amass/engine/registry"
@@ -23,16 +24,18 @@ import (
 	"github.com/owasp-amass/resolve"
 )
 
-const (
-	defaultSweepSize = 250
-	activeSweepSize  = 500
-	maxSweepSize     = 1000
-)
-
-type dnsReverse struct{}
+type dnsReverse struct {
+	defaultSweepSize int
+	activeSweepSize  int
+	maxSweepSize     int
+}
 
 func newDNSReverse() Plugin {
-	return &dnsReverse{}
+	return &dnsReverse{
+		defaultSweepSize: 250,
+		activeSweepSize:  500,
+		maxSweepSize:     1000,
+	}
 }
 
 func (d *dnsReverse) Start(r *registry.Registry) error {
@@ -54,14 +57,7 @@ func (d *dnsReverse) Start(r *registry.Registry) error {
 func (d *dnsReverse) Stop() {}
 
 func (d *dnsReverse) handler(e *et.Event) error {
-	session := e.Session.(*sessions.Session)
-
-	data, ok := e.Data.(*et.AssetData)
-	if !ok {
-		return errors.New("failed to extract the event data")
-	}
-
-	ip, ok := data.OAMAsset.(*oamnet.IPAddress)
+	ip, ok := e.Asset.Asset.(*oamnet.IPAddress)
 	if !ok {
 		return errors.New("failed to extract the IPAddress asset")
 	}
@@ -71,6 +67,7 @@ func (d *dnsReverse) handler(e *et.Event) error {
 		return nil
 	}
 
+	session := e.Session.(*sessions.Session)
 	matches, err := checkTransformations(session, "ipaddress", "fqdn", "dns")
 	if err != nil {
 		return err
@@ -109,9 +106,9 @@ func (d *dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
 		}
 	}
 
-	size := defaultSweepSize
+	size := d.defaultSweepSize
 	if session.Cfg.Active {
-		size = activeSweepSize
+		size = d.activeSweepSize
 	}
 
 	for _, ip := range amassnet.CIDRSubset(cidr, addrstr, size) {
@@ -129,13 +126,19 @@ func (d *dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
 func (d *dnsReverse) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	session := e.Session.(*sessions.Session)
 	g := graph.Graph{DB: session.DB}
+	dis := e.Dispatcher.(*dispatcher.Dispatcher)
 
 	for _, record := range rr {
 		if !session.Cfg.IsDomainInScope(record.Data) {
 			return
 		}
 		if a, err := g.UpsertPTR(context.TODO(), record.Name, record.Data); err == nil && a != nil {
-			scheduleAssetEvent(e, record.Data, a)
+			_ = dis.DispatchEvent(&et.Event{
+				Name:       record.Data,
+				Asset:      a,
+				Dispatcher: dis,
+				Session:    session,
+			})
 		}
 	}
 }

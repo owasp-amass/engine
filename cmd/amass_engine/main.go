@@ -10,7 +10,6 @@ import (
 
 	"github.com/owasp-amass/engine"
 	"github.com/owasp-amass/engine/plugins"
-	"github.com/owasp-amass/engine/scheduler"
 )
 
 func main() {
@@ -32,25 +31,15 @@ func main() {
 	}
 	defer e.Shutdown()
 
-	if err := plugins.LoadAndStartPlugins(e.Reg); err != nil {
+	if err := plugins.LoadAndStartPlugins(e.Registry); err != nil {
 		l.Printf("Failed to start the plugins: %v", err)
 		os.Exit(1)
 	}
 
-	if err := e.Reg.BuildPipelines(); err != nil {
+	if err := e.Registry.BuildPipelines(); err != nil {
 		l.Printf("Failed to build the handler pipelines: %v", err)
 		os.Exit(1)
 	}
-
-	go e.Sched.Process(scheduler.ProcessConfig{
-		ExitWhenEmpty:        false,
-		CheckEvent:           false,
-		ExecuteAction:        true,
-		ReturnIfFound:        false,
-		DebugLevel:           0,
-		ActionTimeout:        0,
-		MaxConcurrentActions: 8,
-	})
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)

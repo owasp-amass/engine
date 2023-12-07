@@ -8,7 +8,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/owasp-amass/engine/scheduler"
+	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/sessions"
 )
 
@@ -23,12 +23,12 @@ type Server struct {
 	srv    *http.Server
 }
 
-func NewServer(logger *log.Logger, sched *scheduler.Scheduler, mgr *sessions.Manager) *Server {
+func NewServer(logger *log.Logger, d *dispatcher.Dispatcher, mgr *sessions.Manager) *Server {
 	hdr := handler.NewDefaultServer(NewExecutableSchema(Config{
 		Resolvers: &Resolver{
-			Log:   logger,
-			Sched: sched,
-			Mgr:   mgr,
+			Log:        logger,
+			Manager:    mgr,
+			Dispatcher: d,
 		},
 	}))
 	// Needed for subscription

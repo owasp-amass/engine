@@ -16,10 +16,7 @@ import (
 )
 
 func (r *Registry) NewEventDataElement(e *et.Event) *EventDataElement {
-	return &EventDataElement{
-		Event: e,
-		Ch:    make(chan *EventDataElement, 1),
-	}
+	return &EventDataElement{Event: e}
 }
 
 func (ede *EventDataElement) Clone() pipeline.Data {
