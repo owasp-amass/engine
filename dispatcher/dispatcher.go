@@ -6,6 +6,7 @@ package dispatcher
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -26,7 +27,7 @@ func NewDispatcher(l *log.Logger, r *registry.Registry, mgr *sessions.Manager) *
 		reg:       r,
 		mgr:       mgr,
 		done:      make(chan struct{}),
-		completed: make(chan *registry.EventDataElement, 100),
+		completed: queue.NewQueue(),
 	}
 
 	go d.collectEvents()
@@ -42,22 +43,28 @@ func (d *Dispatcher) collectEvents() {
 		select {
 		case <-d.done:
 			return
-		case ede := <-d.completed:
-			if element := <-ede.Ch; element != nil {
-				if err := element.Error; err != nil {
-					d.Log.Printf("%s: %v", ede.Event.Name, err)
-				}
-				// increment the number of events processed in the session
-				go func(ede *registry.EventDataElement) {
-					if session, ok := ede.Event.Session.(*sessions.Session); ok {
-						session.Lock()
-						session.Stats.WorkItemsCompleted++
-						session.Unlock()
-					}
-				}(ede)
-			}
+		case <-d.completed.Signal():
+			d.completed.Process(d.completedCallback)
 		}
 	}
+}
+
+func (d *Dispatcher) completedCallback(data interface{}) {
+	ede, ok := data.(*registry.EventDataElement)
+	if !ok {
+		return
+	}
+
+	if err := ede.Error; err != nil {
+		d.Log.Printf("%s: %v", ede.Event.Name, err)
+	}
+	// increment the number of events processed in the session
+	if session, ok := ede.Event.Session.(*sessions.Session); ok {
+		session.Lock()
+		session.Stats.WorkItemsCompleted++
+		session.Unlock()
+	}
+	fmt.Println(ede.Event.Name)
 }
 
 func (d *Dispatcher) DispatchEvent(e *et.Event) error {
@@ -71,6 +78,7 @@ func (d *Dispatcher) DispatchEvent(e *et.Event) error {
 	if p, hit := session.Cache.GetAsset(a); p != nil && hit {
 		return errors.New("this event has been scheduled previously")
 	}
+	session.Cache.SetAsset(e.Asset)
 
 	ap, err := d.reg.GetPipeline(a.AssetType())
 	if err != nil {
@@ -78,17 +86,14 @@ func (d *Dispatcher) DispatchEvent(e *et.Event) error {
 	}
 
 	if data := d.reg.NewEventDataElement(e); data != nil {
-		session.Cache.SetAsset(e.Asset)
-		data.Ch = d.completed
+		data.Queue = d.completed
 		ap.Queue.Append(data)
 		// increment the number of events processed in the session
-		go func(ede *registry.EventDataElement) {
-			if session, ok := ede.Event.Session.(*sessions.Session); ok {
-				session.Lock()
-				session.Stats.WorkItemsTotal++
-				session.Unlock()
-			}
-		}(data)
+		if session, ok := data.Event.Session.(*sessions.Session); ok {
+			session.Lock()
+			session.Stats.WorkItemsTotal++
+			session.Unlock()
+		}
 	}
 	return nil
 }

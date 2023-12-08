@@ -81,6 +81,7 @@ func (bt *bgpTools) lookup(e *et.Event) error {
 		return nil
 	}
 
+	fmt.Println("BGPTools: " + ipstr)
 	record, err := bt.query(ipstr)
 	if err == nil {
 		bt.process(e, ip, record, matches)

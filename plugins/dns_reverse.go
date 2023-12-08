@@ -113,17 +113,18 @@ func (d *dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
 
 	for _, ip := range amassnet.CIDRSubset(cidr, addrstr, size) {
 		a := &network.IPAddress{Address: netip.MustParseAddr(ip.String())}
+
 		if _, hit := session.Cache.GetAsset(a); hit && ip.String() != addrstr {
 			continue
 		}
 
 		if rr, err := performQuery(ip.String(), dns.TypePTR); err == nil && len(rr) > 0 {
-			d.processRecords(e, rr)
+			d.process(e, rr)
 		}
 	}
 }
 
-func (d *dnsReverse) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
+func (d *dnsReverse) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	session := e.Session.(*sessions.Session)
 	g := graph.Graph{DB: session.DB}
 	dis := e.Dispatcher.(*dispatcher.Dispatcher)

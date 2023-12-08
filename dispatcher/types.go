@@ -18,5 +18,5 @@ type Dispatcher struct {
 	reg       *registry.Registry
 	mgr       *sessions.Manager
 	done      chan struct{}
-	completed chan *registry.EventDataElement
+	completed queue.Queue
 }

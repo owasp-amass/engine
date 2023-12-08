@@ -75,54 +75,48 @@ func (d *dnsIP) handler(e *et.Event) error {
 func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	session := e.Session.(*sessions.Session)
 	g := graph.Graph{DB: session.DB}
-	dis := e.Dispatcher.(*dispatcher.Dispatcher)
 
 	for _, record := range rr {
-		var rel string
-		var name *dbt.Asset
-		var addr *dbt.Asset
-
 		if record.Type == dns.TypeA {
 			if ip, err := g.UpsertA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {
-				_ = dis.DispatchEvent(&et.Event{
-					Name:       record.Data,
-					Asset:      ip,
-					Dispatcher: dis,
-					Session:    session,
-				})
-				addr, _ = session.Cache.GetAsset(ip.Asset)
-				if fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: record.Name}); hit && fqdn != nil {
-					rel = "a_record"
-					name = fqdn
-				}
+				d.dispatchAndCache(e, record.Name, record.Data, ip, "a_record")
 			}
 		}
 		if record.Type == dns.TypeAAAA {
 			if ip, err := g.UpsertAAAA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {
-				_ = dis.DispatchEvent(&et.Event{
-					Name:       record.Data,
-					Asset:      ip,
-					Dispatcher: dis,
-					Session:    session,
-				})
-				addr, _ = session.Cache.GetAsset(ip.Asset)
-				if fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: record.Name}); hit && fqdn != nil {
-					rel = "aaaa_record"
-					name = fqdn
-				}
+				d.dispatchAndCache(e, record.Name, record.Data, ip, "aaaa_record")
 			}
 		}
-
-		if name != nil && addr != nil && rel != "" {
-			now := time.Now()
-
-			session.Cache.SetRelation(&dbt.Relation{
-				Type:      rel,
-				CreatedAt: now,
-				LastSeen:  now,
-				FromAsset: name,
-				ToAsset:   addr,
-			})
-		}
 	}
+}
+
+func (d *dnsIP) dispatchAndCache(e *et.Event, name, data string, ip *dbt.Asset, rtype string) {
+	session := e.Session.(*sessions.Session)
+	dis := e.Dispatcher.(*dispatcher.Dispatcher)
+
+	_ = dis.DispatchEvent(&et.Event{
+		Name:       data,
+		Asset:      ip,
+		Dispatcher: dis,
+		Session:    session,
+	})
+
+	addr, hit := session.Cache.GetAsset(ip.Asset)
+	if !hit || addr == nil {
+		return
+	}
+
+	fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: name})
+	if !hit || fqdn == nil {
+		return
+	}
+
+	now := time.Now()
+	session.Cache.SetRelation(&dbt.Relation{
+		Type:      rtype,
+		CreatedAt: now,
+		LastSeen:  now,
+		FromAsset: fqdn,
+		ToAsset:   addr,
+	})
 }

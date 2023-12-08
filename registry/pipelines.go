@@ -115,7 +115,7 @@ func makeSink() pipeline.SinkFunc {
 			return errors.New("pipeline sink failed to extract the EventDataElement")
 		}
 
-		ede.Ch <- ede
+		ede.Queue.Append(ede)
 		return nil
 	})
 }
@@ -138,7 +138,7 @@ func handlerTask(h *Handler) pipeline.TaskFunc {
 
 		select {
 		case <-ctx.Done():
-			ede.Ch <- ede
+			ede.Queue.Append(ede)
 			return nil, nil
 		default:
 		}

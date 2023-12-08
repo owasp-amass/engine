@@ -32,7 +32,7 @@ type Handler struct {
 type EventDataElement struct {
 	Event *et.Event
 	Error error
-	Ch    chan *EventDataElement
+	Queue queue.Queue
 }
 
 type PipelineQueue struct {
