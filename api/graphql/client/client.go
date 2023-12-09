@@ -16,8 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/owasp-amass/config/config"
-	"github.com/owasp-amass/engine/sessions"
-	"github.com/owasp-amass/engine/types"
+	et "github.com/owasp-amass/engine/types"
 )
 
 type Handler func(message string)
@@ -33,49 +32,6 @@ func NewClient(url string) *Client {
 
 	return &Client{url: url, httpClient: *httpClient}
 }
-
-/*
-func (c *Client) Subscribe(token uuid.UUID, handler Handler) {
-
-	parsedURL, _ := url.Parse(c.url)
-	parsedURL.Scheme = "ws"
-
-	conn, _, err := websocket.DefaultDialer.Dial(parsedURL.String(), nil)
-	if err != nil {
-		fmt.Println("Error connecting to the WebSocket server:", err)
-	}
-	defer conn.Close()
-
-	// Request subscription from the graphql server
-	query := fmt.Sprintf(`{"query": subscription { logger(sessionToken: "%s") {message} } }`, token.String())
-	err = conn.WriteMessage(websocket.TextMessage, []byte(query))
-	if err != nil {
-		//if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-		//}
-		fmt.Println("Failed to send subscription query", err)
-	}
-
-	fmt.Println("out here:", err)
-	go func() {
-		fmt.Println("Inside here:", err)
-		for {
-			messageType, p, err := conn.ReadMessage()
-			fmt.Println("and here:", err)
-			if err != nil {
-				fmt.Println("Error reading message:", err)
-				//close(done)
-				return
-			}
-
-			if messageType == websocket.TextMessage {
-				fmt.Printf("Received message: %s\n", p)
-			} else {
-				fmt.Printf("Received message: %s\n", p)
-			}
-		}
-	}()
-}
-*/
 
 func (c *Client) Query(query string) (string, error) {
 	quotedStr := strings.Trim(strconv.Quote((string(query))), `"`)
@@ -140,7 +96,7 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 	return token, nil
 }
 
-func (c *Client) CreateAsset(asset types.Asset, token uuid.UUID) error {
+func (c *Client) CreateAsset(asset et.Asset, token uuid.UUID) error {
 	asset.Session = token
 
 	assetJson, err := json.Marshal(asset)
@@ -172,24 +128,24 @@ func (c *Client) TerminateSession(token uuid.UUID) {
 	}
 }
 
-func (c *Client) SessionStats(token uuid.UUID) (sessions.SessionStats, error) {
+func (c *Client) SessionStats(token uuid.UUID) (*et.SessionStats, error) {
 	queryStr := fmt.Sprintf(`query { sessionStats(sessionToken: "%s"){
 		WorkItemsCompleted 
 		WorkItemsTotal} }`, token.String())
 
 	res, err := c.Query(queryStr)
 	if err != nil {
-		return sessions.SessionStats{}, err
+		return &et.SessionStats{}, err
 	}
 
 	var gqlResp struct {
-		Data struct{ SessionStats sessions.SessionStats }
+		Data struct{ SessionStats et.SessionStats }
 	}
 	if err := json.Unmarshal([]byte(res), &gqlResp); err != nil {
-		return sessions.SessionStats{}, err
+		return &et.SessionStats{}, err
 	}
 
-	return gqlResp.Data.SessionStats, nil
+	return &gqlResp.Data.SessionStats, nil
 }
 
 // Creates subscription to receove a stream of log messages from the sever

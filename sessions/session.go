@@ -1,13 +1,19 @@
+// Copyright © by Jeff Foley 2023. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package sessions
 
 import (
 	"embed"
 	"errors"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 
 	"github.com/glebarez/sqlite"
+	"github.com/google/uuid"
 	assetdb "github.com/owasp-amass/asset-db"
 	pgmigrations "github.com/owasp-amass/asset-db/migrations/postgres"
 	sqlitemigrations "github.com/owasp-amass/asset-db/migrations/sqlite3"
@@ -15,25 +21,38 @@ import (
 	"github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine/cache"
 	"github.com/owasp-amass/engine/pubsub"
+	et "github.com/owasp-amass/engine/types"
 	migrate "github.com/rubenv/sql-migrate"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
+type session struct {
+	id     uuid.UUID
+	log    *log.Logger
+	ps     *pubsub.Logger
+	cfg    *config.Config
+	db     *assetdb.AssetDB
+	dsn    string
+	dbtype repository.DBType
+	c      cache.Cache
+	stats  *et.SessionStats
+}
+
 // NewSession initializes a new Session object based on the provided configuration.
 // The session object represents the state of an active engine enumeration.
-func NewSession(cfg *config.Config) (*Session, error) {
+func NewSession(cfg *config.Config) (et.Session, error) {
 	// Use default configuration if none is provided
 	if cfg == nil {
 		cfg = config.NewConfig()
 	}
 
 	// Create a new session object
-	s := &Session{
-		Cfg:    cfg,
-		PubSub: pubsub.NewLogger(),
-		Cache:  cache.NewOAMCache(nil),
-		Stats:  new(SessionStats),
+	s := &session{
+		cfg:   cfg,
+		ps:    pubsub.NewLogger(),
+		c:     cache.NewOAMCache(nil),
+		stats: new(et.SessionStats),
 	}
 
 	if err := s.setupDB(); err != nil {
@@ -43,7 +62,35 @@ func NewSession(cfg *config.Config) (*Session, error) {
 	return s, nil
 }
 
-func (s *Session) setupDB() error {
+func (s *session) ID() uuid.UUID {
+	return s.id
+}
+
+func (s *session) Log() *log.Logger {
+	return s.log
+}
+
+func (s *session) PubSub() *pubsub.Logger {
+	return s.ps
+}
+
+func (s *session) Config() *config.Config {
+	return s.cfg
+}
+
+func (s *session) DB() *assetdb.AssetDB {
+	return s.db
+}
+
+func (s *session) Cache() cache.Cache {
+	return s.c
+}
+
+func (s *session) Stats() *et.SessionStats {
+	return s.stats
+}
+
+func (s *session) setupDB() error {
 	if err := s.selectDBMS(); err != nil {
 		return err
 	}
@@ -53,10 +100,10 @@ func (s *Session) setupDB() error {
 	return nil
 }
 
-func (s *Session) selectDBMS() error {
+func (s *session) selectDBMS() error {
 	// If no graph databases are specified, use a default SQLite database.
-	if s.Cfg.GraphDBs == nil {
-		s.Cfg.GraphDBs = []*config.Database{
+	if s.cfg.GraphDBs == nil {
+		s.cfg.GraphDBs = []*config.Database{
 			{
 				Primary: true,
 				System:  "sqlite",
@@ -65,7 +112,7 @@ func (s *Session) selectDBMS() error {
 	}
 	// Iterate over the GraphDBs specified in the configuration.
 	// The goal is to determine the primary database's connection details.
-	for _, db := range s.Cfg.GraphDBs {
+	for _, db := range s.cfg.GraphDBs {
 		if db.Primary {
 			// Convert the database system name to lowercase for consistent comparison.
 			db.System = strings.ToLower(db.System)
@@ -75,7 +122,7 @@ func (s *Session) selectDBMS() error {
 				s.dbtype = repository.Postgres
 			} else if db.System == "sqlite" || db.System == "sqlite3" {
 				// Define the connection path for an SQLite database.
-				path := filepath.Join(config.OutputDirectory(s.Cfg.Dir), "amass.sqlite")
+				path := filepath.Join(config.OutputDirectory(s.cfg.Dir), "amass.sqlite")
 				s.dsn = path
 				s.dbtype = repository.SQLite
 			}
@@ -93,11 +140,11 @@ func (s *Session) selectDBMS() error {
 		return errors.New("failed to initialize database store")
 	}
 
-	s.DB = store
+	s.db = store
 	return nil
 }
 
-func (s *Session) migrations() error {
+func (s *session) migrations() error {
 	var name string
 	var fs embed.FS
 	var database gorm.Dialector

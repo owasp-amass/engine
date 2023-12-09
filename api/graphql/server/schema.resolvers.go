@@ -13,8 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine/api/graphql/server/model"
-	"github.com/owasp-amass/engine/sessions"
-	"github.com/owasp-amass/engine/types"
+	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/open-asset-model/network"
@@ -40,24 +39,19 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 		t.Split(k)
 	}
 
-	session, err := sessions.NewSession(&config)
+	session, err := r.Manager.NewSession(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	token, err := r.Manager.Add(session)
-	if err != nil {
-		return nil, err
-	}
-
-	return &model.Session{SessionToken: token.String()}, nil
+	return &model.Session{SessionToken: session.ID().String()}, nil
 }
 
 // CreateAsset is the resolver for the createAsset field.
 func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAssetInput) (*model.Asset, error) {
 	token, _ := uuid.Parse(input.SessionToken)
 
-	session := r.Manager.Get(token)
+	session := r.Manager.GetSession(token)
 	if session == nil {
 		return nil, errors.New("invalid session")
 	}
@@ -74,20 +68,20 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 		return nil, err
 	}
 	// Unmarshal json into AssetData struct
-	assetData := &types.AssetData{
+	assetData := &et.AssetData{
 		OAMAsset: createSeedAsset(atype),
 	}
 	if err := json.Unmarshal(j, assetData); err != nil {
 		return nil, err
 	}
 
-	dba, err := session.DB.Create(nil, "", assetData.OAMAsset)
+	dba, err := session.DB().Create(nil, "", assetData.OAMAsset)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create and schedule new event
-	event := &types.Event{
+	event := &et.Event{
 		Name:       *input.AssetName,
 		Asset:      dba,
 		Dispatcher: r.Dispatcher,
@@ -98,7 +92,7 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 		return nil, errors.New("failed to create asset")
 	}
 	// TEST: Broadcast asset creation message to client subscribers
-	session.PubSub.Publish("Log created asset")
+	session.PubSub().Publish("Log created asset")
 	return &model.Asset{ID: token.String()}, nil
 }
 
@@ -107,8 +101,8 @@ func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken st
 	result := false
 	token, _ := uuid.Parse(sessionToken)
 
-	if r.Manager.Get(token) != nil {
-		r.Manager.Cancel(token)
+	if r.Manager.GetSession(token) != nil {
+		r.Manager.CancelSession(token)
 		result = true
 	} else {
 		return &result, errors.New("invalid session token")
@@ -120,15 +114,16 @@ func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken st
 func (r *queryResolver) SessionStats(ctx context.Context, sessionToken string) (*model.SessionStats, error) {
 	token, _ := uuid.Parse(sessionToken)
 
-	session := r.Manager.Get(token)
+	session := r.Manager.GetSession(token)
 	if session == nil {
 		return nil, errors.New("invalid session token")
 	}
 
-	session.Lock()
-	completed := session.Stats.WorkItemsCompleted
-	total := session.Stats.WorkItemsTotal
-	session.Unlock()
+	stats := session.Stats()
+	stats.Lock()
+	completed := stats.WorkItemsCompleted
+	total := stats.WorkItemsTotal
+	stats.Unlock()
 
 	return &model.SessionStats{
 		WorkItemsCompleted: &completed,
@@ -139,12 +134,12 @@ func (r *queryResolver) SessionStats(ctx context.Context, sessionToken string) (
 // LogMessages is the resolver for the logMessages field.
 func (r *subscriptionResolver) LogMessages(ctx context.Context, sessionToken string) (<-chan *string, error) {
 	token, _ := uuid.Parse(sessionToken)
-	session := r.Manager.Get(token)
+	session := r.Manager.GetSession(token)
 
 	fmt.Println("LogMessages callled")
 	if session != nil {
-		session.PubSub.Publish("Channel created")
-		ch := session.PubSub.Subscribe()
+		session.PubSub().Publish("Channel created")
+		ch := session.PubSub().Subscribe()
 		return ch, nil
 	}
 	return nil, nil

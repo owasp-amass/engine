@@ -2,62 +2,22 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package plugins
+package support
 
 import (
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
-	"github.com/owasp-amass/engine/sessions"
+	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
-	"github.com/owasp-amass/open-asset-model/network"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
 )
 
-func checkTransformations(session *sessions.Session, from string, tos ...string) (map[string]struct{}, error) {
-	lower := strings.ToLower(from)
-	tomap := make(map[string]struct{})
-	results := make(map[string]struct{})
-
-	for _, v := range tos {
-		t := strings.ToLower(v)
-		tomap[t] = struct{}{}
-	}
-
-	for _, transform := range session.Cfg.Transformations {
-		if tf := strings.ToLower(transform.From); lower == tf {
-			tto := strings.ToLower(transform.To)
-
-			if tto == "all" {
-				excludes := make(map[string]struct{})
-				for _, e := range transform.Exclude {
-					excludes[strings.ToLower(e)] = struct{}{}
-				}
-
-				for k := range tomap {
-					if _, found := excludes[k]; !found {
-						results[k] = struct{}{}
-					}
-				}
-				continue
-			} else if _, found := tomap[tto]; found {
-				results[tto] = struct{}{}
-			}
-		}
-	}
-
-	if len(results) == 0 {
-		return nil, errors.New("zero transformation matches in the session config")
-	}
-	return results, nil
-}
-
-func performQuery(name string, qtype uint16) ([]*resolve.ExtractedAnswer, error) {
+func PerformQuery(name string, qtype uint16) ([]*resolve.ExtractedAnswer, error) {
 	msg := resolve.QueryMsg(name, qtype)
 	if qtype == dns.TypePTR {
 		msg = resolve.ReverseMsg(name)
@@ -94,12 +54,12 @@ func dnsQuery(msg *dns.Msg, attempts int) (*dns.Msg, error) {
 	return nil, errors.New("failed to receive a DNS response")
 }
 
-func ipToNetblockWithAttempts(session *sessions.Session, ip *network.IPAddress, num int, d time.Duration) (*network.Netblock, error) {
+func IPToNetblockWithAttempts(session et.Session, ip *oamnet.IPAddress, num int, d time.Duration) (*oamnet.Netblock, error) {
 	var err error
-	var nb *network.Netblock
+	var nb *oamnet.Netblock
 
 	for i := 0; i < num; i++ {
-		nb, err = ipToNetblock(session, ip)
+		nb, err = IPToNetblock(session, ip)
 		if err == nil {
 			break
 		}
@@ -109,8 +69,8 @@ func ipToNetblockWithAttempts(session *sessions.Session, ip *network.IPAddress, 
 	return nb, err
 }
 
-func ipToNetblock(session *sessions.Session, ip *network.IPAddress) (*network.Netblock, error) {
-	if assets, hit := session.Cache.GetAssetsByType(oam.Netblock); hit && len(assets) > 0 {
+func IPToNetblock(session et.Session, ip *oamnet.IPAddress) (*oamnet.Netblock, error) {
+	if assets, hit := session.Cache().GetAssetsByType(oam.Netblock); hit && len(assets) > 0 {
 		for _, a := range assets {
 			if nb, ok := a.Asset.(*oamnet.Netblock); ok && nb.Cidr.Contains(ip.Address) {
 				return nb, nil
@@ -120,8 +80,8 @@ func ipToNetblock(session *sessions.Session, ip *network.IPAddress) (*network.Ne
 	return nil, errors.New("no netblock match in the cache")
 }
 
-func isAddressInScope(session *sessions.Session, ip *network.IPAddress) bool {
-	addr, hit := session.Cache.GetAsset(ip)
+func IsAddressInScope(session et.Session, ip *oamnet.IPAddress) bool {
+	addr, hit := session.Cache().GetAsset(ip)
 	if !hit || addr == nil {
 		return false
 	}
@@ -131,14 +91,14 @@ func isAddressInScope(session *sessions.Session, ip *network.IPAddress) bool {
 		rtype = "aaaa_record"
 	}
 
-	if relations, hit := session.Cache.GetRelations(&dbt.Relation{
+	if relations, hit := session.Cache().GetRelations(&dbt.Relation{
 		Type:    rtype,
 		ToAsset: addr,
 	}); hit && len(relations) > 0 {
 		for _, relation := range relations {
 			a := relation.FromAsset.Asset
 
-			if fqdn, ok := a.(*domain.FQDN); ok && session.Cfg.IsDomainInScope(fqdn.Name) {
+			if fqdn, ok := a.(*domain.FQDN); ok && session.Config().IsDomainInScope(fqdn.Name) {
 				return true
 			}
 		}

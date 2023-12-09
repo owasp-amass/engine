@@ -1,3 +1,7 @@
+// Copyright © by Jeff Foley 2023. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package engine
 
 import (
@@ -9,13 +13,14 @@ import (
 	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/registry"
 	"github.com/owasp-amass/engine/sessions"
+	et "github.com/owasp-amass/engine/types"
 )
 
 type Engine struct {
 	Log        *log.Logger
-	Dispatcher *dispatcher.Dispatcher
-	Registry   *registry.Registry
-	Manager    *sessions.Manager
+	Dispatcher et.Dispatcher
+	Registry   et.Registry
+	Manager    et.SessionManager
 	Server     *server.Server
 }
 

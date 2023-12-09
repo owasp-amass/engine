@@ -8,8 +8,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
-	"github.com/owasp-amass/engine/dispatcher"
-	"github.com/owasp-amass/engine/sessions"
+	et "github.com/owasp-amass/engine/types"
 )
 
 const keyServerAddr key = "serverAddr"
@@ -23,7 +22,7 @@ type Server struct {
 	srv    *http.Server
 }
 
-func NewServer(logger *log.Logger, d *dispatcher.Dispatcher, mgr *sessions.Manager) *Server {
+func NewServer(logger *log.Logger, d et.Dispatcher, mgr et.SessionManager) *Server {
 	hdr := handler.NewDefaultServer(NewExecutableSchema(Config{
 		Resolvers: &Resolver{
 			Log:        logger,

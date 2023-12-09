@@ -11,9 +11,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/owasp-amass/engine/dispatcher"
-	"github.com/owasp-amass/engine/registry"
-	"github.com/owasp-amass/engine/sessions"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
@@ -23,21 +20,21 @@ type hackerTarget struct {
 	URL string
 }
 
-func newHackerTarget() Plugin {
+func newHackerTarget() et.Plugin {
 	return &hackerTarget{
 		URL: "https://api.hackertarget.com/hostsearch/?q=",
 	}
 }
 
-func (ht *hackerTarget) Start(r *registry.Registry) error {
+func (ht *hackerTarget) Start(r et.Registry) error {
 	name := "HackerTarget-Subdomain-Handler"
-	if err := r.RegisterHandler(&registry.Handler{
+	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
-		Handler:    ht.lookup,
+		Callback:   ht.lookup,
 	}); err != nil {
-		r.Log.Printf("Failed to register the %s: %v", name, err)
+		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
 	}
 	return nil
@@ -52,17 +49,16 @@ func (ht *hackerTarget) lookup(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	session := e.Session.(*sessions.Session)
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
-	if session.Cfg.WhichDomain(domlt) != domlt {
+	if e.Session.Config().WhichDomain(domlt) != domlt {
 		return nil
 	}
 
-	matches, err := checkTransformations(session, "fqdn", "fqdn", "hackertarget")
+	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "hackertarget")
 	if err != nil {
 		return err
 	}
-	if _, found := matches["fqdn"]; !found {
+	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -86,22 +82,18 @@ func (ht *hackerTarget) query(name string) ([][]string, error) {
 }
 
 func (ht *hackerTarget) process(e *et.Event, records [][]string) {
-	session := e.Session.(*sessions.Session)
-	d := e.Dispatcher.(*dispatcher.Dispatcher)
-
 	for _, record := range records {
 		if len(record) < 2 {
 			continue
 		}
 		// if the subdomain is not in scope, skip it
 		name := strings.ToLower(strings.TrimSpace(record[0]))
-		if name != "" && session.Cfg.IsDomainInScope(name) {
-			if a, err := session.DB.Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
-				_ = d.DispatchEvent(&et.Event{
-					Name:       name,
-					Asset:      a,
-					Dispatcher: d,
-					Session:    session,
+		if name != "" && e.Session.Config().IsDomainInScope(name) {
+			if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+				_ = e.Dispatcher.DispatchEvent(&et.Event{
+					Name:    name,
+					Asset:   a,
+					Session: e.Session,
 				})
 			}
 		}

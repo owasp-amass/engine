@@ -11,30 +11,28 @@ import (
 
 	dbt "github.com/owasp-amass/asset-db/types"
 	amassnet "github.com/owasp-amass/engine/net"
-	"github.com/owasp-amass/engine/registry"
-	"github.com/owasp-amass/engine/sessions"
+	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
-	"github.com/owasp-amass/open-asset-model/network"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 )
 
 type ipNetblock struct{}
 
-func newIPNetblock() Plugin {
+func newIPNetblock() et.Plugin {
 	return &ipNetblock{}
 }
 
-func (d *ipNetblock) Start(r *registry.Registry) error {
+func (d *ipNetblock) Start(r et.Registry) error {
 	name := "IP-Netblock-Handler"
-	if err := r.RegisterHandler(&registry.Handler{
+	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Priority:   4,
 		Transforms: []string{"netblock"},
 		EventType:  oam.IPAddress,
-		Handler:    d.lookup,
+		Callback:   d.lookup,
 	}); err != nil {
-		r.Log.Printf("Failed to register the %s: %v", name, err)
+		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
 	}
 	return nil
@@ -50,16 +48,15 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 		return errors.New("failed to extract the IPAddress asset")
 	}
 
-	session := e.Session.(*sessions.Session)
-	matches, err := checkTransformations(session, "ipaddress", "netblock")
+	matches, err := e.Session.Config().CheckTransformations("ipaddress", "netblock")
 	if err != nil {
 		return err
 	}
-	if _, ok := matches["netblock"]; !ok {
+	if !matches.IsMatch("netblock") {
 		return nil
 	}
 
-	var netblock *network.Netblock
+	var netblock *oamnet.Netblock
 	if reserved, cidr := amassnet.IsReservedAddress(ip.Address.String()); reserved {
 		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
@@ -71,24 +68,24 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 			t = "IPv4"
 		}
 
-		netblock = &network.Netblock{
+		netblock = &oamnet.Netblock{
 			Cidr: prefix,
 			Type: t,
 		}
 	} else {
 		var err error
 
-		netblock, err = ipToNetblockWithAttempts(session, ip, 10, 500*time.Millisecond)
+		netblock, err = support.IPToNetblockWithAttempts(e.Session, ip, 10, 500*time.Millisecond)
 		if err != nil {
 			return nil
 		}
 	}
 
-	if nb, err := session.DB.Create(nil, "", netblock); err == nil {
-		if a, err := session.DB.Create(nb, "contains", ip); err == nil {
+	if nb, err := e.Session.DB().Create(nil, "", netblock); err == nil {
+		if a, err := e.Session.DB().Create(nb, "contains", ip); err == nil {
 			now := time.Now()
 
-			session.Cache.SetRelation(&dbt.Relation{
+			e.Session.Cache().SetRelation(&dbt.Relation{
 				Type:      "contains",
 				CreatedAt: now,
 				LastSeen:  now,

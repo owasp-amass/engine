@@ -2,7 +2,7 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package plugins
+package dns
 
 import (
 	"context"
@@ -11,10 +11,8 @@ import (
 
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
-	"github.com/owasp-amass/engine/dispatcher"
 	"github.com/owasp-amass/engine/graph"
-	"github.com/owasp-amass/engine/registry"
-	"github.com/owasp-amass/engine/sessions"
+	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
@@ -28,20 +26,20 @@ var ipQueryTypes = []uint16{
 	dns.TypeAAAA,
 }
 
-func newDNSIP() Plugin {
+func NewIP() et.Plugin {
 	return &dnsIP{}
 }
 
-func (d *dnsIP) Start(r *registry.Registry) error {
+func (d *dnsIP) Start(r et.Registry) error {
 	name := "DNS-IP-Handler"
 
-	if err := r.RegisterHandler(&registry.Handler{
+	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"ipaddress"},
 		EventType:  oam.FQDN,
-		Handler:    d.handler,
+		Callback:   d.handler,
 	}); err != nil {
-		r.Log.Printf("Failed to register the %s: %v", name, err)
+		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
 	}
 	return nil
@@ -55,17 +53,16 @@ func (d *dnsIP) handler(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	session := e.Session.(*sessions.Session)
-	matches, err := checkTransformations(session, "fqdn", "ipaddress", "dns")
+	matches, err := e.Session.Config().CheckTransformations("fqdn", "ipaddress", "dns")
 	if err != nil {
 		return err
 	}
-	if _, ok := matches["ipaddress"]; !ok {
+	if !matches.IsMatch("ipaddress") {
 		return nil
 	}
 
 	for _, qtype := range ipQueryTypes {
-		if rr, err := performQuery(fqdn.Name, qtype); err == nil && len(rr) > 0 {
+		if rr, err := support.PerformQuery(fqdn.Name, qtype); err == nil && len(rr) > 0 {
 			d.processRecords(e, rr)
 		}
 	}
@@ -73,8 +70,7 @@ func (d *dnsIP) handler(e *et.Event) error {
 }
 
 func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
-	session := e.Session.(*sessions.Session)
-	g := graph.Graph{DB: session.DB}
+	g := graph.Graph{DB: e.Session.DB()}
 
 	for _, record := range rr {
 		if record.Type == dns.TypeA {
@@ -91,28 +87,25 @@ func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 }
 
 func (d *dnsIP) dispatchAndCache(e *et.Event, name, data string, ip *dbt.Asset, rtype string) {
-	session := e.Session.(*sessions.Session)
-	dis := e.Dispatcher.(*dispatcher.Dispatcher)
-
-	_ = dis.DispatchEvent(&et.Event{
+	_ = e.Dispatcher.DispatchEvent(&et.Event{
 		Name:       data,
 		Asset:      ip,
-		Dispatcher: dis,
-		Session:    session,
+		Dispatcher: e.Dispatcher,
+		Session:    e.Session,
 	})
 
-	addr, hit := session.Cache.GetAsset(ip.Asset)
+	addr, hit := e.Session.Cache().GetAsset(ip.Asset)
 	if !hit || addr == nil {
 		return
 	}
 
-	fqdn, hit := session.Cache.GetAsset(&domain.FQDN{Name: name})
+	fqdn, hit := e.Session.Cache().GetAsset(&domain.FQDN{Name: name})
 	if !hit || fqdn == nil {
 		return
 	}
 
 	now := time.Now()
-	session.Cache.SetRelation(&dbt.Relation{
+	e.Session.Cache().SetRelation(&dbt.Relation{
 		Type:      rtype,
 		CreatedAt: now,
 		LastSeen:  now,

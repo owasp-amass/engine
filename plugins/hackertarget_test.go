@@ -9,7 +9,6 @@ import (
 	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine"
-	"github.com/owasp-amass/engine/sessions"
 	"github.com/owasp-amass/engine/types"
 	"github.com/owasp-amass/open-asset-model/domain"
 )
@@ -34,12 +33,7 @@ func TestLookup(t *testing.T) {
 	cfg.Transformations["IPAddress->ALL"] = &transIP
 
 	// Create a new session
-	session, err := sessions.NewSession(cfg)
-	if err != nil {
-		t.Fatalf("Failed to create a new session: %v", err)
-	}
-
-	_, err = e.Manager.Add(session)
+	session, err := e.Manager.NewSession(cfg)
 	if err != nil {
 		t.Fatalf("Failed to add the session: %v", err)
 	}

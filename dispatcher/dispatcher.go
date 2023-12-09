@@ -11,19 +11,24 @@ import (
 	"os"
 
 	"github.com/caffix/queue"
-	"github.com/owasp-amass/engine/registry"
-	"github.com/owasp-amass/engine/sessions"
 	et "github.com/owasp-amass/engine/types"
 )
 
-func NewDispatcher(l *log.Logger, r *registry.Registry, mgr *sessions.Manager) *Dispatcher {
+type dis struct {
+	logger    *log.Logger
+	reg       et.Registry
+	mgr       et.SessionManager
+	done      chan struct{}
+	completed queue.Queue
+}
+
+func NewDispatcher(l *log.Logger, r et.Registry, mgr et.SessionManager) et.Dispatcher {
 	if l == nil {
 		l = log.New(os.Stdout, "", log.LstdFlags)
 	}
 
-	d := &Dispatcher{
-		Queue:     queue.NewQueue(),
-		Log:       l,
+	d := &dis{
+		logger:    l,
 		reg:       r,
 		mgr:       mgr,
 		done:      make(chan struct{}),
@@ -34,66 +39,66 @@ func NewDispatcher(l *log.Logger, r *registry.Registry, mgr *sessions.Manager) *
 	return d
 }
 
-func (d *Dispatcher) Shutdown() {
-	d.Queue.Process(func(interface{}) {})
+func (d *dis) Shutdown() {
+	close(d.done)
 }
 
-func (d *Dispatcher) collectEvents() {
+func (d *dis) collectEvents() {
+loop:
 	for {
 		select {
 		case <-d.done:
-			return
+			break loop
 		case <-d.completed.Signal():
 			d.completed.Process(d.completedCallback)
 		}
 	}
+	d.completed.Process(d.completedCallback)
 }
 
-func (d *Dispatcher) completedCallback(data interface{}) {
-	ede, ok := data.(*registry.EventDataElement)
+func (d *dis) completedCallback(data interface{}) {
+	ede, ok := data.(*et.EventDataElement)
 	if !ok {
 		return
 	}
 
 	if err := ede.Error; err != nil {
-		d.Log.Printf("%s: %v", ede.Event.Name, err)
+		d.logger.Printf("%s: %v", ede.Event.Name, err)
 	}
 	// increment the number of events processed in the session
-	if session, ok := ede.Event.Session.(*sessions.Session); ok {
-		session.Lock()
-		session.Stats.WorkItemsCompleted++
-		session.Unlock()
-	}
+	stats := ede.Event.Session.Stats()
+	stats.Lock()
+	stats.WorkItemsCompleted++
+	stats.Unlock()
 	fmt.Println(ede.Event.Name)
 }
 
-func (d *Dispatcher) DispatchEvent(e *et.Event) error {
+func (d *dis) DispatchEvent(e *et.Event) error {
 	if e == nil {
 		return errors.New("the event is nil")
 	}
 
+	e.Dispatcher = d
 	a := e.Asset.Asset
-	session := e.Session.(*sessions.Session)
 	// Do not schedule the same asset more than once
-	if p, hit := session.Cache.GetAsset(a); p != nil && hit {
+	if p, hit := e.Session.Cache().GetAsset(a); p != nil && hit {
 		return errors.New("this event has been scheduled previously")
 	}
-	session.Cache.SetAsset(e.Asset)
+	e.Session.Cache().SetAsset(e.Asset)
 
 	ap, err := d.reg.GetPipeline(a.AssetType())
 	if err != nil {
 		return err
 	}
 
-	if data := d.reg.NewEventDataElement(e); data != nil {
+	if data := et.NewEventDataElement(e); data != nil {
 		data.Queue = d.completed
 		ap.Queue.Append(data)
 		// increment the number of events processed in the session
-		if session, ok := data.Event.Session.(*sessions.Session); ok {
-			session.Lock()
-			session.Stats.WorkItemsTotal++
-			session.Unlock()
-		}
+		stats := e.Session.Stats()
+		stats.Lock()
+		stats.WorkItemsTotal++
+		stats.Unlock()
 	}
 	return nil
 }

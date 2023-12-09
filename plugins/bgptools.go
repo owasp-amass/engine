@@ -17,10 +17,9 @@ import (
 
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
-	"github.com/owasp-amass/engine/dispatcher"
+	"github.com/owasp-amass/config/config"
 	amassnet "github.com/owasp-amass/engine/net"
-	"github.com/owasp-amass/engine/registry"
-	"github.com/owasp-amass/engine/sessions"
+	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
@@ -31,26 +30,26 @@ type bgpTools struct {
 	port int
 }
 
-func newBGPTools() Plugin {
+func newBGPTools() et.Plugin {
 	return &bgpTools{port: 43}
 }
 
-func (bt *bgpTools) Start(r *registry.Registry) error {
-	rr, err := performQuery("bgp.tools", dns.TypeA)
+func (bt *bgpTools) Start(r et.Registry) error {
+	rr, err := support.PerformQuery("bgp.tools", dns.TypeA)
 	if err != nil {
 		return fmt.Errorf("failed to obtain the BGPTools IP address: %v", err)
 	}
 	bt.addr = rr[0].Data
 
 	name := "BGPTools-IP-Handler"
-	if err := r.RegisterHandler(&registry.Handler{
+	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Priority:   1,
 		Transforms: []string{"netblock", "asn", "rirorg"},
 		EventType:  oam.IPAddress,
-		Handler:    bt.lookup,
+		Callback:   bt.lookup,
 	}); err != nil {
-		r.Log.Printf("Failed to register the %s: %v", name, err)
+		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
 	}
 	return nil
@@ -66,22 +65,20 @@ func (bt *bgpTools) lookup(e *et.Event) error {
 		return errors.New("failed to extract the IPAddress asset")
 	}
 
-	session := e.Session.(*sessions.Session)
-	matches, err := checkTransformations(session, "ipaddress", "netblock", "asn", "rirorg", "bgptools")
-	if err != nil || len(matches) == 0 {
-		return err
-	}
-
 	ipstr := ip.Address.String()
 	if reserved, _ := amassnet.IsReservedAddress(ipstr); reserved {
 		return nil
 	}
 
-	if _, err := ipToNetblock(session, ip); err == nil {
+	matches, err := e.Session.Config().CheckTransformations("ipaddress", "netblock", "asn", "rirorg", "bgptools")
+	if err != nil || matches.Len() == 0 {
+		return err
+	}
+
+	if _, err := support.IPToNetblock(e.Session, ip); err == nil {
 		return nil
 	}
 
-	fmt.Println("BGPTools: " + ipstr)
 	record, err := bt.query(ipstr)
 	if err == nil {
 		bt.process(e, ip, record, matches)
@@ -120,24 +117,21 @@ func (bt *bgpTools) query(ipstr string) ([]string, error) {
 	return results, nil
 }
 
-func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, matches map[string]struct{}) {
+func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, matches *config.Matches) {
 	now := time.Now()
-	session := e.Session.(*sessions.Session)
-	d := e.Dispatcher.(*dispatcher.Dispatcher)
-
 	var as *dbt.Asset
+
 	if asnstr := record[0]; asnstr != "" {
 		if asn, err := strconv.Atoi(asnstr); err == nil {
 			oamas := &oamnet.AutonomousSystem{Number: asn}
 
-			if _, found := matches["asn"]; found {
-				as, err = session.DB.Create(nil, "", oamas)
+			if matches.IsMatch("asn") {
+				as, err = e.Session.DB().Create(nil, "", oamas)
 				if err == nil {
-					_ = d.DispatchEvent(&et.Event{
-						Name:       asnstr,
-						Asset:      as,
-						Dispatcher: d,
-						Session:    session,
+					_ = e.Dispatcher.DispatchEvent(&et.Event{
+						Name:    asnstr,
+						Asset:   as,
+						Session: e.Session,
 					})
 				}
 			} else {
@@ -146,7 +140,7 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 					LastSeen:  now,
 					Asset:     oamas,
 				}
-				session.Cache.SetAsset(as)
+				e.Session.Cache().SetAsset(as)
 			}
 		}
 	}
@@ -163,19 +157,18 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 		}
 
 		var rir *dbt.Asset
-		if _, found := matches["rirorg"]; found {
+		if matches.IsMatch("rirorg") {
 			var err error
 
-			rir, err = session.DB.Create(as, rel, oamrir)
+			rir, err = e.Session.DB().Create(as, rel, oamrir)
 			if err == nil {
-				_ = d.DispatchEvent(&et.Event{
-					Name:       desc,
-					Asset:      rir,
-					Dispatcher: d,
-					Session:    session,
+				_ = e.Dispatcher.DispatchEvent(&et.Event{
+					Name:    desc,
+					Asset:   rir,
+					Session: e.Session,
 				})
 				if as != nil {
-					session.Cache.SetRelation(&dbt.Relation{
+					e.Session.Cache().SetRelation(&dbt.Relation{
 						Type:      rel,
 						CreatedAt: now,
 						LastSeen:  now,
@@ -190,7 +183,7 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 				LastSeen:  now,
 				Asset:     oamrir,
 			}
-			session.Cache.SetAsset(rir)
+			e.Session.Cache().SetAsset(rir)
 		}
 	}
 
@@ -210,19 +203,18 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 			}
 
 			var nb *dbt.Asset
-			if _, found := matches["netblock"]; found {
+			if matches.IsMatch("netblock") {
 				var err error
 
-				nb, err = session.DB.Create(as, rel, oamnb)
+				nb, err = e.Session.DB().Create(as, rel, oamnb)
 				if err == nil {
-					_ = d.DispatchEvent(&et.Event{
-						Name:       cidr,
-						Asset:      nb,
-						Dispatcher: d,
-						Session:    session,
+					_ = e.Dispatcher.DispatchEvent(&et.Event{
+						Name:    cidr,
+						Asset:   nb,
+						Session: e.Session,
 					})
 					if as != nil {
-						session.Cache.SetRelation(&dbt.Relation{
+						e.Session.Cache().SetRelation(&dbt.Relation{
 							Type:      rel,
 							CreatedAt: now,
 							LastSeen:  now,
@@ -231,8 +223,8 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 						})
 					}
 
-					if a, err := session.DB.Create(nb, "contains", ip); err == nil {
-						session.Cache.SetRelation(&dbt.Relation{
+					if a, err := e.Session.DB().Create(nb, "contains", ip); err == nil {
+						e.Session.Cache().SetRelation(&dbt.Relation{
 							Type:      "contains",
 							CreatedAt: now,
 							LastSeen:  now,
@@ -247,7 +239,7 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 					LastSeen:  now,
 					Asset:     oamnb,
 				}
-				session.Cache.SetAsset(nb)
+				e.Session.Cache().SetAsset(nb)
 			}
 		}
 	}

@@ -5,6 +5,8 @@
 package types
 
 import (
+	"github.com/caffix/pipeline"
+	"github.com/caffix/queue"
 	"github.com/google/uuid"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
@@ -13,8 +15,13 @@ import (
 type Event struct {
 	Name       string
 	Asset      *dbt.Asset
-	Dispatcher interface{}
-	Session    interface{}
+	Dispatcher Dispatcher
+	Session    Session
+}
+
+type Dispatcher interface {
+	DispatchEvent(e *Event) error
+	Shutdown()
 }
 
 type AssetData struct {
@@ -26,4 +33,18 @@ type Asset struct {
 	Session uuid.UUID `json:"sessionToken,omitempty"`
 	Name    string    `json:"assetName,omitempty"`
 	Data    AssetData `json:"data,omitempty"`
+}
+
+type EventDataElement struct {
+	Event *Event
+	Error error
+	Queue queue.Queue
+}
+
+func NewEventDataElement(e *Event) *EventDataElement {
+	return &EventDataElement{Event: e}
+}
+
+func (ede *EventDataElement) Clone() pipeline.Data {
+	return ede
 }

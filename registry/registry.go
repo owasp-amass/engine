@@ -7,27 +7,40 @@ package registry
 import (
 	"fmt"
 	"log"
+	"sync"
 
+	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 )
 
+type registry struct {
+	sync.RWMutex
+	logger    *log.Logger
+	handlers  map[string]map[int][]*et.Handler
+	pipelines map[string]*et.AssetPipeline
+}
+
 // Create a new instance of Registry
-func NewRegistry(l *log.Logger) *Registry {
-	return &Registry{
-		Log:       l,
-		handlers:  make(map[string]map[int][]*Handler),
-		pipelines: make(map[string]*AssetPipeline),
+func NewRegistry(l *log.Logger) et.Registry {
+	return &registry{
+		logger:    l,
+		handlers:  make(map[string]map[int][]*et.Handler),
+		pipelines: make(map[string]*et.AssetPipeline),
 	}
 }
 
+func (r *registry) Log() *log.Logger {
+	return r.logger
+}
+
 // Register a Plugin Handler on the registry:
-func (r *Registry) RegisterHandler(h *Handler) error {
+func (r *registry) RegisterHandler(h *et.Handler) error {
 	r.Lock()
 	defer r.Unlock()
 
 	// is the entry currently empty?
 	if _, found := r.handlers[string(h.EventType)]; !found {
-		r.handlers[string(h.EventType)] = make(map[int][]*Handler)
+		r.handlers[string(h.EventType)] = make(map[int][]*et.Handler)
 	}
 	// has this registration been made already?
 	var found bool
@@ -57,7 +70,7 @@ loop:
 	return nil
 }
 
-func (r *Registry) GetPipeline(eventType oam.AssetType) (*AssetPipeline, error) {
+func (r *registry) GetPipeline(eventType oam.AssetType) (*et.AssetPipeline, error) {
 	r.RLock()
 	defer r.RUnlock()
 
@@ -65,12 +78,4 @@ func (r *Registry) GetPipeline(eventType oam.AssetType) (*AssetPipeline, error) 
 		return p, nil
 	}
 	return nil, fmt.Errorf("no handlers registered for the EventType: %s", eventType)
-}
-
-// Returns the size of the handlers map
-func (r *Registry) HandlersMapSize() int {
-	r.RLock()
-	defer r.RUnlock()
-
-	return len(r.handlers)
 }

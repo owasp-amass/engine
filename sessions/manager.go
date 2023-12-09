@@ -13,45 +13,66 @@ package sessions
 
 import (
 	"log"
+	"sync"
 
 	"github.com/google/uuid"
+	"github.com/owasp-amass/config/config"
+	et "github.com/owasp-amass/engine/types"
 )
+
+type manager struct {
+	sync.RWMutex // Mutex for thread-safety
+	logger       *log.Logger
+	sessions     map[uuid.UUID]et.Session
+}
 
 var (
 	zeroSessionUUID = uuid.UUID{}
 )
 
 // NewManager: creates a new session storage.
-func NewManager(l *log.Logger) *Manager {
+func NewManager(l *log.Logger) et.SessionManager {
 	if zeroSessionUUID == uuid.Nil {
 		zeroSessionUUID = uuid.UUID{}
 	}
-	return &Manager{
-		Log:      l,
-		sessions: make(map[uuid.UUID]*Session),
+	return &manager{
+		logger:   l,
+		sessions: make(map[uuid.UUID]et.Session),
 	}
 }
 
+func (ss *manager) NewSession(cfg *config.Config) (et.Session, error) {
+	session, err := NewSession(cfg)
+	if err == nil {
+		_, err = ss.AddSession(session)
+		if err == nil {
+			return session, nil
+		}
+	}
+	return nil, err
+}
+
 // Add: adds a session to a session storage after checking the session config.
-func (ss *Manager) Add(s *Session) (uuid.UUID, error) {
+func (ss *manager) AddSession(s et.Session) (uuid.UUID, error) {
 	if s == nil {
 		return uuid.UUID{}, nil
 	}
 
-	s.Log = ss.Log
+	sess := s.(*session)
+	sess.log = ss.logger
 
 	ss.Lock()
 	defer ss.Unlock()
 
 	id := uuid.New()
-	s.ID = id
-	ss.sessions[id] = s
+	sess.id = id
+	ss.sessions[id] = sess
 	// TODO: Need to add the session config checks here (using the Registry)
 	return id, nil
 }
 
 // Cancel: cancels a session in a session storage.
-func (ss *Manager) Cancel(id uuid.UUID) {
+func (ss *manager) CancelSession(id uuid.UUID) {
 	if id == zeroSessionUUID {
 		return
 	}
@@ -63,7 +84,7 @@ func (ss *Manager) Cancel(id uuid.UUID) {
 }
 
 // Get: returns a session from a session storage.
-func (ss *Manager) Get(id uuid.UUID) *Session {
+func (ss *manager) GetSession(id uuid.UUID) et.Session {
 	if id == zeroSessionUUID {
 		return nil
 	}
@@ -74,8 +95,7 @@ func (ss *Manager) Get(id uuid.UUID) *Session {
 	return ss.sessions[id]
 }
 
-// CleanAll: cleans all sessions from a session storage.
-func (ss *Manager) CleanAll() {
+func (ss *manager) cleanAll() {
 	ss.Lock()
 	defer ss.Unlock()
 
@@ -85,6 +105,6 @@ func (ss *Manager) CleanAll() {
 }
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
-func (ss *Manager) Shutdown() {
-	ss.CleanAll()
+func (ss *manager) Shutdown() {
+	ss.cleanAll()
 }

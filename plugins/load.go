@@ -5,20 +5,21 @@
 package plugins
 
 import (
-	"github.com/owasp-amass/engine/registry"
+	"github.com/owasp-amass/engine/plugins/dns"
+	et "github.com/owasp-amass/engine/types"
 )
 
-var pluginStartFuncs = []func() Plugin{
-	newDNSIP,
-	newDNSCNAME,
-	newDNSReverse,
+var pluginStartFuncs = []func() et.Plugin{
+	dns.NewIP,
+	dns.NewCNAME,
+	dns.NewReverse,
 	newHackerTarget,
 	newBGPTools,
 	newIPNetblock,
 }
 
-func LoadAndStartPlugins(r *registry.Registry) error {
-	var started []Plugin
+func LoadAndStartPlugins(r et.Registry) error {
+	var started []et.Plugin
 
 	for _, f := range pluginStartFuncs {
 		if p := f(); p != nil {
@@ -32,7 +33,7 @@ func LoadAndStartPlugins(r *registry.Registry) error {
 	return nil
 }
 
-func stopPlugins(started []Plugin) {
+func stopPlugins(started []et.Plugin) {
 	for _, p := range started {
 		p.Stop()
 	}
