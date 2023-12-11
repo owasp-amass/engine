@@ -9,40 +9,32 @@ import (
 	"os"
 	"testing"
 
-	"github.com/owasp-amass/engine/types"
+	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 )
 
 func TestNewRegistry(t *testing.T) {
-	r := NewRegistry(log.New(
-		os.Stdout,
-		"Test: ",
-		log.Ldate|log.Ltime|log.Lshortfile,
-	))
+	r := NewRegistry(log.New(os.Stdout, "", log.Lmicroseconds))
 	if r == nil {
 		t.Error("Registry is nil")
 	}
 }
 
-func FakeHandler(e *types.Event) error {
+func FakeHandler(e *et.Event) error {
 	return nil
 }
 
 func TestRegisterHandler(t *testing.T) {
-	r := NewRegistry(log.New(
-		os.Stdout,
-		"Test: ",
-		log.Ldate|log.Ltime|log.Lshortfile,
-	))
+	r := NewRegistry(log.New(os.Stdout, "", log.Lmicroseconds))
 
 	// Register a handler
-	err := r.RegisterHandler(&Handler{
+	err := r.RegisterHandler(&et.Handler{
 		Name:       "Test-MainHandler",
 		Transforms: []string{"Test-Transform"},
 		EventType:  oam.FQDN,
-		Handler:    FakeHandler,
+		Callback:   FakeHandler,
 	})
-	if err != nil || r.HandlersMapSize() == 0 {
+	if err != nil {
 		t.Error("No handlers registered")
 	}
 }

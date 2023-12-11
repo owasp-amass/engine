@@ -14,5 +14,6 @@ type Cache interface {
 	GetAssetsByType(t oam.AssetType) ([]*types.Asset, bool)
 	SetAsset(a *types.Asset)
 	GetRelations(r *types.Relation) ([]*types.Relation, bool)
+	GetRelationsByType(rtype string) ([]*types.Relation, bool)
 	SetRelation(r *types.Relation)
 }

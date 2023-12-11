@@ -59,7 +59,7 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 	var targets []*target
 	// Obtain the assets that could have address relations
 	for _, a := range fqdns {
-		if fqdn, ok := a.Asset.(domain.FQDN); ok {
+		if fqdn, ok := a.Asset.(*domain.FQDN); ok {
 			cur := a
 			// Get to the end of the alias chains for service names and CNAMES
 			for i := 1; i <= 10; i++ {
@@ -81,7 +81,7 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 			}
 
 			targets = append(targets, &target{
-				fqdn:  &fqdn,
+				fqdn:  fqdn,
 				asset: cur,
 			})
 		}
@@ -105,7 +105,7 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 					continue
 				}
 
-				if a, ok := found.Asset.(network.IPAddress); ok {
+				if a, ok := found.Asset.(*network.IPAddress); ok {
 					nameAddrMap[name].Insert(a.Address.String())
 				}
 			}

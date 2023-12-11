@@ -15,7 +15,7 @@ func TestAddSession001(t *testing.T) {
 	mgr := NewManager(l)
 	defer mgr.Shutdown()
 
-	s := &Session{}
+	s := &session{}
 	id, err := mgr.AddSession(s)
 	if err != nil {
 		t.Error(err)

@@ -103,6 +103,67 @@ func IsAddressInScope(session et.Session, ip *oamnet.IPAddress) bool {
 			}
 		}
 	}
+	return false
+}
 
+func IsCNAME(session et.Session, name *domain.FQDN) (*domain.FQDN, bool) {
+	fqdn, hit := session.Cache().GetAsset(name)
+	if !hit || fqdn == nil {
+		return nil, false
+	}
+
+	if relations, hit := session.Cache().GetRelations(&dbt.Relation{
+		Type:      "cname_record",
+		FromAsset: fqdn,
+	}); hit && len(relations) > 0 {
+		if cname, ok := relations[0].ToAsset.Asset.(*domain.FQDN); ok {
+			return cname, true
+		}
+	}
+	return nil, false
+}
+
+func NameIPAddresses(session et.Session, name *domain.FQDN) []*oamnet.IPAddress {
+	fqdn, hit := session.Cache().GetAsset(name)
+	if !hit || fqdn == nil {
+		return nil
+	}
+
+	var results []*oamnet.IPAddress
+	if relations, hit := session.Cache().GetRelations(&dbt.Relation{
+		Type:      "a_record",
+		FromAsset: fqdn,
+	}); hit && len(relations) > 0 {
+		for _, r := range relations {
+			if ip, ok := r.ToAsset.Asset.(*oamnet.IPAddress); ok {
+				results = append(results, ip)
+			}
+		}
+	}
+
+	if relations, hit := session.Cache().GetRelations(&dbt.Relation{
+		Type:      "aaaa_record",
+		FromAsset: fqdn,
+	}); hit && len(relations) > 0 {
+		for _, r := range relations {
+			if ip, ok := r.ToAsset.Asset.(*oamnet.IPAddress); ok {
+				results = append(results, ip)
+			}
+		}
+	}
+
+	if len(results) > 0 {
+		return results
+	}
+	return nil
+}
+
+func NameResolved(session et.Session, name *domain.FQDN) bool {
+	if _, found := IsCNAME(session, name); found {
+		return true
+	}
+	if ips := NameIPAddresses(session, name); len(ips) > 0 {
+		return true
+	}
 	return false
 }

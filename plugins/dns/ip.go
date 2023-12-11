@@ -19,15 +19,12 @@ import (
 	"github.com/owasp-amass/resolve"
 )
 
-type dnsIP struct{}
-
-var ipQueryTypes = []uint16{
-	dns.TypeA,
-	dns.TypeAAAA,
+type dnsIP struct {
+	queries []uint16
 }
 
 func NewIP() et.Plugin {
-	return &dnsIP{}
+	return &dnsIP{queries: []uint16{dns.TypeA, dns.TypeAAAA}}
 }
 
 func (d *dnsIP) Start(r et.Registry) error {
@@ -35,6 +32,7 @@ func (d *dnsIP) Start(r et.Registry) error {
 
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
+		Priority:   2,
 		Transforms: []string{"ipaddress"},
 		EventType:  oam.FQDN,
 		Callback:   d.handler,
@@ -61,15 +59,19 @@ func (d *dnsIP) handler(e *et.Event) error {
 		return nil
 	}
 
-	for _, qtype := range ipQueryTypes {
+	if _, found := support.IsCNAME(e.Session, fqdn); found {
+		return nil
+	}
+
+	for _, qtype := range d.queries {
 		if rr, err := support.PerformQuery(fqdn.Name, qtype); err == nil && len(rr) > 0 {
-			d.processRecords(e, rr)
+			d.process(e, rr)
 		}
 	}
 	return nil
 }
 
-func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
+func (d *dnsIP) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	g := graph.Graph{DB: e.Session.DB()}
 
 	for _, record := range rr {
@@ -88,10 +90,9 @@ func (d *dnsIP) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 
 func (d *dnsIP) dispatchAndCache(e *et.Event, name, data string, ip *dbt.Asset, rtype string) {
 	_ = e.Dispatcher.DispatchEvent(&et.Event{
-		Name:       data,
-		Asset:      ip,
-		Dispatcher: e.Dispatcher,
-		Session:    e.Session,
+		Name:    data,
+		Asset:   ip,
+		Session: e.Session,
 	})
 
 	addr, hit := e.Session.Cache().GetAsset(ip.Asset)

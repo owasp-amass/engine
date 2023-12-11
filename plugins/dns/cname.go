@@ -7,8 +7,10 @@ package dns
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/miekg/dns"
+	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/engine/graph"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
@@ -28,6 +30,7 @@ func (d *dnsCNAME) Start(r et.Registry) error {
 
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
+		Priority:   1,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   d.handler,
@@ -66,11 +69,21 @@ func (d *dnsCNAME) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	for _, record := range rr {
 		if a, err := g.UpsertCNAME(context.TODO(), record.Name, record.Data); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
-				Name:       record.Data,
-				Asset:      a,
-				Dispatcher: e.Dispatcher,
-				Session:    e.Session,
+				Name:    record.Data,
+				Asset:   a,
+				Session: e.Session,
 			})
+
+			now := time.Now()
+			if cname, hit := e.Session.Cache().GetAsset(&domain.FQDN{Name: record.Name}); hit && cname != nil {
+				e.Session.Cache().SetRelation(&dbt.Relation{
+					Type:      "cname_record",
+					CreatedAt: now,
+					LastSeen:  now,
+					FromAsset: cname,
+					ToAsset:   a,
+				})
+			}
 		}
 	}
 }

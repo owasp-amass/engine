@@ -151,6 +151,16 @@ func (c *OAMCache) GetRelations(r *types.Relation) ([]*types.Relation, bool) {
 	return nil, false
 }
 
+func (c *OAMCache) GetRelationsByType(rtype string) ([]*types.Relation, bool) {
+	c.Lock()
+	defer c.Unlock()
+
+	if relations := c.relations[rtype]; len(relations) > 0 {
+		return relations, true
+	}
+	return nil, false
+}
+
 func (c *OAMCache) SetRelation(r *types.Relation) {
 	c.Lock()
 	defer c.Unlock()

@@ -10,9 +10,11 @@ import (
 )
 
 var pluginStartFuncs = []func() et.Plugin{
-	dns.NewIP,
 	dns.NewCNAME,
+	dns.NewIP,
+	dns.NewSub,
 	dns.NewReverse,
+	dns.NewApex,
 	newHackerTarget,
 	newBGPTools,
 	newIPNetblock,
@@ -29,7 +31,6 @@ func LoadAndStartPlugins(r et.Registry) error {
 			}
 		}
 	}
-
 	return nil
 }
 
