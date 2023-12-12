@@ -5,11 +5,13 @@
 package plugins
 
 import (
+	"context"
 	"errors"
 	"net/netip"
 	"time"
 
 	dbt "github.com/owasp-amass/asset-db/types"
+	"github.com/owasp-amass/engine/graph"
 	amassnet "github.com/owasp-amass/engine/net"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
@@ -72,6 +74,8 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 			Cidr: prefix,
 			Type: t,
 		}
+
+		d.reservedAS(e, netblock)
 	} else {
 		var err error
 
@@ -95,4 +99,35 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 		}
 	}
 	return nil
+}
+
+func (d *ipNetblock) reservedAS(e *et.Event, netblock *oamnet.Netblock) {
+	now := time.Now()
+	g := graph.Graph{DB: e.Session.DB()}
+
+	asn, rir, err := g.UpsertAS(context.TODO(), 0, "Reserved Network Address Blocks")
+	if err != nil || asn == nil || rir == nil {
+		return
+	}
+
+	e.Session.Cache().SetAsset(asn)
+	e.Session.Cache().SetAsset(rir)
+	e.Session.Cache().SetRelation(&dbt.Relation{
+		Type:      "managed_by",
+		CreatedAt: now,
+		LastSeen:  now,
+		FromAsset: asn,
+		ToAsset:   rir,
+	})
+
+	if nb, err := e.Session.DB().Create(asn, "announces", netblock); err == nil && nb != nil {
+		e.Session.Cache().SetAsset(nb)
+		e.Session.Cache().SetRelation(&dbt.Relation{
+			Type:      "announces",
+			CreatedAt: now,
+			LastSeen:  now,
+			FromAsset: asn,
+			ToAsset:   nb,
+		})
+	}
 }

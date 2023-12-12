@@ -12,7 +12,7 @@ import (
 var pluginStartFuncs = []func() et.Plugin{
 	dns.NewCNAME,
 	dns.NewIP,
-	dns.NewSub,
+	dns.NewSubs,
 	dns.NewReverse,
 	dns.NewApex,
 	newHackerTarget,

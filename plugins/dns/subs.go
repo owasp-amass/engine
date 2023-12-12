@@ -18,30 +18,31 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/resolve"
+	"golang.org/x/net/publicsuffix"
 )
 
-type qtypes struct {
+type subsQtypes struct {
 	Qtype uint16
 	Rtype string
 }
 
-type dnsSub struct {
-	types []qtypes
+type dnsSubs struct {
+	types []subsQtypes
 }
 
-func NewSub() et.Plugin {
-	return &dnsSub{
-		types: []qtypes{
+func NewSubs() et.Plugin {
+	return &dnsSubs{
+		types: []subsQtypes{
 			{Qtype: dns.TypeNS, Rtype: "ns_record"},
 			{Qtype: dns.TypeMX, Rtype: "mx_record"},
-			{Qtype: dns.TypeSOA, Rtype: "soa_record"},
-			{Qtype: dns.TypeSPF, Rtype: "spf_record"},
+			//{Qtype: dns.TypeSOA, Rtype: "soa_record"},
+			//{Qtype: dns.TypeSPF, Rtype: "spf_record"},
 		},
 	}
 }
 
-func (d *dnsSub) Start(r et.Registry) error {
-	name := "DNS-Subdomain-Handler"
+func (d *dnsSubs) Start(r et.Registry) error {
+	name := "DNS-Subdomains-Handler"
 
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
@@ -56,9 +57,9 @@ func (d *dnsSub) Start(r et.Registry) error {
 	return nil
 }
 
-func (d *dnsSub) Stop() {}
+func (d *dnsSubs) Stop() {}
 
-func (d *dnsSub) check(e *et.Event) error {
+func (d *dnsSubs) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
@@ -68,18 +69,17 @@ func (d *dnsSub) check(e *et.Event) error {
 	if err != nil {
 		return err
 	}
-	if !matches.IsMatch("fqdn") || !support.NameResolved(e.Session, fqdn) {
-		return nil
-	}
 
-	d.traverse(e, fqdn)
+	if matches.IsMatch("fqdn") && support.NameResolved(e.Session, fqdn) {
+		d.traverse(e, fqdn)
+	}
 	return nil
 }
 
-func (d *dnsSub) traverse(e *et.Event, n *domain.FQDN) {
+func (d *dnsSubs) traverse(e *et.Event, n *domain.FQDN) {
 	sub := n.Name
 
-	dom := e.Session.Config().WhichDomain(sub)
+	dom := d.registered(e, sub)
 	if dom == "" {
 		return
 	}
@@ -109,7 +109,7 @@ func (d *dnsSub) traverse(e *et.Event, n *domain.FQDN) {
 	}
 }
 
-func (d *dnsSub) queries(e *et.Event, subdomain string) {
+func (d *dnsSubs) queries(e *et.Event, subdomain string) {
 	for i, t := range d.types {
 		if rr, err := support.PerformQuery(subdomain, t.Qtype); err == nil && len(rr) > 0 {
 			d.process(e, t.Rtype, rr)
@@ -120,7 +120,7 @@ func (d *dnsSub) queries(e *et.Event, subdomain string) {
 	}
 }
 
-func (d *dnsSub) process(e *et.Event, rtype string, rr []*resolve.ExtractedAnswer) {
+func (d *dnsSubs) process(e *et.Event, rtype string, rr []*resolve.ExtractedAnswer) {
 	g := graph.Graph{DB: e.Session.DB()}
 
 	for _, record := range rr {
@@ -140,16 +140,57 @@ func (d *dnsSub) process(e *et.Event, rtype string, rr []*resolve.ExtractedAnswe
 			Session: e.Session,
 		})
 
-		if to, hit := e.Session.Cache().GetAsset(a.Asset); hit && to != nil {
-			now := time.Now()
+		if from, hit := e.Session.Cache().GetAsset(fqdn.Asset); hit && from != nil {
+			if to, hit := e.Session.Cache().GetAsset(a.Asset); hit && to != nil {
+				now := time.Now()
 
-			e.Session.Cache().SetRelation(&dbt.Relation{
-				Type:      rtype,
-				CreatedAt: now,
-				LastSeen:  now,
-				FromAsset: fqdn,
-				ToAsset:   to,
-			})
+				e.Session.Cache().SetRelation(&dbt.Relation{
+					Type:      rtype,
+					CreatedAt: now,
+					LastSeen:  now,
+					FromAsset: fqdn,
+					ToAsset:   to,
+				})
+			}
 		}
 	}
+}
+
+func (d *dnsSubs) registered(e *et.Event, name string) string {
+	if dom := e.Session.Config().WhichDomain(name); dom != "" {
+		return dom
+	}
+
+	fqdn, hit := e.Session.Cache().GetAsset(&domain.FQDN{Name: name})
+	if !hit || fqdn == nil {
+		return ""
+	}
+
+	now := time.Now()
+	var rels []*dbt.Relation
+	for _, rtype := range []string{"ns_record", "mx_record"} {
+		if r, hit := e.Session.Cache().GetRelations(&dbt.Relation{
+			Type:      rtype,
+			CreatedAt: now,
+			LastSeen:  now,
+			ToAsset:   fqdn,
+		}); hit && len(r) > 0 {
+			rels = append(rels, r...)
+		}
+	}
+
+	var found bool
+	for _, r := range rels {
+		if from, ok := r.FromAsset.Asset.(*domain.FQDN); ok &&
+			from != nil && e.Session.Config().IsDomainInScope(from.Name) {
+			found = true
+			break
+		}
+	}
+	if found {
+		if dom, err := publicsuffix.EffectiveTLDPlusOne(name); err == nil {
+			return dom
+		}
+	}
+	return ""
 }
