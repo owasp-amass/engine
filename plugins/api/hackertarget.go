@@ -2,15 +2,17 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package plugins
+package api
 
 import (
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
+	"github.com/owasp-amass/engine/net/http"
+	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
@@ -20,19 +22,19 @@ type hackerTarget struct {
 	URL string
 }
 
-func newHackerTarget() et.Plugin {
+func NewHackerTarget() et.Plugin {
 	return &hackerTarget{
 		URL: "https://api.hackertarget.com/hostsearch/?q=",
 	}
 }
 
 func (ht *hackerTarget) Start(r et.Registry) error {
-	name := "HackerTarget-Subdomain-Handler"
+	name := "HackerTarget-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
-		Callback:   ht.lookup,
+		Callback:   ht.check,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
@@ -42,8 +44,7 @@ func (ht *hackerTarget) Start(r et.Registry) error {
 
 func (ht *hackerTarget) Stop() {}
 
-// lookup function queries the HackerTarget API for subdomains related to a root domain.
-func (ht *hackerTarget) lookup(e *et.Event) error {
+func (ht *hackerTarget) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
@@ -72,13 +73,12 @@ func (ht *hackerTarget) lookup(e *et.Event) error {
 }
 
 func (ht *hackerTarget) query(name string) ([][]string, error) {
-	resp, err := http.Get(ht.URL + name)
+	resp, err := http.RequestWebPage(context.TODO(), &http.Request{URL: ht.URL + name})
 	if err != nil {
 		return nil, fmt.Errorf("error fetching URL: %w", err)
 	}
-	defer resp.Body.Close()
 
-	return csv.NewReader(resp.Body).ReadAll()
+	return csv.NewReader(strings.NewReader(resp.Body)).ReadAll()
 }
 
 func (ht *hackerTarget) process(e *et.Event, records [][]string) {
@@ -89,13 +89,19 @@ func (ht *hackerTarget) process(e *et.Event, records [][]string) {
 		// if the subdomain is not in scope, skip it
 		name := strings.ToLower(strings.TrimSpace(record[0]))
 		if name != "" && e.Session.Config().IsDomainInScope(name) {
-			if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
-				_ = e.Dispatcher.DispatchEvent(&et.Event{
-					Name:    name,
-					Asset:   a,
-					Session: e.Session,
-				})
-			}
+			ht.submitCallback(e, name)
 		}
 	}
+}
+
+func (ht *hackerTarget) submitCallback(e *et.Event, name string) {
+	support.AppendToDBQueue(func() {
+		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+			_ = e.Dispatcher.DispatchEvent(&et.Event{
+				Name:    name,
+				Asset:   a,
+				Session: e.Session,
+			})
+		}
+	})
 }

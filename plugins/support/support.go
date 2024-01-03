@@ -6,52 +6,50 @@ package support
 
 import (
 	"errors"
+	"regexp"
 	"time"
 
-	"github.com/miekg/dns"
+	"github.com/caffix/queue"
+	"github.com/caffix/stringset"
 	dbt "github.com/owasp-amass/asset-db/types"
+	"github.com/owasp-amass/engine/net/dns"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
-	"github.com/owasp-amass/resolve"
 )
 
-func PerformQuery(name string, qtype uint16) ([]*resolve.ExtractedAnswer, error) {
-	msg := resolve.QueryMsg(name, qtype)
-	if qtype == dns.TypePTR {
-		msg = resolve.ReverseMsg(name)
-	}
+const MaxHandlerInstances int = 1000
 
-	resp, err := dnsQuery(msg, 10)
-	if err == nil {
-		if ans := resolve.ExtractAnswers(resp); len(ans) > 0 {
-			if rr := resolve.AnswersByType(ans, qtype); len(rr) > 0 {
-				return rr, nil
-			}
-		}
-	}
-	return nil, err
+var done chan struct{}
+
+var dbQueue queue.Queue
+
+var subre *regexp.Regexp
+
+func init() {
+	done = make(chan struct{})
+
+	dbQueue = queue.NewQueue()
+	go processDBCallbacks()
+
+	subre = regexp.MustCompile(dns.AnySubdomainRegexString())
 }
 
-func dnsQuery(msg *dns.Msg, attempts int) (*dns.Msg, error) {
-	for num := 0; num < attempts; num++ {
-		resp, err := dns.Exchange(msg, "8.8.8.8:53")
-		if err != nil {
-			continue
-		}
-		if resp.Rcode == dns.RcodeNameError {
-			return nil, errors.New("name does not exist")
-		}
-		if resp.Rcode == dns.RcodeSuccess {
-			if len(resp.Answer) == 0 {
-				return nil, errors.New("no record of this type")
-			}
-			return resp, nil
+func ScrapeSubdomainNames(s string) []string {
+	set := stringset.New()
 
+	for _, sub := range subre.FindAllString(s, -1) {
+		if sub != "" {
+			set.Insert(sub)
 		}
 	}
-	return nil, errors.New("failed to receive a DNS response")
+
+	return set.Slice()
+}
+
+func Shutdown() {
+	close(done)
 }
 
 func IPToNetblockWithAttempts(session et.Session, ip *oamnet.IPAddress, num int, d time.Duration) (*oamnet.Netblock, error) {
@@ -166,4 +164,30 @@ func NameResolved(session et.Session, name *domain.FQDN) bool {
 		return true
 	}
 	return false
+}
+
+func AppendToDBQueue(callback func()) {
+	dbQueue.Append(callback)
+}
+
+func processDBCallbacks() {
+loop:
+	for {
+		select {
+		case <-done:
+			break loop
+		case <-dbQueue.Signal():
+			dbQueue.Process(func(data interface{}) {
+				if callback, ok := data.(func()); ok {
+					callback()
+				}
+			})
+		}
+	}
+
+	dbQueue.Process(func(data interface{}) {
+		if callback, ok := data.(func()); ok {
+			callback()
+		}
+	})
 }

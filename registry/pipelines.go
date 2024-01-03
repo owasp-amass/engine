@@ -31,15 +31,24 @@ func (r *registry) BuildPipelines() error {
 func (r *registry) buildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 	var stages []pipeline.Stage
 
+	bufsize := 1
 	for priority := 1; priority <= 9; priority++ {
 		handlers, found := r.handlers[atype][priority]
 		if !found || len(handlers) == 0 {
 			continue
 		}
 
+		id := fmt.Sprintf("%s - Priority: %d", atype, priority)
 		if len(handlers) == 1 {
-			if h := handlers[0]; h != nil {
-				stages = append(stages, pipeline.FIFO(h.Name, handlerTask(h)))
+			h := handlers[0]
+
+			if max := h.MaxInstances; max > 0 {
+				stages = append(stages, pipeline.FixedPool(id, handlerTask(h), max))
+				if max > bufsize {
+					bufsize = max
+				}
+			} else {
+				stages = append(stages, pipeline.FIFO(id, handlerTask(h)))
 			}
 		} else {
 			var tasks []pipeline.Task
@@ -50,7 +59,6 @@ func (r *registry) buildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 				}
 			}
 
-			id := fmt.Sprintf("%s - Priority: %d", atype, priority)
 			stages = append(stages, pipeline.Parallel(id, tasks...))
 		}
 	}
@@ -61,7 +69,7 @@ func (r *registry) buildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 	}
 
 	go func(p *et.AssetPipeline) {
-		if err := p.Pipeline.ExecuteBuffered(context.TODO(), p.Queue, makeSink(), 50); err != nil {
+		if err := p.Pipeline.ExecuteBuffered(context.TODO(), p.Queue, makeSink(), bufsize); err != nil {
 			r.logger.Printf("Pipeline %s terminated: %v", atype, err)
 		}
 	}(ap)

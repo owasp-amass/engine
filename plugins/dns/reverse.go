@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -20,19 +21,37 @@ import (
 	"github.com/owasp-amass/open-asset-model/domain"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
+	bf "github.com/tylertreat/BoomFilters"
 )
 
 type dnsReverse struct {
 	defaultSweepSize int
 	activeSweepSize  int
 	maxSweepSize     int
+	release          chan struct{}
+	fm               sync.Mutex
+	count            int
+	attempts         int
+	filter           *bf.StableBloomFilter
 }
 
 func NewReverse() et.Plugin {
+	var r chan struct{}
+	if max := support.NumUntrustedResolvers() * 5; max > 0 {
+		r = make(chan struct{}, max)
+		for i := 0; i < max; i++ {
+			r <- struct{}{}
+		}
+	}
+
+	attempts := 10000
 	return &dnsReverse{
 		defaultSweepSize: 50,
 		activeSweepSize:  100,
 		maxSweepSize:     250,
+		release:          r,
+		attempts:         attempts,
+		filter:           bf.NewDefaultStableBloomFilter(uint(attempts), 0.01),
 	}
 }
 
@@ -40,11 +59,12 @@ func (d *dnsReverse) Start(r et.Registry) error {
 	name := "DNS-Reverse-Handler"
 
 	if err := r.RegisterHandler(&et.Handler{
-		Name:       name,
-		Priority:   9,
-		Transforms: []string{"fqdn"},
-		EventType:  oam.IPAddress,
-		Callback:   d.handler,
+		Name:         name,
+		Priority:     9,
+		MaxInstances: support.NumTrustedResolvers() * 5,
+		Transforms:   []string{"fqdn"},
+		EventType:    oam.IPAddress,
+		Callback:     d.handler,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
@@ -73,15 +93,43 @@ func (d *dnsReverse) handler(e *et.Event) error {
 		return nil
 	}
 
-	var inscope bool
 	if rr, err := support.PerformQuery(addrstr, dns.TypePTR); err == nil && len(rr) > 0 {
-		inscope = d.process(e, rr)
+		d.process(e, rr)
 	}
 	// check that the IP address is related to a FQDN in scope
-	if inscope || support.IsAddressInScope(e.Session, ip) {
+	if d.release != nil && support.IsAddressInScope(e.Session, ip) {
 		d.sweep(e, ip)
 	}
 	return nil
+}
+
+func (d *dnsReverse) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
+	g := graph.Graph{DB: e.Session.DB()}
+
+	support.AppendToDBQueue(func() {
+		for _, record := range rr {
+			if a, err := g.UpsertPTR(context.TODO(), record.Name, record.Data); err == nil && a != nil {
+				if e.Session.Config().IsDomainInScope(record.Data) {
+					_ = e.Dispatcher.DispatchEvent(&et.Event{
+						Name:    record.Data,
+						Asset:   a,
+						Session: e.Session,
+					})
+
+					now := time.Now()
+					if ptr, hit := e.Session.Cache().GetAsset(&domain.FQDN{Name: record.Name}); hit && ptr != nil {
+						e.Session.Cache().SetRelation(&dbt.Relation{
+							Type:      "ptr_record",
+							CreatedAt: now,
+							LastSeen:  now,
+							FromAsset: ptr,
+							ToAsset:   a,
+						})
+					}
+				}
+			}
+		}
+	})
 }
 
 func (d *dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
@@ -110,49 +158,46 @@ func (d *dnsReverse) sweep(e *et.Event, address *oamnet.IPAddress) {
 		size = d.activeSweepSize
 	}
 
-	g := graph.Graph{DB: e.Session.DB()}
 	for _, ip := range amassnet.CIDRSubset(cidr, addrstr, size) {
-		ipstr := ip.String()
-
-		if ipstr == addrstr {
-			continue
-		}
-		if addr, err := g.UpsertAddress(context.TODO(), ipstr); err == nil && addr != nil {
-			_ = e.Dispatcher.DispatchEvent(&et.Event{
-				Name:    ipstr,
-				Asset:   addr,
-				Session: e.Session,
-			})
+		if ipstr := ip.String(); ipstr != addrstr && d.passFilter(ipstr) {
+			<-d.release
+			go d.sweepAddressRoutine(e, ipstr)
 		}
 	}
 }
 
-func (d *dnsReverse) process(e *et.Event, rr []*resolve.ExtractedAnswer) bool {
+func (d *dnsReverse) sweepAddressRoutine(e *et.Event, addr string) {
+	defer func() { d.release <- struct{}{} }()
+
+	if rr, err := support.PerformUntrustedQuery(addr, dns.TypePTR); err == nil &&
+		len(rr) > 0 && e.Session.Config().IsDomainInScope(rr[0].Data) {
+		queueSweepCallback(e, addr)
+	}
+}
+
+func (d *dnsReverse) passFilter(addr string) bool {
+	d.fm.Lock()
+	defer d.fm.Unlock()
+
+	d.count++
+	if d.count > d.attempts {
+		d.count = 1
+		d.filter.Reset()
+	}
+
+	return !d.filter.TestAndAdd([]byte(addr))
+}
+
+func queueSweepCallback(e *et.Event, ip string) {
 	g := graph.Graph{DB: e.Session.DB()}
 
-	var inscope bool
-	for _, record := range rr {
-		if a, err := g.UpsertPTR(context.TODO(), record.Name, record.Data); err == nil && a != nil {
-			if e.Session.Config().IsDomainInScope(record.Data) {
-				inscope = true
-				_ = e.Dispatcher.DispatchEvent(&et.Event{
-					Name:    record.Data,
-					Asset:   a,
-					Session: e.Session,
-				})
-
-				now := time.Now()
-				if ptr, hit := e.Session.Cache().GetAsset(&domain.FQDN{Name: record.Name}); hit && ptr != nil {
-					e.Session.Cache().SetRelation(&dbt.Relation{
-						Type:      "ptr_record",
-						CreatedAt: now,
-						LastSeen:  now,
-						FromAsset: ptr,
-						ToAsset:   a,
-					})
-				}
-			}
+	support.AppendToDBQueue(func() {
+		if addr, err := g.UpsertAddress(context.TODO(), ip); err == nil && addr != nil {
+			_ = e.Dispatcher.DispatchEvent(&et.Event{
+				Name:    ip,
+				Asset:   addr,
+				Session: e.Session,
+			})
 		}
-	}
-	return inscope
+	})
 }

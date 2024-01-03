@@ -27,6 +27,7 @@ func newIPNetblock() et.Plugin {
 
 func (d *ipNetblock) Start(r et.Registry) error {
 	name := "IP-Netblock-Handler"
+
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Priority:   4,

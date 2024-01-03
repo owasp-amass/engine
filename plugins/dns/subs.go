@@ -8,8 +8,10 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/caffix/queue"
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/engine/graph"
@@ -28,6 +30,7 @@ type subsQtypes struct {
 
 type dnsSubs struct {
 	types []subsQtypes
+	queue queue.Queue
 }
 
 func NewSubs() et.Plugin {
@@ -38,6 +41,7 @@ func NewSubs() et.Plugin {
 			//{Qtype: dns.TypeSOA, Rtype: "soa_record"},
 			//{Qtype: dns.TypeSPF, Rtype: "spf_record"},
 		},
+		queue: queue.NewQueue(),
 	}
 }
 
@@ -45,15 +49,18 @@ func (d *dnsSubs) Start(r et.Registry) error {
 	name := "DNS-Subdomains-Handler"
 
 	if err := r.RegisterHandler(&et.Handler{
-		Name:       name,
-		Priority:   3,
-		Transforms: []string{"fqdn"},
-		EventType:  oam.FQDN,
-		Callback:   d.check,
+		Name:         name,
+		Priority:     3,
+		MaxInstances: support.NumTrustedResolvers(),
+		Transforms:   []string{"fqdn"},
+		EventType:    oam.FQDN,
+		Callback:     d.check,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
 	}
+
+	go d.process()
 	return nil
 }
 
@@ -78,13 +85,15 @@ func (d *dnsSubs) check(e *et.Event) error {
 
 func (d *dnsSubs) traverse(e *et.Event, n *domain.FQDN) {
 	sub := n.Name
+	var wg sync.WaitGroup
 
 	dom := d.registered(e, sub)
 	if dom == "" {
 		return
 	}
 	if sub == dom {
-		d.queries(e, sub)
+		d.queries(e, sub, &wg)
+		wg.Wait()
 		return
 	}
 	dlabels := strings.Split(dom, ".")
@@ -96,23 +105,23 @@ func (d *dnsSubs) traverse(e *et.Event, n *domain.FQDN) {
 			break
 		}
 		sub = strings.TrimSpace(strings.Join(labels[1:], "."))
-
 		// no need to check subdomains already evaluated
 		if _, hit := e.Session.Cache().GetAsset(&domain.FQDN{Name: sub}); hit {
 			break
 		}
-
 		if len(dlabels) > len(labels) {
 			break
 		}
-		d.queries(e, sub)
+		d.queries(e, sub, &wg)
 	}
+	wg.Wait()
 }
 
-func (d *dnsSubs) queries(e *et.Event, subdomain string) {
+func (d *dnsSubs) queries(e *et.Event, subdomain string, wg *sync.WaitGroup) {
 	for i, t := range d.types {
 		if rr, err := support.PerformQuery(subdomain, t.Qtype); err == nil && len(rr) > 0 {
-			d.process(e, t.Rtype, rr)
+			wg.Add(1)
+			d.callbackClosure(e, t.Rtype, rr, wg)
 		} else if i == 0 {
 			// do not continue if we failed to obtain the NS record
 			break
@@ -120,38 +129,55 @@ func (d *dnsSubs) queries(e *et.Event, subdomain string) {
 	}
 }
 
-func (d *dnsSubs) process(e *et.Event, rtype string, rr []*resolve.ExtractedAnswer) {
+func (d *dnsSubs) callbackClosure(e *et.Event, rtype string, rr []*resolve.ExtractedAnswer, wg *sync.WaitGroup) {
 	g := graph.Graph{DB: e.Session.DB()}
 
-	for _, record := range rr {
-		fqdn, err := g.UpsertFQDN(context.TODO(), record.Name)
-		if err != nil || fqdn == nil {
-			continue
-		}
+	d.queue.Append(func() {
+		defer wg.Done()
 
-		a, err := e.Session.DB().Create(fqdn, rtype, &domain.FQDN{Name: record.Data})
-		if err != nil || a == nil {
-			continue
-		}
-
-		_ = e.Dispatcher.DispatchEvent(&et.Event{
-			Name:    record.Data,
-			Asset:   a,
-			Session: e.Session,
-		})
-
-		if from, hit := e.Session.Cache().GetAsset(fqdn.Asset); hit && from != nil {
-			if to, hit := e.Session.Cache().GetAsset(a.Asset); hit && to != nil {
-				now := time.Now()
-
-				e.Session.Cache().SetRelation(&dbt.Relation{
-					Type:      rtype,
-					CreatedAt: now,
-					LastSeen:  now,
-					FromAsset: fqdn,
-					ToAsset:   to,
-				})
+		for _, record := range rr {
+			fqdn, err := g.UpsertFQDN(context.TODO(), record.Name)
+			if err != nil || fqdn == nil {
+				continue
 			}
+
+			a, err := e.Session.DB().Create(fqdn, rtype, &domain.FQDN{Name: record.Data})
+			if err != nil || a == nil {
+				continue
+			}
+
+			_ = e.Dispatcher.DispatchEvent(&et.Event{
+				Name:    record.Data,
+				Asset:   a,
+				Session: e.Session,
+			})
+
+			if from, hit := e.Session.Cache().GetAsset(fqdn.Asset); hit && from != nil {
+				if to, hit := e.Session.Cache().GetAsset(a.Asset); hit && to != nil {
+					now := time.Now()
+
+					e.Session.Cache().SetRelation(&dbt.Relation{
+						Type:      rtype,
+						CreatedAt: now,
+						LastSeen:  now,
+						FromAsset: fqdn,
+						ToAsset:   to,
+					})
+				}
+			}
+		}
+	})
+}
+
+func (d *dnsSubs) process() {
+	for {
+		select {
+		case <-d.queue.Signal():
+			d.queue.Process(func(data interface{}) {
+				if callback, ok := data.(func()); ok {
+					callback()
+				}
+			})
 		}
 	}
 }

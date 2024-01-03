@@ -5,6 +5,7 @@
 package cache
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,23 +16,29 @@ import (
 	"github.com/owasp-amass/open-asset-model/network"
 )
 
+type relations struct {
+	all   []*types.Relation
+	froms []*types.Relation
+	tos   []*types.Relation
+}
+
 type OAMCache struct {
 	sync.Mutex
 	cache     Cache
 	assets    map[string]map[string]*types.Asset
-	relations map[string][]*types.Relation
+	relations map[string]*relations
 }
 
 func NewOAMCache(c Cache) Cache {
 	return &OAMCache{
 		cache:     c,
 		assets:    make(map[string]map[string]*types.Asset),
-		relations: make(map[string][]*types.Relation),
+		relations: make(map[string]*relations),
 	}
 }
 
 func (c *OAMCache) GetAsset(a oam.Asset) (*types.Asset, bool) {
-	key := c.getKey(a)
+	key := getKey(a)
 	if key == "" {
 		return nil, false
 	}
@@ -73,7 +80,7 @@ func (c *OAMCache) GetAssetsByType(t oam.AssetType) ([]*types.Asset, bool) {
 }
 
 func (c *OAMCache) SetAsset(a *types.Asset) {
-	key := c.getKey(a.Asset)
+	key := getKey(a.Asset)
 	if key == "" {
 		return
 	}
@@ -88,50 +95,24 @@ func (c *OAMCache) SetAsset(a *types.Asset) {
 	c.assets[t][key] = a
 }
 
-func (c *OAMCache) getKey(asset oam.Asset) string {
-	var key string
-
-	switch v := asset.(type) {
-	case *domain.FQDN:
-		key = v.Name
-	case *network.IPAddress:
-		key = v.Address.String()
-	case *network.Netblock:
-		key = v.Cidr.String()
-	case *network.AutonomousSystem:
-		key = strconv.Itoa(v.Number)
-	case *network.RIROrganization:
-		key = v.Name
-	}
-
-	return strings.ToLower(key)
-}
-
 func (c *OAMCache) GetRelations(r *types.Relation) ([]*types.Relation, bool) {
-	if r.FromAsset == nil && r.ToAsset == nil {
+	if c.relations[r.Type] == nil || (r.FromAsset == nil && r.ToAsset == nil) {
 		return nil, false
 	}
 
 	c.Lock()
 	var relations []*types.Relation
-	for _, relation := range c.relations[r.Type] {
-		var match bool
-
-		if r.FromAsset != nil && r.ToAsset != nil {
-			if r.FromAsset == relation.FromAsset && r.ToAsset == relation.ToAsset {
-				match = true
+	if r.FromAsset != nil && r.ToAsset == nil && len(c.relations[r.Type].froms) > 0 {
+		fromstr := getKey(r.FromAsset.Asset)
+		relations = append(relations, searchRelations(fromstr, c.relations[r.Type].froms, true)...)
+	} else if r.FromAsset == nil && r.ToAsset != nil && len(c.relations[r.Type].tos) > 0 {
+		tostr := getKey(r.ToAsset.Asset)
+		relations = append(relations, searchRelations(tostr, c.relations[r.Type].tos, false)...)
+	} else {
+		for _, rel := range c.relations[r.Type].all {
+			if r.FromAsset == rel.FromAsset && r.ToAsset == rel.ToAsset {
+				relations = append(relations, rel)
 			}
-		} else {
-			if r.FromAsset == relation.FromAsset {
-				match = true
-			}
-			if r.ToAsset == relation.ToAsset {
-				match = true
-			}
-		}
-
-		if match {
-			relations = append(relations, relation)
 		}
 	}
 	c.Unlock()
@@ -155,8 +136,8 @@ func (c *OAMCache) GetRelationsByType(rtype string) ([]*types.Relation, bool) {
 	c.Lock()
 	defer c.Unlock()
 
-	if relations := c.relations[rtype]; len(relations) > 0 {
-		return relations, true
+	if r := c.relations[rtype]; len(r.all) > 0 {
+		return r.all, true
 	}
 	return nil, false
 }
@@ -165,5 +146,73 @@ func (c *OAMCache) SetRelation(r *types.Relation) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.relations[r.Type] = append(c.relations[r.Type], r)
+	if _, found := c.relations[r.Type]; !found {
+		c.relations[r.Type] = new(relations)
+	}
+
+	c.relations[r.Type].all = append(c.relations[r.Type].all, r)
+	c.relations[r.Type].froms = sortRelations(append(c.relations[r.Type].froms, r), true)
+	c.relations[r.Type].tos = sortRelations(append(c.relations[r.Type].tos, r), false)
+}
+
+func getKey(asset oam.Asset) string {
+	var key string
+
+	switch v := asset.(type) {
+	case *domain.FQDN:
+		key = v.Name
+	case *network.IPAddress:
+		key = v.Address.String()
+	case *network.Netblock:
+		key = v.Cidr.String()
+	case *network.AutonomousSystem:
+		key = strconv.Itoa(v.Number)
+	case *network.RIROrganization:
+		key = v.Name
+	}
+
+	return strings.ToLower(key)
+}
+
+func sortRelations(rels []*types.Relation, from bool) []*types.Relation {
+	sort.Slice(rels, func(i, j int) bool {
+		if from {
+			return getKey(rels[i].FromAsset.Asset) < getKey(rels[j].FromAsset.Asset)
+		}
+		return getKey(rels[i].ToAsset.Asset) < getKey(rels[j].ToAsset.Asset)
+	})
+	return rels
+}
+
+func searchRelations(key string, rels []*types.Relation, from bool) []*types.Relation {
+	rlen := len(rels)
+
+	i := sort.Search(rlen, func(i int) bool {
+		if from {
+			return getKey(rels[i].FromAsset.Asset) >= key
+		}
+		return getKey(rels[i].ToAsset.Asset) >= key
+	})
+	if i >= rlen {
+		return nil
+	}
+
+	asset := rels[i].ToAsset.Asset
+	if from {
+		asset = rels[i].FromAsset.Asset
+	}
+	if getKey(asset) != key {
+		return nil
+	}
+
+	var results []*types.Relation
+	for _, rel := range rels[i:] {
+		if from && getKey(rel.FromAsset.Asset) != key {
+			break
+		} else if !from && getKey(rel.ToAsset.Asset) != key {
+			break
+		}
+		results = append(results, rel)
+	}
+	return results
 }

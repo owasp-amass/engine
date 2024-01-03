@@ -19,11 +19,12 @@ type Plugin interface {
 }
 
 type Handler struct {
-	Name       string
-	Priority   int
-	EventType  oam.AssetType
-	Transforms []string
-	Callback   func(*Event) error
+	Name         string
+	Priority     int
+	MaxInstances int
+	EventType    oam.AssetType
+	Transforms   []string
+	Callback     func(*Event) error
 }
 
 type AssetPipeline struct {

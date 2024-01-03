@@ -7,6 +7,7 @@ package dns
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -21,6 +22,7 @@ import (
 
 type dnsIP struct {
 	queries []uint16
+	dblock  sync.Mutex
 }
 
 func NewIP() et.Plugin {
@@ -31,11 +33,12 @@ func (d *dnsIP) Start(r et.Registry) error {
 	name := "DNS-IP-Handler"
 
 	if err := r.RegisterHandler(&et.Handler{
-		Name:       name,
-		Priority:   2,
-		Transforms: []string{"ipaddress"},
-		EventType:  oam.FQDN,
-		Callback:   d.handler,
+		Name:         name,
+		Priority:     2,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{"ipaddress"},
+		EventType:    oam.FQDN,
+		Callback:     d.handler,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
@@ -72,8 +75,10 @@ func (d *dnsIP) handler(e *et.Event) error {
 }
 
 func (d *dnsIP) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
-	g := graph.Graph{DB: e.Session.DB()}
+	d.dblock.Lock()
+	defer d.dblock.Unlock()
 
+	g := graph.Graph{DB: e.Session.DB()}
 	for _, record := range rr {
 		if record.Type == dns.TypeA {
 			if ip, err := g.UpsertA(context.TODO(), record.Name, record.Data); err == nil && ip != nil {

@@ -7,6 +7,7 @@ package dns
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -19,7 +20,9 @@ import (
 	"github.com/owasp-amass/resolve"
 )
 
-type dnsCNAME struct{}
+type dnsCNAME struct {
+	dblock sync.Mutex
+}
 
 func NewCNAME() et.Plugin {
 	return &dnsCNAME{}
@@ -29,11 +32,12 @@ func (d *dnsCNAME) Start(r et.Registry) error {
 	name := "DNS-CNAME-Handler"
 
 	if err := r.RegisterHandler(&et.Handler{
-		Name:       name,
-		Priority:   1,
-		Transforms: []string{"fqdn"},
-		EventType:  oam.FQDN,
-		Callback:   d.handler,
+		Name:         name,
+		Priority:     1,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{"fqdn"},
+		EventType:    oam.FQDN,
+		Callback:     d.handler,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
@@ -67,7 +71,10 @@ func (d *dnsCNAME) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 	g := graph.Graph{DB: e.Session.DB()}
 
 	for _, record := range rr {
-		if a, err := g.UpsertCNAME(context.TODO(), record.Name, record.Data); err == nil && a != nil {
+		d.dblock.Lock()
+		a, err := g.UpsertCNAME(context.TODO(), record.Name, record.Data)
+		d.dblock.Unlock()
+		if err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    record.Data,
 				Asset:   a,

@@ -5,18 +5,26 @@
 package plugins
 
 import (
+	"github.com/owasp-amass/engine/plugins/api"
+	"github.com/owasp-amass/engine/plugins/archive"
 	"github.com/owasp-amass/engine/plugins/dns"
+	"github.com/owasp-amass/engine/plugins/scrape"
 	et "github.com/owasp-amass/engine/types"
 )
 
 var pluginStartFuncs = []func() et.Plugin{
+	api.NewHackerTarget,
+	api.NewBGPTools,
+	archive.NewWayback,
 	dns.NewCNAME,
 	dns.NewIP,
 	dns.NewSubs,
+	dns.NewAlterations,
 	dns.NewReverse,
 	dns.NewApex,
-	newHackerTarget,
-	newBGPTools,
+	scrape.NewBing,
+	scrape.NewRapidDNS,
+	scrape.NewSiteDossier,
 	newIPNetblock,
 }
 

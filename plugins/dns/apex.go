@@ -25,11 +25,12 @@ func (d *dnsApex) Start(r et.Registry) error {
 	name := "DNS-NsMx-Handler"
 
 	if err := r.RegisterHandler(&et.Handler{
-		Name:       name,
-		Priority:   9,
-		Transforms: []string{"fqdn"},
-		EventType:  oam.FQDN,
-		Callback:   d.handler,
+		Name:         name,
+		Priority:     9,
+		MaxInstances: support.NumTrustedResolvers() * 2,
+		Transforms:   []string{"fqdn"},
+		EventType:    oam.FQDN,
+		Callback:     d.handler,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
@@ -74,9 +75,13 @@ func (d *dnsApex) handler(e *et.Event) error {
 	}
 
 	if apex != nil {
-		if _, err := e.Session.DB().Create(apex, "node", fqdn); err != nil {
-			return err
-		}
+		d.callbackClosure(e, apex, fqdn)
 	}
 	return nil
+}
+
+func (d *dnsApex) callbackClosure(e *et.Event, apex *dbt.Asset, fqdn *domain.FQDN) {
+	support.AppendToDBQueue(func() {
+		_, _ = e.Session.DB().Create(apex, "node", fqdn)
+	})
 }

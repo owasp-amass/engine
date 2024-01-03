@@ -4,11 +4,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"os"
 	"os/signal"
+	"time"
 
+	pb "github.com/cheggaaa/pb/v3"
 	"github.com/owasp-amass/config/config"
 	"github.com/owasp-amass/engine/api/graphql/client"
 	"github.com/owasp-amass/engine/types"
@@ -19,8 +22,7 @@ import (
 func main() {
 	c := config.NewConfig()
 	// Load config from file
-	err := config.AcquireConfig("", "./api/graphql/client/config.yml", c)
-	if err != nil {
+	if err := config.AcquireConfig("", "./api/graphql/client/config.yml", c); err != nil {
 		fmt.Println(err)
 	}
 
@@ -38,35 +40,53 @@ func main() {
 		fmt.Println(err)
 	}
 
+	var count int
+	for _, a := range makeAssets(c) {
+		fmt.Printf("%v\n", a)
+		if err := client.CreateAsset(*a, token); err == nil {
+			count++
+		}
+	}
+
+	fmt.Printf("\nSession Progress:\n")
+	progress := pb.Start64(int64(count))
 	done := make(chan struct{})
 	go func() {
+		var finished int
+		t := time.NewTicker(2 * time.Second)
+		defer t.Stop()
+
 		for {
 			select {
+			case <-t.C:
+				if stats, err := client.SessionStats(token); err == nil {
+					progress.SetTotal(int64(stats.WorkItemsTotal))
+					progress.SetCurrent(int64(stats.WorkItemsCompleted))
+					if stats.WorkItemsCompleted == stats.WorkItemsTotal {
+						finished++
+						if finished == 5 {
+							close(done)
+						}
+					}
+				}
 			case message := <-messages:
-				fmt.Println(message)
+				fmt.Fprint(io.Discard, message)
 			case <-done:
 				return
 			}
 		}
 	}()
 
-	for _, a := range makeAssets(c) {
-		fmt.Printf("%v\n", a)
-		_ = client.CreateAsset(*a, token)
-	}
-
-	// Query session stats
-	stats, err := client.SessionStats(token)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Printf("Total work items: %d\n", stats.WorkItemsTotal)
-	fmt.Printf("Work items completed: %d\n", stats.WorkItemsCompleted)
-
 	// Terminate client session
-	<-interrupt
-	close(done)
+loop:
+	for {
+		select {
+		case <-done:
+			break loop
+		case <-interrupt:
+			close(done)
+		}
+	}
 	client.TerminateSession(token)
 }
 

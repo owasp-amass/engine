@@ -2,35 +2,47 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package plugins
+package api
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
 	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/config/config"
 	amassnet "github.com/owasp-amass/engine/net"
+	"github.com/owasp-amass/engine/net/http"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 )
 
+type row struct {
+	Netblock string `json:"CIDR"`
+	ASN      int    `json:"ASN"`
+}
+
 type bgpTools struct {
+	m    sync.Mutex
 	addr string
 	port int
 }
 
-func newBGPTools() et.Plugin {
+func NewBGPTools() et.Plugin {
 	return &bgpTools{port: 43}
 }
 
@@ -43,11 +55,12 @@ func (bt *bgpTools) Start(r et.Registry) error {
 
 	name := "BGPTools-IP-Handler"
 	if err := r.RegisterHandler(&et.Handler{
-		Name:       name,
-		Priority:   1,
-		Transforms: []string{"netblock", "asn", "rirorg"},
-		EventType:  oam.IPAddress,
-		Callback:   bt.lookup,
+		Name:         name,
+		Priority:     1,
+		MaxInstances: 50,
+		Transforms:   []string{"netblock", "asn", "rirorg"},
+		EventType:    oam.IPAddress,
+		Callback:     bt.lookup,
 	}); err != nil {
 		r.Log().Printf("Failed to register the %s: %v", name, err)
 		return err
@@ -78,6 +91,23 @@ func (bt *bgpTools) lookup(e *et.Event) error {
 	if _, err := support.IPToNetblock(e.Session, ip); err == nil {
 		return nil
 	}
+
+	bt.m.Lock()
+	dir := config.OutputDirectory("")
+	if bt.needTableFile(dir) {
+		if err := bt.getTableFile(dir); err != nil {
+			bt.m.Unlock()
+			return err
+		}
+	}
+	if row := bt.netblock(dir, net.ParseIP(ipstr)); row != nil {
+		if as, hit := e.Session.Cache().GetAsset(&oamnet.AutonomousSystem{Number: row.ASN}); hit && as != nil {
+			bt.submitNetblock(e, row, as)
+			bt.m.Unlock()
+			return nil
+		}
+	}
+	bt.m.Unlock()
 
 	record, err := bt.query(ipstr)
 	if err == nil {
@@ -222,16 +252,6 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 							ToAsset:   nb,
 						})
 					}
-
-					if a, err := e.Session.DB().Create(nb, "contains", ip); err == nil {
-						e.Session.Cache().SetRelation(&dbt.Relation{
-							Type:      "contains",
-							CreatedAt: now,
-							LastSeen:  now,
-							FromAsset: nb,
-							ToAsset:   a,
-						})
-					}
 				}
 			} else {
 				nb = &dbt.Asset{
@@ -243,4 +263,116 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 			}
 		}
 	}
+}
+
+func (bt *bgpTools) netblock(dir string, ip net.IP) *row {
+	f, err := os.Open(filepath.Join(dir, "bgptools.jsonl"))
+	if err != nil || f == nil {
+		return nil
+	}
+	defer f.Close()
+
+	var cur row
+	var cidr *net.IPNet
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		var line row
+
+		err := json.Unmarshal([]byte(scanner.Text()), &line)
+		if err != nil {
+			continue
+		}
+
+		_, ipnet, err := net.ParseCIDR(line.Netblock)
+		if err != nil {
+			continue
+		}
+
+		if ones, _ := ipnet.Mask.Size(); ones == 0 {
+			continue
+		}
+
+		if ipnet.Contains(ip) {
+			// Select the smallest CIDR
+			if cidr != nil {
+				s1, _ := cidr.Mask.Size()
+				s2, _ := ipnet.Mask.Size()
+				if s1 > s2 {
+					continue
+				}
+			}
+			cur = line
+			cidr = ipnet
+		}
+	}
+	return &cur
+}
+
+func (bt *bgpTools) submitNetblock(e *et.Event, line *row, as *dbt.Asset) {
+	if prefix, err := netip.ParsePrefix(line.Netblock); err == nil {
+		oamnb := &oamnet.Netblock{
+			Cidr: prefix,
+			Type: "IPv6",
+		}
+		if prefix.Addr().Is4() {
+			oamnb.Type = "IPv4"
+		}
+
+		if nb, err := e.Session.DB().Create(as, "announces", oamnb); err == nil && nb != nil {
+			_ = e.Dispatcher.DispatchEvent(&et.Event{
+				Name:    line.Netblock,
+				Asset:   nb,
+				Session: e.Session,
+			})
+
+			now := time.Now()
+			e.Session.Cache().SetRelation(&dbt.Relation{
+				Type:      "announces",
+				CreatedAt: now,
+				LastSeen:  now,
+				FromAsset: as,
+				ToAsset:   nb,
+			})
+		}
+	}
+}
+
+func (bt *bgpTools) needTableFile(dir string) bool {
+	f, err := os.Open(filepath.Join(dir, "bgptools.jsonl"))
+	if err != nil || f == nil {
+		return true
+	}
+	defer f.Close()
+
+	if info, err := f.Stat(); err == nil && info != nil {
+		if max := time.Now().Add(-24 * time.Hour); info.ModTime().Before(max) {
+			return true
+		}
+	}
+	return false
+}
+
+func (bt *bgpTools) getTableFile(dir string) error {
+	header := make(http.Header)
+	header["User-Agent"] = "OWASP Amass v4.2.0 - admin@owasp.com"
+
+	resp, err := http.RequestWebPage(context.TODO(), &http.Request{
+		URL:    "https://bgp.tools/table.jsonl",
+		Header: header,
+	})
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return errors.New("table.jsonl file request returned with status: " + resp.Status)
+	}
+
+	f, err := os.Create(filepath.Join(dir, "bgptools.jsonl"))
+	if err != nil || f == nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(resp.Body)
+	return err
 }
