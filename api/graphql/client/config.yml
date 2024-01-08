@@ -3,7 +3,7 @@
 
 scope:
   domains: # domain names to be in scope
-    - colgate.edu
+    - sunypoly.edu
 #  ips: # IP addresses to be in scope, multiple methods of inserting ip addresses can be used
 #    - 192.0.2.1
 #    - 192.0.2.2

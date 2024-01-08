@@ -113,9 +113,7 @@ func (c *Client) CreateAsset(asset et.Asset, token uuid.UUID) error {
 }
 
 func (c *Client) TerminateSession(token uuid.UUID) {
-	queryStr := fmt.Sprintf(`mutation { terminateSession(sessionToken: "%s") }`, token.String())
-
-	_, _ = c.Query(queryStr)
+	_, _ = c.Query(fmt.Sprintf(`mutation { terminateSession(sessionToken: "%s") }`, token.String()))
 }
 
 func (c *Client) SessionStats(token uuid.UUID) (*et.SessionStats, error) {
@@ -138,12 +136,6 @@ func (c *Client) SessionStats(token uuid.UUID) (*et.SessionStats, error) {
 }
 
 // Creates subscription to receove a stream of log messages from the sever
-// https://github.com/enisdenjo/graphql-ws/blob/master/PROTOCOL.md
-// Client: {"type": "connection_init","id": "<generated-ID-1>","payload": {}}
-// Server: {"type":"connection_ack"}
-// Client: {"type": "start","id":"<generated-ID-2>","payload":{"query":"subscription { ... }"} }
-// Server: {"payload":{"data":{ ... }},"id":""<generated-ID-2>","type":"data"}
-// Server: {"type":"ka"}
 func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 	parsedURL, _ := url.Parse(c.url)
 	parsedURL.Scheme = "ws"
@@ -153,7 +145,6 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	c.wsClient = conn
 
 	interrupt := make(chan os.Signal, 1)
