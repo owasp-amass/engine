@@ -16,7 +16,7 @@ import (
 	"github.com/owasp-amass/engine/api/graphql/client"
 	"github.com/owasp-amass/engine/types"
 	fqdn "github.com/owasp-amass/open-asset-model/domain"
-	oamNet "github.com/owasp-amass/open-asset-model/network"
+	oamnet "github.com/owasp-amass/open-asset-model/network"
 )
 
 func main() {
@@ -91,7 +91,6 @@ loop:
 }
 
 // Below are helper functions for converting an Amass config / scope into OAM assets
-
 const (
 	ipv4 = "IPv4"
 	ipv6 = "IPv6"
@@ -149,7 +148,7 @@ func convertScopeToAssets(scope *config.Scope) []*types.Asset {
 			}
 
 			// Create an asset from the IP address and append it to the assets slice.
-			asset := oamNet.IPAddress{Address: addr, Type: ipType}
+			asset := oamnet.IPAddress{Address: addr, Type: ipType}
 			data := types.AssetData{
 				OAMAsset: asset,
 				OAMType:  asset.AssetType(),
@@ -173,7 +172,7 @@ func convertScopeToAssets(scope *config.Scope) []*types.Asset {
 		}
 
 		// Create an asset from the CIDR and append it to the assets slice.
-		asset := oamNet.Netblock{Cidr: prefix, Type: ipType}
+		asset := oamnet.Netblock{Cidr: prefix, Type: ipType}
 		data := types.AssetData{
 			OAMAsset: asset,
 			OAMType:  asset.AssetType(),
@@ -183,7 +182,7 @@ func convertScopeToAssets(scope *config.Scope) []*types.Asset {
 
 	// Convert ASNs to assets.
 	for _, asn := range scope.ASNs {
-		asset := oamNet.AutonomousSystem{Number: asn}
+		asset := oamnet.AutonomousSystem{Number: asn}
 		data := types.AssetData{
 			OAMAsset: asset,
 			OAMType:  asset.AssetType(),

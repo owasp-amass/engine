@@ -35,9 +35,9 @@ func NewClient(url string) *Client {
 
 func (c *Client) Query(query string) (string, error) {
 	quotedStr := strings.Trim(strconv.Quote((string(query))), `"`)
-	body := []byte(fmt.Sprintf(`{"query":"%s"}`, quotedStr))
+	b := []byte(fmt.Sprintf(`{"query":"%s"}`, quotedStr))
 
-	req, err := http.NewRequest(http.MethodPost, c.url, bytes.NewBuffer(body))
+	req, err := http.NewRequest(http.MethodPost, c.url, bytes.NewBuffer(b))
 	if err != nil {
 		return "", err
 	}
@@ -47,17 +47,13 @@ func (c *Client) Query(query string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	defer res.Body.Close()
 
-	resBody, err := io.ReadAll(res.Body)
-
+	body, err := io.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
-		fmt.Println(string(resBody))
 		return "error", err
 	}
-
-	return string(resBody), nil
+	return string(body), nil
 }
 
 // Create a session by sending the config elements as graphql named fields
@@ -98,7 +94,6 @@ func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error)
 
 func (c *Client) CreateAsset(asset et.Asset, token uuid.UUID) error {
 	asset.Session = token
-
 	assetJson, err := json.Marshal(asset)
 	if err != nil {
 		return err
@@ -111,21 +106,16 @@ func (c *Client) CreateAsset(asset et.Asset, token uuid.UUID) error {
 	q := gqlEncoder(data)
 
 	queryStr := fmt.Sprintf(`mutation { createAsset(input: %s) {id} }`, string(q))
-
-	res, err := c.Query(queryStr)
-	if err != nil {
+	if _, err := c.Query(queryStr); err != nil {
 		return err
 	}
-	fmt.Println("Response:" + res)
 	return nil
 }
 
 func (c *Client) TerminateSession(token uuid.UUID) {
 	queryStr := fmt.Sprintf(`mutation { terminateSession(sessionToken: "%s") }`, token.String())
 
-	if res, err := c.Query(queryStr); err != nil {
-		fmt.Println(res)
-	}
+	_, _ = c.Query(queryStr)
 }
 
 func (c *Client) SessionStats(token uuid.UUID) (*et.SessionStats, error) {
@@ -144,7 +134,6 @@ func (c *Client) SessionStats(token uuid.UUID) (*et.SessionStats, error) {
 	if err := json.Unmarshal([]byte(res), &gqlResp); err != nil {
 		return &et.SessionStats{}, err
 	}
-
 	return &gqlResp.Data.SessionStats, nil
 }
 
@@ -162,7 +151,6 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 
 	conn, _, err := websocket.DefaultDialer.Dial(parsedURL.String(), nil)
 	if err != nil {
-		fmt.Println("Error connecting to the WebSocket server:", err)
 		return nil, err
 	}
 
@@ -173,43 +161,35 @@ func (c *Client) Subscribe(token uuid.UUID) (<-chan string, error) {
 
 	// Subprotocol Init
 	message := fmt.Sprintf(`{"type": "connection_init","id": "%s","payload": {}}`, id)
-	fmt.Println("Message:" + string(message))
 	err = conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
-		fmt.Println("Error sending message:", err)
 		return nil, err
 	}
 
 	// Start the subscription
 	id = uuid.New().String()
 	message = fmt.Sprintf(`{"type": "start", "id":"%s", "payload":{"query":"subscription { logMessages(sessionToken: \"%s\")}"} }`, id, token.String())
-	fmt.Println("Message:" + string(message))
 	err = conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
-		fmt.Println("Error sending message:", err)
 		return nil, err
 	}
 
 	ch := make(chan string)
-
 	// Receive go routine
 	go func() {
 		for {
 			select {
 			case <-interrupt:
-				fmt.Println("Received interrupt signal. Closing WebSocket connection...")
 				return
 			default:
-				mType, message, err := c.wsClient.ReadMessage()
+				_, message, err := c.wsClient.ReadMessage()
 				if err != nil {
-					fmt.Printf("Error reading message: %d, %s", mType, err)
 					return
 				}
 				ch <- string(message)
 			}
 		}
 	}()
-
 	return ch, nil
 }
 

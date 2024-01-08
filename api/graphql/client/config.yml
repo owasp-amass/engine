@@ -3,7 +3,7 @@
 
 scope:
   domains: # domain names to be in scope
-    - hamilton.edu
+    - colgate.edu
 #  ips: # IP addresses to be in scope, multiple methods of inserting ip addresses can be used
 #    - 192.0.2.1
 #    - 192.0.2.2
@@ -22,9 +22,9 @@ options:
 #    - 76.76.19.19
   #database: "postgres://username:password@localhost:5432/database?testing=works" # databases URI to be used when adding entries
   bruteforce: # specific option to use when brute forcing is needed
-    enabled: true
+    enabled: false
   alterations: # specific option to use when brute forcing is needed
-    enabled: true
+    enabled: false
   engine: "https://username:password@localhost:4000/graphql" # the URI to the engine
   confidence: 50 # default confidence level for all transformations unless otherwise specified
 

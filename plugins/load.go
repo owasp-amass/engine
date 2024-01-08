@@ -23,6 +23,8 @@ var pluginStartFuncs = []func() et.Plugin{
 	dns.NewReverse,
 	dns.NewApex,
 	scrape.NewBing,
+	scrape.NewDNSHistory,
+	scrape.NewDuckDuckGo,
 	scrape.NewRapidDNS,
 	scrape.NewSiteDossier,
 	newIPNetblock,
