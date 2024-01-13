@@ -28,14 +28,12 @@ type Client struct {
 }
 
 func NewClient(url string) *Client {
-	httpClient := &http.Client{}
-
-	return &Client{url: url, httpClient: *httpClient}
+	return &Client{url: url, httpClient: http.Client{}}
 }
 
 func (c *Client) Query(query string) (string, error) {
-	quotedStr := strings.Trim(strconv.Quote((string(query))), `"`)
-	b := []byte(fmt.Sprintf(`{"query":"%s"}`, quotedStr))
+	quoted := strings.Trim(strconv.Quote((string(query))), `"`)
+	b := []byte(fmt.Sprintf(`{"query":"%s"}`, quoted))
 
 	req, err := http.NewRequest(http.MethodPost, c.url, bytes.NewBuffer(b))
 	if err != nil {
@@ -46,12 +44,14 @@ func (c *Client) Query(query string) (string, error) {
 	res, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", err
+	} else if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("response indicated status: %s", res.Status)
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
-	if res.StatusCode != http.StatusOK {
-		return "error", err
+	if err != nil {
+		return "", err
 	}
 	return string(body), nil
 }
@@ -60,36 +60,28 @@ func (c *Client) Query(query string) (string, error) {
 // TODO: Not Implemented. The transfromations use "->" in the config YAML, but
 // that is not a valid field name in GraphQL
 func (c *Client) CreateSession(config *config.Config) (uuid.UUID, error) {
-	return c.createSessionWithJSON(config)
-}
-
-func (c *Client) createSessionWithJSON(config *config.Config) (uuid.UUID, error) {
 	var token uuid.UUID
 	configJson, err := json.Marshal(config)
 	if err != nil {
 		return token, err
 	}
 
-	quotedStr := strings.Trim(strconv.Quote((string(configJson))), `"`)
-	queryStr := fmt.Sprintf(`mutation { createSessionFromJson(input: {config: "%s"}) {sessionToken} }`, quotedStr)
+	quoted := strings.Trim(strconv.Quote((string(configJson))), `"`)
+	query := fmt.Sprintf(`mutation { createSessionFromJson(input: {config: "%s"}) {sessionToken} }`, quoted)
 
-	res, err := c.Query(queryStr)
+	res, err := c.Query(query)
 	if err != nil {
 		return token, err
 	}
 
-	var gqlResp struct {
+	var resp struct {
 		Data struct{ CreateSessionFromJson struct{ SessionToken string } }
 	}
-	if err := json.Unmarshal([]byte(res), &gqlResp); err != nil {
+	if err := json.Unmarshal([]byte(res), &resp); err != nil {
 		return token, err
 	}
 
-	token, err = uuid.Parse(gqlResp.Data.CreateSessionFromJson.SessionToken)
-	if err != nil {
-		return token, err
-	}
-	return token, nil
+	return uuid.Parse(resp.Data.CreateSessionFromJson.SessionToken)
 }
 
 func (c *Client) CreateAsset(asset et.Asset, token uuid.UUID) error {

@@ -3,7 +3,7 @@
 
 scope:
   domains: # domain names to be in scope
-    - sunypoly.edu
+    - utica.edu
 #  ips: # IP addresses to be in scope, multiple methods of inserting ip addresses can be used
 #    - 192.0.2.1
 #    - 192.0.2.2
@@ -25,7 +25,7 @@ options:
     enabled: false
   alterations: # specific option to use when brute forcing is needed
     enabled: false
-  engine: "https://username:password@localhost:4000/graphql" # the URI to the engine
+  #engine: "https://username:password@localhost:4000/graphql" # the URI to the engine
   confidence: 50 # default confidence level for all transformations unless otherwise specified
 
 transformations:
