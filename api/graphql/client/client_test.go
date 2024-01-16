@@ -33,26 +33,6 @@ func TestCreateSession(t *testing.T) {
 	}
 }
 
-func TestCreateSessionWithJSON(t *testing.T) {
-	l := log.New(io.Discard, "", log.Lmicroseconds)
-
-	e, err := engine.NewEngine(l)
-	if err != nil {
-		t.Fatalf("Failed to create a new engine: %v", err)
-	}
-	defer e.Shutdown()
-
-	c := config.NewConfig()
-	if err := config.AcquireConfig("", "config.yml", c); err != nil {
-		t.Errorf("AcquireConfig failed: %v", err)
-	}
-
-	client := NewClient("http://localhost:4000/graphql")
-	if _, err := client.createSessionWithJSON(c); err != nil {
-		t.Errorf("createSessionWithJSON failed: %v", err)
-	}
-}
-
 func TestCreateAsset(t *testing.T) {
 	l := log.New(io.Discard, "", log.Lmicroseconds)
 
@@ -68,7 +48,7 @@ func TestCreateAsset(t *testing.T) {
 	}
 
 	client := NewClient("http://localhost:4000/graphql")
-	token, _ := client.createSessionWithJSON(c)
+	token, _ := client.CreateSession(c)
 
 	addr, _ := netip.ParseAddr("192.168.0.1")
 	asset := oamnet.IPAddress{Address: addr, Type: "IPv4"}
@@ -98,7 +78,7 @@ func TestSubscribe(t *testing.T) {
 	}
 
 	client := NewClient("http://localhost:4000/graphql")
-	token, _ := client.createSessionWithJSON(c)
+	token, _ := client.CreateSession(c)
 
 	ch, err := client.Subscribe(token)
 	if err != nil {

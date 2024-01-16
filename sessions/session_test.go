@@ -5,6 +5,7 @@
 package sessions
 
 import (
+	"os"
 	"testing"
 
 	"github.com/owasp-amass/asset-db/repository"
@@ -12,23 +13,22 @@ import (
 )
 
 func TestNewSession(t *testing.T) {
-	// Create a new configuration object.
+	// create a new configuration object
 	cfg := config.NewConfig()
 
-	// Test the function with a nil configuration object.
+	// test the function with a nil configuration object
 	if ses, err := NewSession(nil); err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	} else if ses == nil {
 		t.Error("Session is nil")
 	}
-	// Test the function with a valid configuration object.
+	// test the function with a valid configuration object
 	if ses, err := NewSession(cfg); err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	} else if ses == nil {
 		t.Error("Session is nil")
 	}
-
-	// Test the function with an invalid configuration object.
+	// test the function with an invalid configuration object
 	cfg.GraphDBs = []*config.Database{}
 	if ses, err := NewSession(cfg); err == nil {
 		t.Error("Expected error creating new session")
@@ -36,16 +36,30 @@ func TestNewSession(t *testing.T) {
 		t.Error("Session should be nil")
 	}
 
-	// Test the function with a valid configuration object and Postgres database.
+	user := "postgres"
+	if u, ok := os.LookupEnv("POSTGRES_USER"); ok {
+		user = u
+	}
+
+	password := "postgres"
+	if p, ok := os.LookupEnv("POSTGRES_PASSWORD"); ok {
+		password = p
+	}
+
+	pgdbname := "postgres"
+	if pdb, ok := os.LookupEnv("POSTGRES_DB"); ok {
+		pgdbname = pdb
+	}
+	// test the function with a valid configuration object and Postgres database
 	cfg.GraphDBs = []*config.Database{
 		{
 			Primary:  true,
 			System:   "postgres",
 			Host:     "localhost",
 			Port:     "5432",
-			Username: "postgres",
-			Password: "password",
-			DBName:   "test",
+			Username: user,
+			Password: password,
+			DBName:   pgdbname,
 		},
 	}
 	if ses, err := NewSession(cfg); err != nil {
@@ -56,8 +70,7 @@ func TestNewSession(t *testing.T) {
 	if repository.DBType(cfg.GraphDBs[0].System) != repository.Postgres {
 		t.Error("Session database type is incorrect")
 	}
-
-	// Test the function with a valid configuration object and SQLite database.
+	// test the function with a valid configuration object and SQLite database
 	cfg.GraphDBs = []*config.Database{
 		{
 			Primary: true,
