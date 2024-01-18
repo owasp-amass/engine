@@ -55,7 +55,7 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/miekg/dns v1.1.57
-	github.com/owasp-amass/asset-db v0.3.6-0.20240115064351-93bd10b2e248
+	github.com/owasp-amass/asset-db v0.3.6-0.20240118034832-9f35c5a2dea6
 	github.com/owasp-amass/open-asset-model v0.2.1-0.20240113165517-79f7a07407c7
 	github.com/owasp-amass/resolve v0.6.21
 	github.com/rubenv/sql-migrate v1.6.0
@@ -95,7 +95,7 @@ require (
 	golang.org/x/tools v0.16.1 // indirect
 	gorm.io/datatypes v1.2.0 // indirect
 	gorm.io/driver/mysql v1.5.2 // indirect
-	modernc.org/libc v1.40.3 // indirect
+	modernc.org/libc v1.40.5 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.7.2 // indirect
 	modernc.org/sqlite v1.28.0 // indirect
