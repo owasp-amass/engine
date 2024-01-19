@@ -58,7 +58,7 @@ func TestNameToAddrs(t *testing.T) {
 	srvfqdn := "inceptions.net"
 	addr := "192.168.1.1"
 
-	g := NewGraph("local", "test.db", "")
+	g := NewGraph("memory", "", "")
 	defer g.Remove()
 
 	ctx := context.Background()
@@ -145,7 +145,7 @@ func createAssets(db *assetdb.AssetDB) []*types.Asset {
 			case "10.1.20.1":
 				createdAsset, err = db.Create(createdAssets[12], "a_record", asset)
 			case "10.1.20.23":
-				createdAsset, err = db.Create(createdAssets[12], "srv_record", asset)
+				createdAsset, err = db.Create(createdAssets[12], "a_record", asset)
 			default:
 				createdAsset, err = db.Create(createdAssets[3], "a_record", asset)
 			}
