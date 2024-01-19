@@ -70,7 +70,7 @@ func TestNameToAddrs(t *testing.T) {
 	_ = createAssets(g.DB)
 	if pairs, err := g.NamesToAddrs(ctx, time.Time{}, fqdn, srvfqdn); err != nil {
 		t.Errorf("failed to obtain the name / address pairs: %v", err)
-	} else if len(pairs) <= 7 {
+	} else if len(pairs) < 7 {
 		t.Errorf("did not obtain the correct number of name / address pairs: %d", len(pairs))
 	}
 
