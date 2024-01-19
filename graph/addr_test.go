@@ -58,7 +58,7 @@ func TestNameToAddrs(t *testing.T) {
 	srvfqdn := "inceptions.net"
 	addr := "192.168.1.1"
 
-	g := NewGraph("memory", "", "")
+	g := NewGraph("local", "test.db", "")
 	defer g.Remove()
 
 	ctx := context.Background()

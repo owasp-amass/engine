@@ -42,7 +42,7 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 	remaining.InsertMany(names...)
 
 	from := "(relations inner join assets on relations.from_asset_id = assets.id)"
-	where := " where assets.type = 'FQDN' and relations.type in ('cname_record','srv_record','a_record','aaaa_record') "
+	where := " where assets.type = 'FQDN' and relations.type in ('a_record','aaaa_record') "
 	likeset := " and assets.content->>'name' in ('" + strings.Join(remaining.Slice(), "','") + "')"
 	query := from + where + likeset
 	if !since.IsZero() {
@@ -52,8 +52,6 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 	rels, err := g.DB.RelationQuery(query)
 	if err != nil {
 		return nil, err
-	} else if len(rels) == 0 {
-		return nil, errors.New("no names to query")
 	}
 	for _, rel := range rels {
 		if f, ok := rel.FromAsset.Asset.(*domain.FQDN); ok {
