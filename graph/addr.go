@@ -42,7 +42,7 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 	remaining.InsertMany(names...)
 
 	from := "(relations inner join assets on relations.from_asset_id = assets.id)"
-	where := " where assets.type = 'FQDN' and relations.type in ('a_record','aaaa_record') "
+	where := " where assets.type = 'FQDN' and relations.type in ('a_record','aaaa_record')"
 	likeset := " and assets.content->>'name' in ('" + strings.Join(remaining.Slice(), "','") + "')"
 	query := from + where + likeset
 	if !since.IsZero() {
@@ -55,7 +55,6 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 	}
 	for _, rel := range rels {
 		if f, ok := rel.FromAsset.Asset.(*domain.FQDN); ok {
-
 			if _, found := nameAddrMap[f.Name]; !found {
 				nameAddrMap[f.Name] = stringset.New()
 			}
@@ -66,8 +65,66 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 		}
 	}
 
-	// Get to the end of the CNAME alias chains
-	for _, name := range remaining.Slice() {
+	if remaining.Len() == 0 {
+		return generatePairsFromAddrMap(nameAddrMap)
+	}
+
+	// get the IPs associated with SRV records
+	sel := "SELECT fqdns.content->>'name',ips.content->>'address'"
+	from = "FROM ((((assets AS fqdns INNER JOIN relations AS r1 ON fqdns.id = r1.from_asset_id)"
+	from2 := "INNER JOIN assets AS srvs ON r1.to_asset_id = srvs.id) INNER JOIN relations AS r2 ON srvs.id ="
+	from3 := " r2.from_asset_id) INNER JOIN assets AS ips ON r2.to_asset_id = ips.id)"
+	where = " WHERE fqdns.type = 'FQDN' AND srvs.type = 'FQDN' AND ips.type = 'IPAddress'"
+	where2 := " AND r1.type = 'srv_record' AND r2.type IN ('a_record', 'aaaa_record')"
+	query = sel + from + from2 + from3 + where + where2
+	if !since.IsZero() {
+		query += " AND r1.last_seen > " + since.Format("2006-01-02 15:04:05") +
+			" AND r2.last_seen > " + since.Format("2006-01-02 15:04:05")
+	}
+	query += " AND fqdns.content->>'name' in ('" + strings.Join(remaining.Slice(), "','") + "')"
+
+	var results []struct {
+		Name string `gorm:"column:fqdns.content->>'name'"`
+		Addr string `gorm:"column:ips.content->>'address'"`
+	}
+
+	if err := g.DB.RawQuery(query, &results); err == nil && len(results) > 0 {
+		for _, res := range results {
+			remaining.Remove(res.Name)
+			if _, found := nameAddrMap[res.Name]; !found {
+				nameAddrMap[res.Name] = stringset.New()
+			}
+			nameAddrMap[res.Name].Insert(res.Addr)
+		}
+	}
+
+	if remaining.Len() == 0 {
+		return generatePairsFromAddrMap(nameAddrMap)
+	}
+
+	// get the FQDNs that have CNAME records
+	from = "(assets inner join relations on assets.id = relations.from_asset_id)"
+	where = " where assets.type = 'FQDN' and relations.type = 'cname_record'"
+	likeset = " and assets.content->>'name' in ('" + strings.Join(remaining.Slice(), "','") + "')"
+	query = from + where + likeset
+	if !since.IsZero() {
+		query += " and relations.last_seen > " + since.Format("2006-01-02 15:04:05")
+	}
+
+	assets, err := g.DB.AssetQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	var cnames []string
+	for _, a := range assets {
+		if f, ok := a.Asset.(*domain.FQDN); ok {
+			cnames = append(cnames, f.Name)
+		}
+	}
+
+	// get to the end of the CNAME alias chains
+	for _, name := range cnames {
 		var results []struct {
 			Name string `gorm:"column:fqdns.content->>'name'"`
 			Addr string `gorm:"column:ips.content->>'address'"`
@@ -85,52 +142,30 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 		}
 	}
 
-	query = `SELECT fqdns.content->>'name',ips.content->>'address' FROM ((((assets AS fqdns INNER JOIN relations AS r1 ON fqdns.id = r1.from_asset_id) INNER JOIN assets AS srvs ON r1.to_asset_id = srvs.id) INNER JOIN relations AS r2 ON srvs.id = r2.from_asset_id) INNER JOIN assets AS ips ON r2.to_asset_id = ips.id) WHERE fqdns.type = 'FQDN' AND srvs.type = 'FQDN' AND ips.type = 'IPAddress' AND r1.type = 'srv_record' AND r2.type IN ('a_record', 'aaaa_record')`
-	if !since.IsZero() {
-		query += " AND r1.last_seen > " + since.Format("2006-01-02 15:04:05") +
-			" AND r2.last_seen > " + since.Format("2006-01-02 15:04:05")
-	}
-	query += " AND fqdns.content->>'name' in ('" + strings.Join(remaining.Slice(), "','") + "')"
-
-	var results []struct {
-		Name string `gorm:"column:fqdns.content->>'name'"`
-		Addr string `gorm:"column:ips.content->>'address'"`
-	}
-	// Get to the IPs associated with SRV records
-	if err := g.DB.RawQuery(query, &results); err == nil && len(results) > 0 {
-		for _, res := range results {
-			remaining.Remove(res.Name)
-			if _, found := nameAddrMap[res.Name]; !found {
-				nameAddrMap[res.Name] = stringset.New()
-			}
-			nameAddrMap[res.Name].Insert(res.Addr)
-		}
-	}
-
-	if len(nameAddrMap) == 0 {
-		return nil, errors.New("no pairs to process")
-	}
-
-	pairs := generatePairsFromAddrMap(nameAddrMap)
-	if len(pairs) == 0 {
-		return nil, errors.New("no addresses were discovered")
-	}
-	return pairs, nil
+	return generatePairsFromAddrMap(nameAddrMap)
 }
 
 func cnameQuery(name string, since time.Time) string {
-	query := `WITH RECURSIVE traverse_cname(fqdn) AS ( VALUES('` + name + `') UNION SELECT cnames.content->>'name' FROM ((assets AS fqdns INNER JOIN relations ON fqdns.id = relations.from_asset_id) INNER JOIN assets AS cnames ON relations.to_asset_id = cnames.id), traverse_cname WHERE fqdns.type = 'FQDN' AND cnames.type = 'FQDN'`
+	query := "WITH RECURSIVE traverse_cname(fqdn) AS ( VALUES('" + name + "')"
+	query += " UNION SELECT cnames.content->>'name' FROM ((assets AS fqdns"
+	query += " INNER JOIN relations ON fqdns.id = relations.from_asset_id)"
+	query += " INNER JOIN assets AS cnames ON relations.to_asset_id = cnames.id), traverse_cname"
+	query += " WHERE fqdns.type = 'FQDN' AND cnames.type = 'FQDN'"
 	if !since.IsZero() {
 		query += " and relations.last_seen > " + since.Format("2006-01-02 15:04:05")
 	}
-	query += ` AND relations.type = 'cname_record' AND fqdns.content->>'name' = traverse_cname.fqdn) SELECT fqdns.content->>'name', ips.content->>'address' FROM ((assets AS fqdns INNER JOIN relations ON fqdns.id = relations.from_asset_id) INNER JOIN assets AS ips ON relations.to_asset_id = ips.id) WHERE fqdns.type = 'FQDN' AND ips.type = 'IPAddress'`
+	query += " AND relations.type = 'cname_record' AND fqdns.content->>'name' = traverse_cname.fqdn)"
+	query += " SELECT fqdns.content->>'name', ips.content->>'address'"
+	query += " FROM ((assets AS fqdns INNER JOIN relations ON fqdns.id = relations.from_asset_id)"
+	query += " INNER JOIN assets AS ips ON relations.to_asset_id = ips.id)"
+	query += " WHERE fqdns.type = 'FQDN' AND ips.type = 'IPAddress'"
 	if !since.IsZero() {
 		query += " and relations.last_seen > " + since.Format("2006-01-02 15:04:05")
 	}
-	return query + ` AND relations.type IN ('a_record', 'aaaa_record') AND fqdns.content->>'name' IN traverse_cname`
+	return query + " AND relations.type IN ('a_record', 'aaaa_record') AND fqdns.content->>'name' IN traverse_cname"
 }
 
-func generatePairsFromAddrMap(addrMap map[string]*stringset.Set) []*NameAddrPair {
+func generatePairsFromAddrMap(addrMap map[string]*stringset.Set) ([]*NameAddrPair, error) {
 	var pairs []*NameAddrPair
 
 	for name, set := range addrMap {
@@ -149,7 +184,11 @@ func generatePairsFromAddrMap(addrMap map[string]*stringset.Set) []*NameAddrPair
 			}
 		}
 	}
-	return pairs
+
+	if len(pairs) == 0 {
+		return nil, errors.New("no addresses were discovered")
+	}
+	return pairs, nil
 }
 
 // UpsertA creates FQDN, IP address and A record edge in the graph and associates them with a source and event.
