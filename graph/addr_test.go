@@ -128,4 +128,9 @@ func TestNameToAddrs(t *testing.T) {
 			t.Errorf("Failed to return the %s / %s pair", pair[0], pair[1])
 		}
 	}
+
+	// check that no results are provided when entered before the since parameter
+	if pairs, err := g.NamesToAddrs(context.Background(), time.Now(), fqdn, cname, ctarget, srv, srvtarget); err == nil && len(pairs) > 0 {
+		t.Errorf("failed to filter results using the provided since parameter")
+	}
 }
