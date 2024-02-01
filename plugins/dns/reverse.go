@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -37,7 +37,7 @@ type dnsReverse struct {
 
 func NewReverse() et.Plugin {
 	var r chan struct{}
-	if max := support.NumUntrustedResolvers() * 5; max > 0 {
+	if max := support.MaxHandlerInstances; max > 0 {
 		r = make(chan struct{}, max)
 		for i := 0; i < max; i++ {
 			r <- struct{}{}
@@ -61,7 +61,7 @@ func (d *dnsReverse) Start(r et.Registry) error {
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     9,
-		MaxInstances: support.NumTrustedResolvers() * 5,
+		MaxInstances: support.MaxHandlerInstances,
 		Transforms:   []string{"fqdn"},
 		EventType:    oam.IPAddress,
 		Callback:     d.handler,

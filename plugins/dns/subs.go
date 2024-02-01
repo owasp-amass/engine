@@ -31,6 +31,7 @@ type subsQtypes struct {
 type dnsSubs struct {
 	types []subsQtypes
 	queue queue.Queue
+	done  chan struct{}
 }
 
 func NewSubs() et.Plugin {
@@ -42,6 +43,7 @@ func NewSubs() et.Plugin {
 			//{Qtype: dns.TypeSPF, Rtype: "spf_record"},
 		},
 		queue: queue.NewQueue(),
+		done:  make(chan struct{}),
 	}
 }
 
@@ -64,7 +66,9 @@ func (d *dnsSubs) Start(r et.Registry) error {
 	return nil
 }
 
-func (d *dnsSubs) Stop() {}
+func (d *dnsSubs) Stop() {
+	close(d.done)
+}
 
 func (d *dnsSubs) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
@@ -172,6 +176,8 @@ func (d *dnsSubs) callbackClosure(e *et.Event, rtype string, rr []*resolve.Extra
 func (d *dnsSubs) process() {
 	for {
 		select {
+		case <-d.done:
+			return
 		case <-d.queue.Signal():
 			d.queue.Process(func(data interface{}) {
 				if callback, ok := data.(func()); ok {

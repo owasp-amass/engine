@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"strconv"
 	"strings"
@@ -29,9 +30,6 @@ import (
 // queriesPerPublicResolver is the number of queries sent to each public DNS resolver per second.
 const queriesPerPublicResolver = 5
 
-// queriesPerBaselineResolver is the number of queries sent to each trusted DNS resolver per second.
-const queriesPerBaselineResolver = 15
-
 const minResolverReliability = 0.85
 
 type guess struct {
@@ -39,25 +37,68 @@ type guess struct {
 	name  string
 }
 
+type baseline struct {
+	address string
+	qps     int
+}
+
 // baselineResolvers is a list of trusted public DNS resolvers.
-var baselineResolvers = []string{
-	"8.8.8.8",        // Google
-	"1.1.1.1",        // Cloudflare
-	"9.9.9.9",        // Quad9
-	"208.67.222.222", // Cisco OpenDNS
-	"84.200.69.80",   // DNS.WATCH
-	"64.6.64.6",      // Neustar DNS
-	"8.26.56.26",     // Comodo Secure DNS
-	"205.171.3.65",   // Level3
-	"134.195.4.2",    // OpenNIC
-	"185.228.168.9",  // CleanBrowsing
-	"76.76.19.19",    // Alternate DNS
-	"37.235.1.177",   // FreeDNS
-	"77.88.8.1",      // Yandex.DNS
-	"94.140.14.140",  // AdGuard
-	"38.132.106.139", // CyberGhost
-	"74.82.42.42",    // Hurricane Electric
-	"76.76.2.0",      // ControlD
+var baselineResolvers = []baseline{
+	{"8.8.8.8", 30},         // Google Primary
+	{"8.8.4.4", 30},         // Google Secondary
+	{"95.85.95.85", 20},     // Gcore DNS Primary
+	{"2.56.220.2", 20},      // Gcore DNS Secondary
+	{"76.76.2.0", 20},       // ControlD Primary
+	{"76.76.10.0", 20},      // ControlD Secondary
+	{"9.9.9.9", 20},         // Quad9 Primary
+	{"149.112.112.112", 20}, // Quad9 Secondary
+	{"208.67.222.222", 20},  // Cisco OpenDNS Home Primary
+	{"208.67.220.220", 20},  // Cisco OpenDNS Home Secondary
+	{"1.1.1.1", 20},         // Cloudflare Primary
+	{"1.0.0.1", 20},         // Cloudflare Secondary
+	{"185.228.168.9", 10},   // CleanBrowsing Primary
+	{"185.228.169.9", 10},   // CleanBrowsing Secondary
+	{"76.76.19.19", 10},     // Alternate DNS Primary
+	{"76.223.122.150", 10},  // Alternate DNS Secondary
+	{"94.140.14.14", 10},    // AdGuard DNS Primary
+	{"94.140.15.15", 10},    // AdGuard DNS Secondary
+	{"176.103.130.130", 10}, // AdGuard
+	{"176.103.130.131", 10}, // AdGuard
+	{"8.26.56.26", 10},      // Comodo Secure DNS Primary
+	{"8.20.247.20", 10},     // Comodo Secure DNS Secondary
+	{"205.171.3.65", 7},     // CenturyLink Level3 Primary
+	{"205.171.2.65", 7},     // CenturyLink Level3 Secondary
+	{"64.6.64.6", 10},       // Verisign DNS Primary
+	{"64.6.65.6", 10},       // Verisign DNS Secondary
+	{"209.244.0.3", 7},      // CenturyLink Level3
+	{"209.244.0.4", 7},      // CenturyLink Level3
+	{"149.112.121.10", 10},  // CIRA Canadian Shield Primary
+	{"149.112.122.10", 10},  // CIRA Canadian Shield Secondary
+	{"138.197.140.189", 7},  // OpenNIC Primary
+	{"162.243.19.47", 7},    // OpenNIC Secondary
+	{"216.87.84.211", 7},    // OpenNIC
+	{"23.90.4.6", 7},        // OpenNIC
+	{"216.146.35.35", 10},   // Oracle Dyn Primary
+	{"216.146.36.36", 10},   // Oracle Dyn Secondary
+	{"91.239.100.100", 7},   // UncensoredDNS Primary
+	{"89.233.43.71", 7},     // UncensoredDNS Secondary
+	{"77.88.8.8", 10},       // Yandex.DNS Primary
+	{"77.88.8.1", 10},       // Yandex.DNS Secondary
+	{"74.82.42.42", 7},      // Hurricane Electric Primary
+	{"94.130.180.225", 10},  // DNS for Family Primary
+	{"78.47.64.161", 10},    // DNS for Family Secondary
+	{"185.236.104.104", 10}, // FlashStart Primary
+	{"185.236.105.105", 10}, // FlashStart Secondary
+	{"80.80.80.80", 10},     // Freenom World Primary
+	{"80.80.81.81", 10},     // Freenom World Secondary
+	{"84.200.69.80", 10},    // DNS.WATCH Primary
+	{"84.200.70.40", 10},    // DNS.WATCH Secondary
+	{"156.154.70.5", 7},     // Neustar Primary
+	{"156.157.71.5", 7},     // Neustar Secondary
+	{"81.218.119.11", 7},    // GreenTeamDNS Primary
+	{"209.88.198.133", 7},   // GreenTeamDNS Secondary
+	{"37.235.1.177", 10},    // FreeDNS
+	{"38.132.106.139", 10},  // CyberGhost
 }
 
 var trusted *resolve.Resolvers
@@ -227,17 +268,23 @@ func dnsQuery(msg *dns.Msg, r *resolve.Resolvers, attempts int) (*dns.Msg, error
 				return nil, errors.New("no record of this type")
 			}
 			return resp, nil
-
 		}
 	}
 	return nil, nil
 }
 
 func trustedResolvers() (*resolve.Resolvers, int) {
+	blr := baselineResolvers
+	rand.Shuffle(len(blr), func(i, j int) {
+		blr[i], blr[j] = blr[j], blr[i]
+	})
+
 	if pool := resolve.NewResolvers(); pool != nil {
-		_ = pool.AddResolvers(queriesPerBaselineResolver, baselineResolvers...)
-		pool.SetDetectionResolver(queriesPerBaselineResolver, "8.8.8.8")
-		pool.SetTimeout(2 * time.Second)
+		for _, r := range blr {
+			_ = pool.AddResolvers(r.qps, r.address)
+		}
+		pool.SetDetectionResolver(50, "8.8.8.8")
+		pool.SetTimeout(3 * time.Second)
 		return pool, pool.Len()
 	}
 	return nil, 0
@@ -256,7 +303,7 @@ func untrustedResolvers() (*resolve.Resolvers, int) {
 
 	if pool := resolve.NewResolvers(); pool != nil {
 		_ = pool.AddResolvers(queriesPerPublicResolver, resolvers...)
-		pool.SetTimeout(3 * time.Second)
+		pool.SetTimeout(5 * time.Second)
 		pool.SetThresholdOptions(&resolve.ThresholdOptions{
 			ThresholdValue:      20,
 			CountTimeouts:       true,
@@ -326,7 +373,7 @@ func publicDNSResolvers() ([]string, error) {
 loop:
 	for _, addr := range resolvers {
 		for _, br := range baselineResolvers {
-			if addr == br {
+			if addr == br.address {
 				continue loop
 			}
 		}
