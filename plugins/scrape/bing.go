@@ -22,7 +22,7 @@ type bing struct {
 }
 
 func NewBing() et.Plugin {
-	return &bing{fmtstr: "https://www.ask.com/web?o=0&l=dir&qo=pagination&page=%d&q=site:%s -www.%s"}
+	return &bing{fmtstr: "https://www.bing.com"}
 }
 
 func (b *bing) Start(r et.Registry) error {
@@ -53,7 +53,7 @@ func (b *bing) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "ask")
+	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "bing")
 	if err != nil {
 		return err
 	}
