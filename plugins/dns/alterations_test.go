@@ -7,8 +7,6 @@ package dns
 import "testing"
 import "sort"
 import "slices"
-//import "github.com/owasp-amass/engine/plugins/support/resolvers"
-// import "github.com/owasp-amass/engine/tree/develop/plugins/support/support"
 
 type flipWordTest struct {
 	addedWords      []string
