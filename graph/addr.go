@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2023. All rights reserved.
+// Copyright © by Jeff Foley 2017-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -69,13 +69,13 @@ func (g *Graph) NamesToAddrs(ctx context.Context, since time.Time, names ...stri
 		return generatePairsFromAddrMap(nameAddrMap)
 	}
 
-	// get the IPs associated with SRV records
+	// get the IPs associated with SRV, NS, and MX records
 	sel := "SELECT fqdns.content->>'name',ips.content->>'address'"
 	from = "FROM ((((assets AS fqdns INNER JOIN relations AS r1 ON fqdns.id = r1.from_asset_id)"
 	from2 := "INNER JOIN assets AS srvs ON r1.to_asset_id = srvs.id) INNER JOIN relations AS r2 ON srvs.id ="
 	from3 := " r2.from_asset_id) INNER JOIN assets AS ips ON r2.to_asset_id = ips.id)"
 	where = " WHERE fqdns.type = 'FQDN' AND srvs.type = 'FQDN' AND ips.type = 'IPAddress'"
-	where2 := " AND r1.type = 'srv_record' AND r2.type IN ('a_record', 'aaaa_record')"
+	where2 := " AND r1.type IN ('srv_record','ns_record','mx_record') AND r2.type IN ('a_record','aaaa_record')"
 	query = sel + from + from2 + from3 + where + where2
 	if !since.IsZero() {
 		query += " AND r1.last_seen > " + since.Format("2006-01-02 15:04:05") +
