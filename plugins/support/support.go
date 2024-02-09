@@ -19,7 +19,7 @@ import (
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 )
 
-const MaxHandlerInstances int = 1000
+const MaxHandlerInstances int = 500
 
 var done chan struct{}
 
