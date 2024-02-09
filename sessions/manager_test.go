@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,20 +8,24 @@ import (
 	"io"
 	"log"
 	"testing"
+
+	"github.com/google/uuid"
+	et "github.com/owasp-amass/engine/types"
 )
 
-func TestAddSession001(t *testing.T) {
+func TestAddSession(t *testing.T) {
 	l := log.New(io.Discard, "T", log.Lmicroseconds)
 	mgr := NewManager(l)
 	defer mgr.Shutdown()
 
-	s := &session{}
-	id, err := mgr.AddSession(s)
-	if err != nil {
-		t.Error(err)
+	// Create a new session object
+	s := &session{
+		id:    uuid.New(),
+		stats: new(et.SessionStats),
+		done:  make(chan struct{}),
 	}
 
-	if id == zeroSessionUUID {
-		t.Error("Session ID is zero")
+	if _, err := mgr.AddSession(s); err != nil {
+		t.Error(err)
 	}
 }

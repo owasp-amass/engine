@@ -98,15 +98,15 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 
 // TerminateSession is the resolver for the terminateSession field.
 func (r *mutationResolver) TerminateSession(ctx context.Context, sessionToken string) (*bool, error) {
-	result := false
+	var result bool
 	token, _ := uuid.Parse(sessionToken)
 
-	if r.Manager.GetSession(token) != nil {
-		r.Manager.CancelSession(token)
-		result = true
-	} else {
+	if r.Manager.GetSession(token) == nil {
 		return &result, errors.New("invalid session token")
 	}
+
+	result = true
+	r.Manager.CancelSession(token)
 	return &result, nil
 }
 
@@ -136,7 +136,6 @@ func (r *subscriptionResolver) LogMessages(ctx context.Context, sessionToken str
 	token, _ := uuid.Parse(sessionToken)
 	session := r.Manager.GetSession(token)
 
-	fmt.Println("LogMessages callled")
 	if session != nil {
 		session.PubSub().Publish("Channel created")
 		ch := session.PubSub().Subscribe()

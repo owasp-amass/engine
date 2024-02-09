@@ -109,12 +109,15 @@ func handlerTask(h *et.Handler) pipeline.TaskFunc {
 			ede.Queue.Append(ede)
 			return nil, nil
 		default:
+			if ede.Event.Session.Done() {
+				ede.Queue.Append(ede)
+				return nil, nil
+			}
 		}
 
 		if err := r.Callback(ede.Event); err != nil {
 			ede.Error = multierror.Append(ede.Error, err)
 		}
-
 		return data, nil
 	})
 }

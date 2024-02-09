@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -67,8 +67,15 @@ func (pq *PipelineQueue) Next(ctx context.Context) bool {
 
 // Data implements the pipeline InputSource interface.
 func (pq *PipelineQueue) Data() pipeline.Data {
-	if element, ok := pq.Queue.Next(); ok {
-		return element.(*EventDataElement)
+	for {
+		element, good := pq.Queue.Next()
+		if !good {
+			break
+		}
+
+		if ede, ok := element.(*EventDataElement); ok && !ede.Event.Session.Done() {
+			return ede
+		}
 	}
 	return nil
 }

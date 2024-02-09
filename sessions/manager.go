@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -14,6 +14,7 @@ package sessions
 import (
 	"log"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/owasp-amass/config/config"
@@ -21,90 +22,107 @@ import (
 )
 
 type manager struct {
-	sync.RWMutex // Mutex for thread-safety
-	logger       *log.Logger
-	sessions     map[uuid.UUID]et.Session
+	sync.RWMutex
+	logger   *log.Logger
+	sessions map[uuid.UUID]et.Session
 }
-
-var (
-	zeroSessionUUID = uuid.UUID{}
-)
 
 // NewManager: creates a new session storage.
 func NewManager(l *log.Logger) et.SessionManager {
-	if zeroSessionUUID == uuid.Nil {
-		zeroSessionUUID = uuid.UUID{}
-	}
 	return &manager{
 		logger:   l,
 		sessions: make(map[uuid.UUID]et.Session),
 	}
 }
 
-func (ss *manager) NewSession(cfg *config.Config) (et.Session, error) {
-	session, err := NewSession(cfg)
-	if err == nil {
-		_, err = ss.AddSession(session)
-		if err == nil {
-			return session, nil
-		}
+func (r *manager) NewSession(cfg *config.Config) (et.Session, error) {
+	s, err := CreateSession(cfg)
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	if _, err = r.AddSession(s); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // Add: adds a session to a session storage after checking the session config.
-func (ss *manager) AddSession(s et.Session) (uuid.UUID, error) {
+func (r *manager) AddSession(s et.Session) (uuid.UUID, error) {
 	if s == nil {
 		return uuid.UUID{}, nil
 	}
 
 	sess := s.(*session)
-	sess.log = ss.logger
+	sess.log = r.logger
 
-	ss.Lock()
-	defer ss.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
-	id := uuid.New()
-	sess.id = id
-	ss.sessions[id] = sess
+	id := sess.id
+	r.sessions[id] = sess
 	// TODO: Need to add the session config checks here (using the Registry)
 	return id, nil
 }
 
-// Cancel: cancels a session in a session storage.
-func (ss *manager) CancelSession(id uuid.UUID) {
-	if id == zeroSessionUUID {
+// CancelSession: cancels a session in a session storage.
+func (r *manager) CancelSession(id uuid.UUID) {
+	r.Lock()
+	s, found := r.sessions[id]
+	r.Unlock()
+
+	if !found {
 		return
 	}
+	s.Kill()
 
-	ss.Lock()
-	defer ss.Unlock()
+	t := time.NewTicker(500 * time.Millisecond)
+	defer t.Stop()
 
-	delete(ss.sessions, id)
-}
-
-// Get: returns a session from a session storage.
-func (ss *manager) GetSession(id uuid.UUID) et.Session {
-	if id == zeroSessionUUID {
-		return nil
+	for range t.C {
+		ss := s.Stats()
+		ss.Lock()
+		total := ss.WorkItemsTotal
+		completed := ss.WorkItemsCompleted
+		ss.Unlock()
+		if completed >= total {
+			break
+		}
 	}
 
-	ss.RLock()
-	defer ss.RUnlock()
-
-	return ss.sessions[id]
+	r.Lock()
+	delete(r.sessions, id)
+	r.Unlock()
 }
 
-func (ss *manager) cleanAll() {
-	ss.Lock()
-	defer ss.Unlock()
+// GetSession: returns a session from a session storage.
+func (r *manager) GetSession(id uuid.UUID) et.Session {
+	r.RLock()
+	defer r.RUnlock()
 
-	for k := range ss.sessions {
-		delete(ss.sessions, k)
+	if s, found := r.sessions[id]; found {
+		return s
 	}
+	return nil
 }
 
 // Shutdown: cleans all sessions from a session storage and shutdown the session storage.
-func (ss *manager) Shutdown() {
-	ss.cleanAll()
+func (r *manager) Shutdown() {
+	var list []uuid.UUID
+
+	r.Lock()
+	for k := range r.sessions {
+		list = append(list, k)
+	}
+	r.Unlock()
+
+	var wg sync.WaitGroup
+	for _, id := range list {
+		wg.Add(1)
+		go func(id uuid.UUID, wg *sync.WaitGroup) {
+			defer wg.Done()
+
+			r.CancelSession(id)
+		}(id, &wg)
+	}
+	wg.Wait()
 }

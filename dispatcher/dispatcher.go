@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,7 +6,6 @@ package dispatcher
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 
@@ -40,6 +39,11 @@ func NewDispatcher(l *log.Logger, r et.Registry, mgr et.SessionManager) et.Dispa
 }
 
 func (d *dis) Shutdown() {
+	select {
+	case <-d.done:
+		return
+	default:
+	}
 	close(d.done)
 }
 
@@ -70,12 +74,13 @@ func (d *dis) completedCallback(data interface{}) {
 	stats.Lock()
 	stats.WorkItemsCompleted++
 	stats.Unlock()
-	fmt.Println(ede.Event.Name)
 }
 
 func (d *dis) DispatchEvent(e *et.Event) error {
 	if e == nil {
 		return errors.New("the event is nil")
+	} else if e.Session.Done() {
+		return errors.New("the session has been terminated")
 	}
 
 	e.Dispatcher = d

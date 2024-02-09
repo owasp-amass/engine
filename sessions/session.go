@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -37,11 +37,12 @@ type session struct {
 	dbtype repository.DBType
 	c      cache.Cache
 	stats  *et.SessionStats
+	done   chan struct{}
 }
 
-// NewSession initializes a new Session object based on the provided configuration.
+// CreateSession initializes a new Session object based on the provided configuration.
 // The session object represents the state of an active engine enumeration.
-func NewSession(cfg *config.Config) (et.Session, error) {
+func CreateSession(cfg *config.Config) (et.Session, error) {
 	// Use default configuration if none is provided
 	if cfg == nil {
 		cfg = config.NewConfig()
@@ -49,10 +50,12 @@ func NewSession(cfg *config.Config) (et.Session, error) {
 
 	// Create a new session object
 	s := &session{
+		id:    uuid.New(),
 		cfg:   cfg,
 		ps:    pubsub.NewLogger(),
 		c:     cache.NewOAMCache(nil),
 		stats: new(et.SessionStats),
+		done:  make(chan struct{}),
 	}
 
 	if err := s.setupDB(); err != nil {
@@ -88,6 +91,26 @@ func (s *session) Cache() cache.Cache {
 
 func (s *session) Stats() *et.SessionStats {
 	return s.stats
+}
+
+func (s *session) Done() bool {
+	select {
+	case <-s.done:
+		return true
+	default:
+	}
+
+	return false
+}
+
+func (s *session) Kill() {
+	select {
+	case <-s.done:
+		return
+	default:
+	}
+
+	close(s.done)
 }
 
 func (s *session) setupDB() error {

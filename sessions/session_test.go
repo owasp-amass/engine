@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,25 +12,25 @@ import (
 	"github.com/owasp-amass/config/config"
 )
 
-func TestNewSession(t *testing.T) {
+func TestCreateSession(t *testing.T) {
 	// create a new configuration object
 	cfg := config.NewConfig()
 
 	// test the function with a nil configuration object
-	if ses, err := NewSession(nil); err != nil {
+	if ses, err := CreateSession(nil); err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	} else if ses == nil {
 		t.Error("Session is nil")
 	}
 	// test the function with a valid configuration object
-	if ses, err := NewSession(cfg); err != nil {
+	if ses, err := CreateSession(cfg); err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	} else if ses == nil {
 		t.Error("Session is nil")
 	}
 	// test the function with an invalid configuration object
 	cfg.GraphDBs = []*config.Database{}
-	if ses, err := NewSession(cfg); err == nil {
+	if ses, err := CreateSession(cfg); err == nil {
 		t.Error("Expected error creating new session")
 	} else if ses != nil {
 		t.Error("Session should be nil")
@@ -62,7 +62,7 @@ func TestNewSession(t *testing.T) {
 			DBName:   pgdbname,
 		},
 	}
-	if ses, err := NewSession(cfg); err != nil {
+	if ses, err := CreateSession(cfg); err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	} else if ses == nil {
 		t.Error("Session is nil")
@@ -77,7 +77,7 @@ func TestNewSession(t *testing.T) {
 			System:  "sqlite",
 		},
 	}
-	if ses, err := NewSession(cfg); err != nil {
+	if ses, err := CreateSession(cfg); err != nil {
 		t.Errorf("Error creating new session: %v", err)
 	} else if ses == nil {
 		t.Error("Session is nil")
