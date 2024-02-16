@@ -162,7 +162,8 @@ func cnameQuery(name string, since time.Time) string {
 	if !since.IsZero() {
 		query += " and relations.last_seen > " + since.Format("2006-01-02 15:04:05")
 	}
-	return query + " AND relations.type IN ('a_record', 'aaaa_record') AND fqdns.content->>'name' IN traverse_cname"
+	query += " AND relations.type IN ('a_record', 'aaaa_record') AND "
+	return query + "fqdns.content->>'name' IN (SELECT fqdn FROM traverse_cname)"
 }
 
 func generatePairsFromAddrMap(addrMap map[string]*stringset.Set) ([]*NameAddrPair, error) {
