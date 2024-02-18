@@ -19,7 +19,7 @@ import (
 func main() {
 	pid := os.Getpid()
 	pidstr := strconv.Itoa(pid)
-	filename := fmt.Sprintf("amass-%s.log", pidstr)
+	filename := fmt.Sprintf("engine-%s.log", pidstr)
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
