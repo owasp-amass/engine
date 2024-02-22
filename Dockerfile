@@ -17,6 +17,6 @@ RUN addgroup user \
 USER user
 WORKDIR /.config/amass
 STOPSIGNAL SIGINT
-HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=5s --retries=25 \
   CMD ae_isready --host 127.0.0.1
 ENTRYPOINT ["/bin/engine"]
