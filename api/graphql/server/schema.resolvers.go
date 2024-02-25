@@ -1,3 +1,7 @@
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package server
 
 // This file will be automatically regenerated based on the schema, any resolver implementations
@@ -8,7 +12,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/owasp-amass/config/config"
@@ -32,7 +35,7 @@ func (r *mutationResolver) CreateSessionFromJSON(ctx context.Context, input mode
 	var config config.Config
 
 	if err := json.Unmarshal([]byte(input.Config), &config); err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 	// Populate FROM/TO in transformations
 	for k, t := range config.Transformations {
@@ -58,7 +61,6 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 
 	data, ok := input.Data.(map[string]interface{})
 	if !ok {
-		fmt.Println("failed to cast the asset data")
 		return nil, errors.New("failed to cast the asset data")
 	}
 	atype := data["type"].(string)
@@ -91,8 +93,7 @@ func (r *mutationResolver) CreateAsset(ctx context.Context, input model.CreateAs
 	if err := r.Dispatcher.DispatchEvent(event); err != nil {
 		return nil, errors.New("failed to create asset")
 	}
-	// TEST: Broadcast asset creation message to client subscribers
-	session.PubSub().Publish("Log created asset")
+
 	return &model.Asset{ID: token.String()}, nil
 }
 
