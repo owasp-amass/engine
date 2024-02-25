@@ -7,6 +7,7 @@ package dns
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -40,7 +41,7 @@ func (d *dnsIP) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Printf("Failed to register the %s: %v", name, err)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 	return nil

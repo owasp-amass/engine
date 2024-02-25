@@ -70,7 +70,7 @@ func (r *registry) buildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 
 	go func(p *et.AssetPipeline) {
 		if err := p.Pipeline.ExecuteBuffered(context.TODO(), p.Queue, makeSink(), bufsize); err != nil {
-			r.logger.Printf("Pipeline %s terminated: %v", atype, err)
+			r.logger.Error(fmt.Sprintf("Pipeline terminated: %v", err), "OAM type", atype)
 		}
 	}(ap)
 	return ap, nil

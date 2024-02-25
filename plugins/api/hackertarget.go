@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -36,7 +36,7 @@ func (ht *hackerTarget) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   ht.check,
 	}); err != nil {
-		r.Log().Printf("Failed to register the %s: %v", name, err)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 	return nil

@@ -6,7 +6,7 @@ package types
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"github.com/caffix/pipeline"
 	"github.com/caffix/queue"
@@ -33,7 +33,7 @@ type AssetPipeline struct {
 }
 
 type Registry interface {
-	Log() *log.Logger
+	Log() *slog.Logger
 	RegisterHandler(h *Handler) error
 	BuildPipelines() error
 	GetPipeline(eventType oam.AssetType) (*AssetPipeline, error)

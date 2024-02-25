@@ -8,7 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
@@ -29,7 +29,7 @@ import (
 
 type session struct {
 	id     uuid.UUID
-	log    *log.Logger
+	log    *slog.Logger
 	ps     *pubsub.Logger
 	cfg    *config.Config
 	db     *assetdb.AssetDB
@@ -69,7 +69,7 @@ func (s *session) ID() uuid.UUID {
 	return s.id
 }
 
-func (s *session) Log() *log.Logger {
+func (s *session) Log() *slog.Logger {
 	return s.log
 }
 
@@ -204,6 +204,5 @@ func (s *session) migrations() error {
 	if err != nil {
 		return fmt.Errorf("failed to execute migrations: %s", err)
 	}
-
 	return nil
 }

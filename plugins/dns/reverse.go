@@ -7,6 +7,7 @@ package dns
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -66,7 +67,7 @@ func (d *dnsReverse) Start(r et.Registry) error {
 		EventType:    oam.IPAddress,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Printf("Failed to register the %s: %v", name, err)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 	return nil

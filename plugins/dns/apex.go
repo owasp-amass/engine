@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,6 +6,7 @@ package dns
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	dbt "github.com/owasp-amass/asset-db/types"
@@ -32,7 +33,7 @@ func (d *dnsApex) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Printf("Failed to register the %s: %v", name, err)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 	return nil

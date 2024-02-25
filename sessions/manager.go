@@ -12,7 +12,7 @@ package sessions
  */
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -23,12 +23,12 @@ import (
 
 type manager struct {
 	sync.RWMutex
-	logger   *log.Logger
+	logger   *slog.Logger
 	sessions map[uuid.UUID]et.Session
 }
 
 // NewManager: creates a new session storage.
-func NewManager(l *log.Logger) et.SessionManager {
+func NewManager(l *slog.Logger) et.SessionManager {
 	return &manager{
 		logger:   l,
 		sessions: make(map[uuid.UUID]et.Session),

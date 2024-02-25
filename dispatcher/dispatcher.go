@@ -6,7 +6,7 @@ package dispatcher
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/caffix/queue"
@@ -14,16 +14,16 @@ import (
 )
 
 type dis struct {
-	logger    *log.Logger
+	logger    *slog.Logger
 	reg       et.Registry
 	mgr       et.SessionManager
 	done      chan struct{}
 	completed queue.Queue
 }
 
-func NewDispatcher(l *log.Logger, r et.Registry, mgr et.SessionManager) et.Dispatcher {
+func NewDispatcher(l *slog.Logger, r et.Registry, mgr et.SessionManager) et.Dispatcher {
 	if l == nil {
-		l = log.New(os.Stdout, "", log.LstdFlags)
+		l = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	}
 
 	d := &dis{
@@ -67,7 +67,7 @@ func (d *dis) completedCallback(data interface{}) {
 	}
 
 	if err := ede.Error; err != nil {
-		d.logger.Printf("%s: %v", ede.Event.Name, err)
+		d.logger.Error(err.Error(), "event name", ede.Event.Name)
 	}
 	// increment the number of events processed in the session
 	stats := ede.Event.Session.Stats()

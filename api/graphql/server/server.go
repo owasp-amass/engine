@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 
@@ -22,7 +22,7 @@ type Server struct {
 	srv    *http.Server
 }
 
-func NewServer(logger *log.Logger, d et.Dispatcher, mgr et.SessionManager) *Server {
+func NewServer(logger *slog.Logger, d et.Dispatcher, mgr et.SessionManager) *Server {
 	hdr := handler.NewDefaultServer(NewExecutableSchema(Config{
 		Resolvers: &Resolver{
 			Log:        logger,

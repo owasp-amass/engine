@@ -6,7 +6,7 @@ package registry
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 
 	et "github.com/owasp-amass/engine/types"
@@ -15,13 +15,13 @@ import (
 
 type registry struct {
 	sync.RWMutex
-	logger    *log.Logger
+	logger    *slog.Logger
 	handlers  map[string]map[int][]*et.Handler
 	pipelines map[string]*et.AssetPipeline
 }
 
 // Create a new instance of Registry
-func NewRegistry(l *log.Logger) et.Registry {
+func NewRegistry(l *slog.Logger) et.Registry {
 	return &registry{
 		logger:    l,
 		handlers:  make(map[string]map[int][]*et.Handler),
@@ -29,7 +29,7 @@ func NewRegistry(l *log.Logger) et.Registry {
 	}
 }
 
-func (r *registry) Log() *log.Logger {
+func (r *registry) Log() *slog.Logger {
 	return r.logger
 }
 

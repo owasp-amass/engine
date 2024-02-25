@@ -218,7 +218,7 @@ func guessCallback(e *et.Event, name string) {
 	AppendToDBQueue(func() {
 		fqdn, err := g.UpsertFQDN(context.TODO(), name)
 		if err != nil {
-			e.Session.Log().Println(err.Error())
+			e.Session.Log().Error(err.Error())
 			return
 		}
 		if fqdn != nil {

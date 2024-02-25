@@ -5,7 +5,7 @@
 package types
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/google/uuid"
@@ -17,7 +17,7 @@ import (
 
 type Session interface {
 	ID() uuid.UUID
-	Log() *log.Logger
+	Log() *slog.Logger
 	PubSub() *pubsub.Logger
 	Config() *config.Config
 	DB() *assetdb.AssetDB

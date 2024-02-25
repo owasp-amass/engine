@@ -5,13 +5,13 @@ package server
 // It serves as dependency injection for your app, add any dependencies you require here.
 
 import (
-	"log"
+	"log/slog"
 
 	et "github.com/owasp-amass/engine/types"
 )
 
 type Resolver struct {
-	Log        *log.Logger
+	Log        *slog.Logger
 	Manager    et.SessionManager
 	Dispatcher et.Dispatcher
 }

@@ -7,6 +7,7 @@ package dns
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +59,7 @@ func (d *dnsSubs) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.check,
 	}); err != nil {
-		r.Log().Printf("Failed to register the %s: %v", name, err)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 

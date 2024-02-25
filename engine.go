@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,7 +6,7 @@ package engine
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/owasp-amass/engine/api/graphql/server"
@@ -17,16 +17,16 @@ import (
 )
 
 type Engine struct {
-	Log        *log.Logger
+	Log        *slog.Logger
 	Dispatcher et.Dispatcher
 	Registry   et.Registry
 	Manager    et.SessionManager
 	Server     *server.Server
 }
 
-func NewEngine(l *log.Logger) (*Engine, error) {
+func NewEngine(l *slog.Logger) (*Engine, error) {
 	if l == nil {
-		l = log.New(os.Stdout, "", log.Lmicroseconds)
+		l = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	}
 
 	reg := registry.NewRegistry(l)
