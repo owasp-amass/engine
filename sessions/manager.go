@@ -90,6 +90,7 @@ func (r *manager) CancelSession(id uuid.UUID) {
 	}
 
 	r.Lock()
+	r.sessions[id].Cache().Close()
 	delete(r.sessions, id)
 	r.Unlock()
 }

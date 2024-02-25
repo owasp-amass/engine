@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -16,4 +16,5 @@ type Cache interface {
 	GetRelations(r *types.Relation) ([]*types.Relation, bool)
 	GetRelationsByType(rtype string) ([]*types.Relation, bool)
 	SetRelation(r *types.Relation)
+	Close()
 }

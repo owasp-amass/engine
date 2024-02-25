@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -35,6 +35,21 @@ func NewOAMCache(c Cache) Cache {
 		assets:    make(map[string]map[string]*types.Asset),
 		relations: make(map[string]*relations),
 	}
+}
+
+func (c *OAMCache) Close() {
+	c.Lock()
+	defer c.Unlock()
+
+	if c.cache != nil {
+		c.cache.Close()
+	}
+
+	for k := range c.assets {
+		clear(c.assets[k])
+	}
+	clear(c.assets)
+	clear(c.relations)
 }
 
 func (c *OAMCache) GetAsset(a oam.Asset) (*types.Asset, bool) {
