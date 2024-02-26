@@ -8,14 +8,17 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/owasp-amass/engine"
 	"github.com/owasp-amass/engine/plugins"
+	slogsyslog "github.com/samber/slog-syslog/v2"
 )
 
 func main() {
@@ -23,20 +26,7 @@ func main() {
 	flag.StringVar(&logdir, "log-dir", "", "path to the log directory")
 	flag.Parse()
 
-	if logdir != "" {
-		if err := os.MkdirAll(logdir, 0640); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create the log directory: %v", err)
-		}
-	}
-
-	filename := fmt.Sprintf("amass_engine_%s.log", time.Now().Format("2006-01-02T15:04:05"))
-	f, err := os.OpenFile(filepath.Join(logdir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open log file: %v", err)
-	}
-	defer f.Close()
-
-	l := slog.New(slog.NewJSONHandler(f, nil))
+	l := selectLogger(logdir)
 	e, err := engine.NewEngine(l)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start the engine: %v", err)
@@ -59,4 +49,56 @@ func main() {
 	defer signal.Stop(quit)
 	<-quit
 	l.Info("Terminating the collection engine")
+}
+
+func selectLogger(dir string) *slog.Logger {
+	if dir != "" {
+		return setupFileLogger(dir)
+	}
+	if l := setupSyslogLogger(); l != nil {
+		return l
+	}
+	if l := setupFileLogger(""); l != nil {
+		return l
+	}
+	return slog.New(slog.NewTextHandler(os.Stdout, nil))
+}
+
+func setupFileLogger(dir string) *slog.Logger {
+	if dir != "" {
+		if err := os.MkdirAll(dir, 0640); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create the log directory: %v", err)
+		}
+	}
+
+	filename := fmt.Sprintf("amass_engine_%s.log", time.Now().Format("2006-01-02T15:04:05"))
+	f, err := os.OpenFile(filepath.Join(dir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open log file: %v", err)
+	}
+
+	return slog.New(slog.NewJSONHandler(f, nil))
+}
+
+func setupSyslogLogger() *slog.Logger {
+	port := os.Getenv("SYSLOG_PORT")
+	host := strings.ToLower(os.Getenv("SYSLOG_HOST"))
+	transport := strings.ToLower(os.Getenv("SYSLOG_TRANSPORT"))
+
+	if host == "" {
+		return nil
+	}
+	if port == "" {
+		port = "514"
+	}
+	if transport == "" {
+		transport = "udp"
+	}
+
+	writer, err := net.Dial(transport, net.JoinHostPort(host, port))
+	if err != nil {
+		return nil
+	}
+
+	return slog.New(slogsyslog.Option{Level: slog.LevelInfo, Writer: writer}.NewSyslogHandler())
 }
