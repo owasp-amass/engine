@@ -52,14 +52,14 @@ func (r *manager) AddSession(s et.Session) (uuid.UUID, error) {
 		return uuid.UUID{}, nil
 	}
 
-	sess := s.(*session)
-	sess.log = r.logger
-
 	r.Lock()
 	defer r.Unlock()
 
-	id := sess.id
-	r.sessions[id] = sess
+	var id uuid.UUID
+	if sess, ok := s.(*session); ok {
+		id = sess.id
+		r.sessions[id] = sess
+	}
 	// TODO: Need to add the session config checks here (using the Registry)
 	return id, nil
 }

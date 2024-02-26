@@ -1,3 +1,7 @@
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package pubsub
 
 import (
@@ -22,13 +26,20 @@ func NewLogger() *Logger {
 	}
 }
 
-// publish sends a log message to the log channel.
+// Publish sends a log message to the log channel.
 // It ensures that log writes are thread-safe using a mutex.
 func (l *Logger) Publish(msg string) {
-	l.mu.Lock()          // Acquire the mutex lock to ensure exclusive access.
-	defer l.mu.Unlock()  // Release the mutex once done. Using 'defer' guarantees the mutex is released even if there's a panic.
-	l.logChannel <- &msg // Send the log message to the channel.
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.logChannel <- &msg
+}
 
+// Write allows the Logger to be used as a Writer and in structured logging.
+func (l *Logger) Write(p []byte) (n int, err error) {
+	go func() {
+		l.Publish(string(p))
+	}()
+	return len(p), nil
 }
 
 // Subscribe provides a read-only channel to receive log messages.

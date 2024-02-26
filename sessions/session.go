@@ -47,7 +47,6 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 	if cfg == nil {
 		cfg = config.NewConfig()
 	}
-
 	// Create a new session object
 	s := &session{
 		id:    uuid.New(),
@@ -57,11 +56,11 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 		stats: new(et.SessionStats),
 		done:  make(chan struct{}),
 	}
+	s.log = slog.New(slog.NewTextHandler(s.ps, nil)).WithGroup("session").With("id", s.id)
 
 	if err := s.setupDB(); err != nil {
 		return nil, err
 	}
-
 	return s, nil
 }
 

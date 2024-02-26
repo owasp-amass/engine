@@ -67,7 +67,7 @@ func (d *dis) completedCallback(data interface{}) {
 	}
 
 	if err := ede.Error; err != nil {
-		d.logger.Error(err.Error(), "event name", ede.Event.Name)
+		ede.Event.Session.Log().WithGroup("event").With("name", ede.Event.Name).Error(err.Error())
 	}
 	// increment the number of events processed in the session
 	stats := ede.Event.Session.Stats()
@@ -87,7 +87,7 @@ func (d *dis) DispatchEvent(e *et.Event) error {
 	a := e.Asset.Asset
 	// Do not schedule the same asset more than once
 	if p, hit := e.Session.Cache().GetAsset(a); p != nil && hit {
-		return errors.New("this event has been scheduled previously")
+		return errors.New("this event was processed previously")
 	}
 	e.Session.Cache().SetAsset(e.Asset)
 

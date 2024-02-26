@@ -1,8 +1,12 @@
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package client
 
 import (
 	"io"
-	"log"
+	"log/slog"
 	"net/netip"
 	"testing"
 	"time"
@@ -14,7 +18,7 @@ import (
 )
 
 func TestCreateSession(t *testing.T) {
-	l := log.New(io.Discard, "", log.Lmicroseconds)
+	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	e, err := engine.NewEngine(l)
 	if err != nil {
@@ -34,7 +38,7 @@ func TestCreateSession(t *testing.T) {
 }
 
 func TestCreateAsset(t *testing.T) {
-	l := log.New(io.Discard, "", log.Lmicroseconds)
+	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	e, err := engine.NewEngine(l)
 	if err != nil {
@@ -64,7 +68,7 @@ func TestCreateAsset(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
-	l := log.New(io.Discard, "", log.Lmicroseconds)
+	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	e, err := engine.NewEngine(l)
 	if err != nil {

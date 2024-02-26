@@ -1,4 +1,7 @@
-// This is a very simple GraphQL client for testing
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
+// Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
+// SPDX-License-Identifier: Apache-2.0
+
 package client
 
 import (
@@ -201,6 +204,5 @@ func gqlEncoder(data interface{}) string {
 	default:
 		q += fmt.Sprintf("%v", data)
 	}
-
 	return q
 }

@@ -6,7 +6,7 @@ package sessions
 
 import (
 	"io"
-	"log"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,8 +14,7 @@ import (
 )
 
 func TestAddSession(t *testing.T) {
-	l := log.New(io.Discard, "T", log.Lmicroseconds)
-	mgr := NewManager(l)
+	mgr := NewManager(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	defer mgr.Shutdown()
 
 	// Create a new session object

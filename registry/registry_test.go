@@ -1,11 +1,11 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
 package registry
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"testing"
 
@@ -14,7 +14,7 @@ import (
 )
 
 func TestNewRegistry(t *testing.T) {
-	r := NewRegistry(log.New(os.Stdout, "", log.Lmicroseconds))
+	r := NewRegistry(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	if r == nil {
 		t.Error("Registry is nil")
 	}
@@ -25,7 +25,7 @@ func FakeHandler(e *et.Event) error {
 }
 
 func TestRegisterHandler(t *testing.T) {
-	r := NewRegistry(log.New(os.Stdout, "", log.Lmicroseconds))
+	r := NewRegistry(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
 	// Register a handler
 	err := r.RegisterHandler(&et.Handler{

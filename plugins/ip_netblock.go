@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"time"
 
@@ -20,15 +21,19 @@ import (
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 )
 
-type ipNetblock struct{}
+type ipNetblock struct {
+	Name string
+	log  *slog.Logger
+}
 
 func newIPNetblock() et.Plugin {
-	return &ipNetblock{}
+	return &ipNetblock{Name: "IP-Netblock"}
 }
 
 func (d *ipNetblock) Start(r et.Registry) error {
-	name := "IP-Netblock-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "IP-Netblock-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Priority:   4,
@@ -36,9 +41,11 @@ func (d *ipNetblock) Start(r et.Registry) error {
 		EventType:  oam.IPAddress,
 		Callback:   d.lookup,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Started")
 	return nil
 }
 
