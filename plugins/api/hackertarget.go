@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/owasp-amass/engine/net/http"
@@ -19,16 +20,21 @@ import (
 )
 
 type hackerTarget struct {
-	URL string
+	Name string
+	URL  string
+	log  *slog.Logger
 }
 
 func NewHackerTarget() et.Plugin {
 	return &hackerTarget{
-		URL: "https://api.hackertarget.com/hostsearch/?q=",
+		Name: "HackerTarget",
+		URL:  "https://api.hackertarget.com/hostsearch/?q=",
 	}
 }
 
 func (ht *hackerTarget) Start(r et.Registry) error {
+	ht.log = r.Log().WithGroup("plugin").With("name", ht.Name)
+
 	name := "HackerTarget-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
@@ -36,13 +42,17 @@ func (ht *hackerTarget) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   ht.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		ht.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	ht.log.Info("Plugin started")
 	return nil
 }
 
-func (ht *hackerTarget) Stop() {}
+func (ht *hackerTarget) Stop() {
+	ht.log.Info("Plugin stopped")
+}
 
 func (ht *hackerTarget) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

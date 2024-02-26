@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/owasp-amass/engine/net/http"
@@ -18,29 +19,39 @@ import (
 )
 
 type dnsHistory struct {
+	Name   string
 	fmtstr string
+	log    *slog.Logger
 }
 
 func NewDNSHistory() et.Plugin {
-	return &dnsHistory{fmtstr: "https://dnshistory.org/subdomains/%d/%s"}
+	return &dnsHistory{
+		Name:   "DNSHistory",
+		fmtstr: "https://dnshistory.org/subdomains/%d/%s",
+	}
 }
 
 func (d *dnsHistory) Start(r et.Registry) error {
-	name := "DNSHistory-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNSHistory-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   d.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *dnsHistory) Stop() {}
+func (d *dnsHistory) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 func (d *dnsHistory) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

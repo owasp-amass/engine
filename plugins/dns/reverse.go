@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ import (
 )
 
 type dnsReverse struct {
+	Name             string
 	defaultSweepSize int
 	activeSweepSize  int
 	maxSweepSize     int
@@ -34,6 +36,7 @@ type dnsReverse struct {
 	count            int
 	attempts         int
 	filter           *bf.StableBloomFilter
+	log              *slog.Logger
 }
 
 func NewReverse() et.Plugin {
@@ -47,6 +50,7 @@ func NewReverse() et.Plugin {
 
 	attempts := 10000
 	return &dnsReverse{
+		Name:             "DNS-Reverse",
 		defaultSweepSize: 50,
 		activeSweepSize:  100,
 		maxSweepSize:     250,
@@ -57,8 +61,9 @@ func NewReverse() et.Plugin {
 }
 
 func (d *dnsReverse) Start(r et.Registry) error {
-	name := "DNS-Reverse-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNS-Reverse-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     9,
@@ -67,13 +72,17 @@ func (d *dnsReverse) Start(r et.Registry) error {
 		EventType:    oam.IPAddress,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *dnsReverse) Stop() {}
+func (d *dnsReverse) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 func (d *dnsReverse) handler(e *et.Event) error {
 	ip, ok := e.Asset.Asset.(*oamnet.IPAddress)
@@ -126,6 +135,10 @@ func (d *dnsReverse) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
 							FromAsset: ptr,
 							ToAsset:   a,
 						})
+
+						e.Session.Log().Info("relationship discovered", "from",
+							record.Name, "relation", "ptr_record", "to", record.Data,
+							slog.Group("plugin", "name", d.Name, "handler", "DNS-Reverse-Handler"))
 					}
 				}
 			}

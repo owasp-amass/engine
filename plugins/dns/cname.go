@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -22,16 +23,19 @@ import (
 )
 
 type dnsCNAME struct {
+	Name   string
 	dblock sync.Mutex
+	log    *slog.Logger
 }
 
 func NewCNAME() et.Plugin {
-	return &dnsCNAME{}
+	return &dnsCNAME{Name: "DNS-CNAME"}
 }
 
 func (d *dnsCNAME) Start(r et.Registry) error {
-	name := "DNS-CNAME-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNS-CNAME-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     1,
@@ -40,13 +44,17 @@ func (d *dnsCNAME) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *dnsCNAME) Stop() {}
+func (d *dnsCNAME) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 func (d *dnsCNAME) handler(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
@@ -91,6 +99,10 @@ func (d *dnsCNAME) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 					FromAsset: cname,
 					ToAsset:   a,
 				})
+
+				e.Session.Log().Info("relationship discovered", "from",
+					record.Name, "relation", "cname_record", "to", record.Data,
+					slog.Group("plugin", "name", d.Name, "handler", "DNS-CNAME-Handler"))
 			}
 		}
 	}

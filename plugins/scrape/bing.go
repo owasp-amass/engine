@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/owasp-amass/engine/net/http"
@@ -18,29 +19,39 @@ import (
 )
 
 type bing struct {
+	Name   string
 	fmtstr string
+	log    *slog.Logger
 }
 
 func NewBing() et.Plugin {
-	return &bing{fmtstr: "https://www.ask.com/web?o=0&l=dir&qo=pagination&page=%d&q=site:%s -www.%s"}
+	return &bing{
+		Name:   "Bing",
+		fmtstr: "https://www.ask.com/web?o=0&l=dir&qo=pagination&page=%d&q=site:%s -www.%s",
+	}
 }
 
 func (b *bing) Start(r et.Registry) error {
-	name := "Bing-Handler"
+	b.log = r.Log().WithGroup("plugin").With("name", b.Name)
 
+	name := "Bing-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   b.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		b.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	b.log.Info("Plugin started")
 	return nil
 }
 
-func (b *bing) Stop() {}
+func (b *bing) Stop() {
+	b.log.Info("Plugin stopped")
+}
 
 func (b *bing) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

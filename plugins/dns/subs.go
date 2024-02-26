@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -30,13 +31,16 @@ type subsQtypes struct {
 }
 
 type dnsSubs struct {
+	Name  string
 	types []subsQtypes
 	queue queue.Queue
 	done  chan struct{}
+	log   *slog.Logger
 }
 
 func NewSubs() et.Plugin {
 	return &dnsSubs{
+		Name: "DNS-Subdomains",
 		types: []subsQtypes{
 			{Qtype: dns.TypeNS, Rtype: "ns_record"},
 			{Qtype: dns.TypeMX, Rtype: "mx_record"},
@@ -49,8 +53,9 @@ func NewSubs() et.Plugin {
 }
 
 func (d *dnsSubs) Start(r et.Registry) error {
-	name := "DNS-Subdomains-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNS-Subdomains-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     3,
@@ -59,11 +64,12 @@ func (d *dnsSubs) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
 	go d.process()
+	d.log.Info("Plugin started")
 	return nil
 }
 
@@ -74,6 +80,7 @@ func (d *dnsSubs) Stop() {
 	default:
 	}
 	close(d.done)
+	d.log.Info("Plugin stopped")
 }
 
 func (d *dnsSubs) check(e *et.Event) error {
@@ -193,6 +200,9 @@ func (d *dnsSubs) callbackClosure(e *et.Event, rtype string, rr []*resolve.Extra
 						FromAsset: fqdn,
 						ToAsset:   to,
 					})
+					e.Session.Log().Info("relationship discovered", "from",
+						record.Name, "relation", rtype, "to", record.Data,
+						slog.Group("plugin", "name", d.Name, "handler", "DNS-Subdomains-Handler"))
 				}
 			}
 		}

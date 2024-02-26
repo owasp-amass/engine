@@ -7,6 +7,7 @@ package dns
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"unicode"
@@ -19,16 +20,22 @@ import (
 )
 
 type alts struct {
+	Name  string
+	log   *slog.Logger
 	chars string
 }
 
 func NewAlterations() et.Plugin {
-	return &alts{chars: "abcdefghijklmnopqrstuvwxyz0123456789-"}
+	return &alts{
+		Name:  "FQDN-Alterations",
+		chars: "abcdefghijklmnopqrstuvwxyz0123456789-",
+	}
 }
 
 func (d *alts) Start(r et.Registry) error {
-	name := "DNS-Alterations-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNS-Alterations-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     7,
@@ -37,13 +44,17 @@ func (d *alts) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *alts) Stop() {}
+func (d *alts) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 func (d *alts) handler(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

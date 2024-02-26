@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -18,21 +19,28 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
 )
 
 type dnsIP struct {
+	Name    string
 	queries []uint16
 	dblock  sync.Mutex
+	log     *slog.Logger
 }
 
 func NewIP() et.Plugin {
-	return &dnsIP{queries: []uint16{dns.TypeA, dns.TypeAAAA}}
+	return &dnsIP{
+		Name:    "DNS-IP",
+		queries: []uint16{dns.TypeA, dns.TypeAAAA},
+	}
 }
 
 func (d *dnsIP) Start(r et.Registry) error {
-	name := "DNS-IP-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNS-IP-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     2,
@@ -41,13 +49,17 @@ func (d *dnsIP) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *dnsIP) Stop() {}
+func (d *dnsIP) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 func (d *dnsIP) handler(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
@@ -119,4 +131,10 @@ func (d *dnsIP) dispatchAndCache(e *et.Event, name, data string, ip *dbt.Asset, 
 		FromAsset: fqdn,
 		ToAsset:   addr,
 	})
+
+	if a, ok := addr.Asset.(*oamnet.IPAddress); ok {
+		e.Session.Log().Info("relationship discovered", "from",
+			name, "relation", rtype, "to", a.Address.String(),
+			slog.Group("plugin", "name", d.Name, "handler", "DNS-IP-Handler"))
+	}
 }

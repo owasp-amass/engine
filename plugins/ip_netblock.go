@@ -45,11 +45,13 @@ func (d *ipNetblock) Start(r et.Registry) error {
 		return err
 	}
 
-	d.log.Info("Started")
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *ipNetblock) Stop() {}
+func (d *ipNetblock) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 // ipLookup function queries the bgptools whois server using an
 // IP address to retrieve related ASN, netblock, and RIR details.
@@ -105,6 +107,12 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 				FromAsset: nb,
 				ToAsset:   a,
 			})
+
+			if oamas, ok := a.Asset.(*oamnet.AutonomousSystem); ok {
+				e.Session.Log().Info("relationship discovered", "from",
+					netblock.Cidr.String(), "relation", "contains", "to", oamas.Number,
+					slog.Group("plugin", "name", d.Name, "handler", "IP-Netblock-Handler"))
+			}
 		}
 	}
 	return nil
@@ -113,6 +121,7 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 func (d *ipNetblock) reservedAS(e *et.Event, netblock *oamnet.Netblock) {
 	now := time.Now()
 	g := graph.Graph{DB: e.Session.DB()}
+	group := slog.Group("plugin", "name", d.Name, "handler", "IP-Netblock-Handler")
 
 	asn, rir, err := g.UpsertAS(context.TODO(), 0, "Reserved Network Address Blocks")
 	if err != nil || asn == nil || rir == nil {
@@ -129,6 +138,9 @@ func (d *ipNetblock) reservedAS(e *et.Event, netblock *oamnet.Netblock) {
 		ToAsset:   rir,
 	})
 
+	e.Session.Log().Info("relationship discovered", "from", 0, "relation",
+		"managed_by", "to", "Reserved Network Address Blocks", group)
+
 	if nb, err := e.Session.DB().Create(asn, "announces", netblock); err == nil && nb != nil {
 		e.Session.Cache().SetAsset(nb)
 		e.Session.Cache().SetRelation(&dbt.Relation{
@@ -138,5 +150,8 @@ func (d *ipNetblock) reservedAS(e *et.Event, netblock *oamnet.Netblock) {
 			FromAsset: asn,
 			ToAsset:   nb,
 		})
+
+		e.Session.Log().Info("relationship discovered", "from", 0,
+			"relation", "announces", "to", netblock.Cidr.String(), group)
 	}
 }

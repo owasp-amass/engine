@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/caffix/stringset"
@@ -20,16 +21,21 @@ import (
 )
 
 type wayback struct {
-	URL string
+	Name string
+	URL  string
+	log  *slog.Logger
 }
 
 func NewWayback() et.Plugin {
 	return &wayback{
-		URL: "https://web.archive.org/cdx/search/cdx?matchType=domain&fl=original&output=json&collapse=urlkey&url=",
+		Name: "Wayback",
+		URL:  "https://web.archive.org/cdx/search/cdx?matchType=domain&fl=original&output=json&collapse=urlkey&url=",
 	}
 }
 
 func (w *wayback) Start(r et.Registry) error {
+	w.log = r.Log().WithGroup("plugin").With("name", w.Name)
+
 	name := "Wayback-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
@@ -37,13 +43,17 @@ func (w *wayback) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   w.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		w.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	w.log.Info("Plugin started")
 	return nil
 }
 
-func (w *wayback) Stop() {}
+func (w *wayback) Stop() {
+	w.log.Info("Plugin stopped")
+}
 
 func (w *wayback) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

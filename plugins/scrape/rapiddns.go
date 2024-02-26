@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/owasp-amass/engine/net/http"
@@ -18,29 +19,39 @@ import (
 )
 
 type rapidDNS struct {
+	Name   string
 	fmtstr string
+	log    *slog.Logger
 }
 
 func NewRapidDNS() et.Plugin {
-	return &rapidDNS{fmtstr: "https://rapiddns.io/subdomain/%s?full=1"}
+	return &rapidDNS{
+		Name:   "RapidDNS",
+		fmtstr: "https://rapiddns.io/subdomain/%s?full=1",
+	}
 }
 
 func (rd *rapidDNS) Start(r et.Registry) error {
-	name := "RapidDNS-Handler"
+	rd.log = r.Log().WithGroup("plugin").With("name", rd.Name)
 
+	name := "RapidDNS-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   rd.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		rd.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	rd.log.Info("Plugin started")
 	return nil
 }
 
-func (rd *rapidDNS) Stop() {}
+func (rd *rapidDNS) Stop() {
+	rd.log.Info("Plugin stopped")
+}
 
 func (rd *rapidDNS) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

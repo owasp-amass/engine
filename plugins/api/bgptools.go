@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -37,16 +38,23 @@ type row struct {
 }
 
 type bgpTools struct {
+	Name string
 	m    sync.Mutex
 	addr string
 	port int
+	log  *slog.Logger
 }
 
 func NewBGPTools() et.Plugin {
-	return &bgpTools{port: 43}
+	return &bgpTools{
+		Name: "BGPTools",
+		port: 43,
+	}
 }
 
 func (bt *bgpTools) Start(r et.Registry) error {
+	bt.log = r.Log().WithGroup("plugin").With("name", bt.Name)
+
 	rr, err := support.PerformQuery("bgp.tools", dns.TypeA)
 	if err != nil {
 		return fmt.Errorf("failed to obtain the BGPTools IP address: %v", err)
@@ -62,13 +70,17 @@ func (bt *bgpTools) Start(r et.Registry) error {
 		EventType:    oam.IPAddress,
 		Callback:     bt.lookup,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		bt.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	bt.log.Info("Plugin started")
 	return nil
 }
 
-func (bt *bgpTools) Stop() {}
+func (bt *bgpTools) Stop() {
+	bt.log.Info("Plugin stopped")
+}
 
 // lookup function queries the bgptools whois server using an
 // IP address to retrieve related ASN, netblock, and RIR details.
@@ -150,10 +162,12 @@ func (bt *bgpTools) query(ipstr string) ([]string, error) {
 func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, matches *config.Matches) {
 	now := time.Now()
 	var as *dbt.Asset
+	var oamas *oamnet.AutonomousSystem
+	group := slog.Group("plugin", "name", bt.Name, "handler", "BGPTools-IP-Handler")
 
 	if asnstr := record[0]; asnstr != "" {
 		if asn, err := strconv.Atoi(asnstr); err == nil {
-			oamas := &oamnet.AutonomousSystem{Number: asn}
+			oamas = &oamnet.AutonomousSystem{Number: asn}
 
 			if matches.IsMatch("asn") {
 				as, err = e.Session.DB().Create(nil, "", oamas)
@@ -205,6 +219,9 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 						FromAsset: as,
 						ToAsset:   rir,
 					})
+
+					e.Session.Log().Info("relationship discovered",
+						"from", oamas.Number, "relation", rel, "to", desc, group)
 				}
 			}
 		} else {
@@ -251,6 +268,9 @@ func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, 
 							FromAsset: as,
 							ToAsset:   nb,
 						})
+
+						e.Session.Log().Info("relationship discovered",
+							"from", oamas.Number, "relation", rel, "to", cidr, group)
 					}
 				}
 			} else {
@@ -333,6 +353,11 @@ func (bt *bgpTools) submitNetblock(e *et.Event, line *row, as *dbt.Asset) {
 				FromAsset: as,
 				ToAsset:   nb,
 			})
+			if oamas, ok := as.Asset.(*oamnet.AutonomousSystem); ok {
+				e.Session.Log().Info("relationship discovered", "from",
+					oamas.Number, "relation", "announces", "to", line.Netblock,
+					slog.Group("plugin", "name", bt.Name, "handler", "BGPTools-IP-Handler"))
+			}
 		}
 	}
 }

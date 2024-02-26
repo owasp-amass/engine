@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/owasp-amass/engine/net/http"
@@ -18,29 +19,39 @@ import (
 )
 
 type siteDossier struct {
+	Name   string
 	fmtstr string
+	log    *slog.Logger
 }
 
 func NewSiteDossier() et.Plugin {
-	return &siteDossier{fmtstr: "http://www.sitedossier.com/parentdomain/%s/%d"}
+	return &siteDossier{
+		Name:   "SiteDossier",
+		fmtstr: "http://www.sitedossier.com/parentdomain/%s/%d",
+	}
 }
 
 func (sd *siteDossier) Start(r et.Registry) error {
-	name := "SiteDossier-Handler"
+	sd.log = r.Log().WithGroup("plugin").With("name", sd.Name)
 
+	name := "SiteDossier-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   sd.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		sd.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	sd.log.Info("Plugin started")
 	return nil
 }
 
-func (sd *siteDossier) Stop() {}
+func (sd *siteDossier) Stop() {
+	sd.log.Info("Plugin stopped")
+}
 
 func (sd *siteDossier) check(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)

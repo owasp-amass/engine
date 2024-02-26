@@ -7,6 +7,7 @@ package dns
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	dbt "github.com/owasp-amass/asset-db/types"
@@ -16,15 +17,19 @@ import (
 	"github.com/owasp-amass/open-asset-model/domain"
 )
 
-type dnsApex struct{}
+type dnsApex struct {
+	Name string
+	log  *slog.Logger
+}
 
 func NewApex() et.Plugin {
-	return &dnsApex{}
+	return &dnsApex{Name: "DNS-Apex"}
 }
 
 func (d *dnsApex) Start(r et.Registry) error {
-	name := "DNS-NsMx-Handler"
+	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
+	name := "DNS-Apex-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         name,
 		Priority:     9,
@@ -33,13 +38,17 @@ func (d *dnsApex) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.handler,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
+
+	d.log.Info("Plugin started")
 	return nil
 }
 
-func (d *dnsApex) Stop() {}
+func (d *dnsApex) Stop() {
+	d.log.Info("Plugin stopped")
+}
 
 func (d *dnsApex) handler(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
@@ -83,6 +92,12 @@ func (d *dnsApex) handler(e *et.Event) error {
 
 func (d *dnsApex) callbackClosure(e *et.Event, apex *dbt.Asset, fqdn *domain.FQDN) {
 	support.AppendToDBQueue(func() {
-		_, _ = e.Session.DB().Create(apex, "node", fqdn)
+		if _, err := e.Session.DB().Create(apex, "node", fqdn); err == nil {
+			if a, ok := apex.Asset.(*domain.FQDN); ok {
+				e.Session.Log().Info("relationship discovered", "from",
+					a.Name, "relation", "node", "to", fqdn.Name,
+					slog.Group("plugin", "name", d.Name, "handler", "DNS-Apex-Handler"))
+			}
+		}
 	})
 }
