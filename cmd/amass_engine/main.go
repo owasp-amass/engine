@@ -18,6 +18,7 @@ import (
 
 	"github.com/owasp-amass/engine"
 	"github.com/owasp-amass/engine/plugins"
+	slogcommon "github.com/samber/slog-common"
 	slogsyslog "github.com/samber/slog-syslog/v2"
 )
 
@@ -100,5 +101,20 @@ func setupSyslogLogger() *slog.Logger {
 		return nil
 	}
 
-	return slog.New(slogsyslog.Option{Level: slog.LevelInfo, Writer: writer}.NewSyslogHandler())
+	return slog.New(slogsyslog.Option{
+		Level:     slog.LevelInfo,
+		Converter: syslogConverter,
+		Writer:    writer,
+	}.NewSyslogHandler())
+}
+
+func syslogConverter(addSource bool, replaceAttr func(groups []string, a slog.Attr) slog.Attr, loggerAttr []slog.Attr, groups []string, record *slog.Record) map[string]any {
+	attrs := slogcommon.AppendRecordAttrsToAttrs(loggerAttr, groups, record)
+	attrs = slogcommon.ReplaceAttrs(replaceAttr, []string{}, attrs...)
+
+	return map[string]any{
+		"level":      record.Level.String(),
+		"message":    record.Message,
+		"attributes": slogcommon.AttrsToMap(attrs...),
+	}
 }
