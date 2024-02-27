@@ -29,7 +29,10 @@ require (
 	gorm.io/gorm v1.25.7
 )
 
-require github.com/samber/slog-syslog/v2 v2.2.0
+require (
+	github.com/samber/slog-common v0.14.0
+	github.com/samber/slog-syslog/v2 v2.2.0
+)
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
@@ -80,7 +83,6 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.38.1 // indirect
-	github.com/samber/slog-common v0.14.0 // indirect
 	github.com/sosodev/duration v1.2.0 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	go.uber.org/ratelimit v0.3.0 // indirect
