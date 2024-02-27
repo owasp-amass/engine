@@ -56,7 +56,7 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 		stats: new(et.SessionStats),
 		done:  make(chan struct{}),
 	}
-	s.log = slog.New(slog.NewTextHandler(s.ps, nil)).With("session", s.id)
+	s.log = slog.New(slog.NewJSONHandler(s.ps, nil)).With("session", s.id)
 
 	if err := s.setupDB(); err != nil {
 		return nil, err
