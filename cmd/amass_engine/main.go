@@ -113,8 +113,8 @@ func syslogConverter(addSource bool, replaceAttr func(groups []string, a slog.At
 	attrs = slogcommon.ReplaceAttrs(replaceAttr, []string{}, attrs...)
 
 	return map[string]any{
-		"level":      record.Level.String(),
-		"message":    record.Message,
-		"attributes": slogcommon.AttrsToMap(attrs...),
+		"level":   record.Level.String(),
+		"message": record.Message,
+		"attrs":   slogcommon.AttrsToMap(attrs...),
 	}
 }
