@@ -75,7 +75,8 @@ func setupFileLogger(dir string) *slog.Logger {
 	filename := fmt.Sprintf("amass_engine_%s.log", time.Now().Format("2006-01-02T15:04:05"))
 	f, err := os.OpenFile(filepath.Join(dir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open log file: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to open the log file: %v", err)
+		return nil
 	}
 
 	return slog.New(slog.NewJSONHandler(f, nil))
@@ -98,6 +99,7 @@ func setupSyslogLogger() *slog.Logger {
 
 	writer, err := net.Dial(transport, net.JoinHostPort(host, port))
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create the connection to the log server: %v", err)
 		return nil
 	}
 
