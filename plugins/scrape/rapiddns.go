@@ -16,18 +16,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type rapidDNS struct {
 	Name   string
 	fmtstr string
 	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewRapidDNS() et.Plugin {
 	return &rapidDNS{
 		Name:   "RapidDNS",
 		fmtstr: "https://rapiddns.io/subdomain/%s?full=1",
+		rlimit: ratelimit.New(5, ratelimit.WithoutSlack),
 	}
 }
 
@@ -72,6 +75,7 @@ func (rd *rapidDNS) check(e *et.Event) error {
 		return nil
 	}
 
+	rd.rlimit.Take()
 	body, err := rd.query(domlt)
 	if err != nil {
 		return err

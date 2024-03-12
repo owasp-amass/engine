@@ -16,18 +16,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type duckDuckGo struct {
 	Name   string
 	fmtstr string
 	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewDuckDuckGo() et.Plugin {
 	return &duckDuckGo{
 		Name:   "DuckDuckGo",
 		fmtstr: "https://html.duckduckgo.com/html/?q=site:%s -site:www.%s",
+		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
@@ -72,6 +75,7 @@ func (d *duckDuckGo) check(e *et.Event) error {
 		return nil
 	}
 
+	d.rlimit.Take()
 	if body, err := d.query(domlt); err == nil {
 		d.process(e, body)
 	}

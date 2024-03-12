@@ -16,18 +16,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type dnsHistory struct {
 	Name   string
 	fmtstr string
 	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewDNSHistory() et.Plugin {
 	return &dnsHistory{
 		Name:   "DNSHistory",
 		fmtstr: "https://dnshistory.org/subdomains/%d/%s",
+		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
@@ -73,6 +76,7 @@ func (d *dnsHistory) check(e *et.Event) error {
 	}
 
 	for i := 1; i < 20; i++ {
+		d.rlimit.Take()
 		if body, err := d.query(domlt, i); err == nil {
 			d.process(e, body)
 		}

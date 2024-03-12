@@ -17,18 +17,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type hackerTarget struct {
-	Name string
-	URL  string
-	log  *slog.Logger
+	Name   string
+	URL    string
+	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewHackerTarget() et.Plugin {
 	return &hackerTarget{
-		Name: "HackerTarget",
-		URL:  "https://api.hackertarget.com/hostsearch/?q=",
+		Name:   "HackerTarget",
+		URL:    "https://api.hackertarget.com/hostsearch/?q=",
+		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
@@ -73,6 +76,7 @@ func (ht *hackerTarget) check(e *et.Event) error {
 		return nil
 	}
 
+	ht.rlimit.Take()
 	records, err := ht.query(domlt)
 	if err != nil {
 		return err

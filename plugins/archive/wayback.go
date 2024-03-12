@@ -18,18 +18,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type wayback struct {
-	Name string
-	URL  string
-	log  *slog.Logger
+	Name   string
+	URL    string
+	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewWayback() et.Plugin {
 	return &wayback{
-		Name: "Wayback",
-		URL:  "https://web.archive.org/cdx/search/cdx?matchType=domain&fl=original&output=json&collapse=urlkey&url=",
+		Name:   "Wayback",
+		URL:    "https://web.archive.org/cdx/search/cdx?matchType=domain&fl=original&output=json&collapse=urlkey&url=",
+		rlimit: ratelimit.New(5, ratelimit.WithoutSlack),
 	}
 }
 
@@ -74,6 +77,7 @@ func (w *wayback) check(e *et.Event) error {
 		return nil
 	}
 
+	w.rlimit.Take()
 	records, err := w.query(domlt)
 	if err != nil {
 		return err

@@ -30,6 +30,7 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
+	"go.uber.org/ratelimit"
 )
 
 type row struct {
@@ -38,17 +39,19 @@ type row struct {
 }
 
 type bgpTools struct {
-	Name string
-	m    sync.Mutex
-	addr string
-	port int
-	log  *slog.Logger
+	Name   string
+	m      sync.Mutex
+	addr   string
+	port   int
+	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewBGPTools() et.Plugin {
 	return &bgpTools{
-		Name: "BGPTools",
-		port: 43,
+		Name:   "BGPTools",
+		port:   43,
+		rlimit: ratelimit.New(1, ratelimit.WithoutSlack),
 	}
 }
 
@@ -121,9 +124,10 @@ func (bt *bgpTools) lookup(e *et.Event) error {
 	}
 	bt.m.Unlock()
 
+	bt.rlimit.Take()
 	record, err := bt.query(ipstr)
 	if err == nil {
-		bt.process(e, ip, record, matches)
+		bt.process(e, record, matches)
 	}
 	return err
 }
@@ -159,7 +163,7 @@ func (bt *bgpTools) query(ipstr string) ([]string, error) {
 	return results, nil
 }
 
-func (bt *bgpTools) process(e *et.Event, ip *oamnet.IPAddress, record []string, matches *config.Matches) {
+func (bt *bgpTools) process(e *et.Event, record []string, matches *config.Matches) {
 	now := time.Now()
 	var as *dbt.Asset
 	var oamas *oamnet.AutonomousSystem

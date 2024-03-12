@@ -16,18 +16,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type bing struct {
 	Name   string
 	fmtstr string
 	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewBing() et.Plugin {
 	return &bing{
 		Name:   "Bing",
 		fmtstr: "https://www.ask.com/web?o=0&l=dir&qo=pagination&page=%d&q=site:%s -www.%s",
+		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
@@ -73,6 +76,7 @@ func (b *bing) check(e *et.Event) error {
 	}
 
 	for i := 1; i < 10; i++ {
+		b.rlimit.Take()
 		if body, err := b.query(domlt, i); err == nil {
 			b.process(e, body)
 		}

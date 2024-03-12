@@ -16,18 +16,21 @@ import (
 	et "github.com/owasp-amass/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
+	"go.uber.org/ratelimit"
 )
 
 type siteDossier struct {
 	Name   string
 	fmtstr string
 	log    *slog.Logger
+	rlimit ratelimit.Limiter
 }
 
 func NewSiteDossier() et.Plugin {
 	return &siteDossier{
 		Name:   "SiteDossier",
 		fmtstr: "http://www.sitedossier.com/parentdomain/%s/%d",
+		rlimit: ratelimit.New(4, ratelimit.WithoutSlack),
 	}
 }
 
@@ -73,6 +76,7 @@ func (sd *siteDossier) check(e *et.Event) error {
 	}
 
 	for i := 1; i < 20; i++ {
+		sd.rlimit.Take()
 		if body, err := sd.query(domlt, i); err == nil {
 			sd.process(e, body)
 		}
