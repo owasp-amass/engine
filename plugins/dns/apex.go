@@ -6,48 +6,18 @@ package dns
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 
 	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 )
 
 type dnsApex struct {
 	Name string
 	log  *slog.Logger
-}
-
-func NewApex() et.Plugin {
-	return &dnsApex{Name: "DNS-Apex"}
-}
-
-func (d *dnsApex) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
-
-	name := "DNS-Apex-Handler"
-	if err := r.RegisterHandler(&et.Handler{
-		Name:         name,
-		Priority:     9,
-		MaxInstances: support.NumTrustedResolvers() * 2,
-		Transforms:   []string{"fqdn"},
-		EventType:    oam.FQDN,
-		Callback:     d.handler,
-	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
-		return err
-	}
-
-	d.log.Info("Plugin started")
-	return nil
-}
-
-func (d *dnsApex) Stop() {
-	d.log.Info("Plugin stopped")
 }
 
 func (d *dnsApex) handler(e *et.Event) error {

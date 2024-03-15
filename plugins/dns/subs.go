@@ -7,7 +7,6 @@ package dns
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -19,7 +18,6 @@ import (
 	"github.com/owasp-amass/engine/graph"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	"github.com/owasp-amass/resolve"
 	"golang.org/x/net/publicsuffix"
@@ -38,7 +36,7 @@ type dnsSubs struct {
 	log   *slog.Logger
 }
 
-func NewSubs() et.Plugin {
+func NewSubs(l *slog.Logger) *dnsSubs {
 	return &dnsSubs{
 		Name: "DNS-Subdomains",
 		types: []subsQtypes{
@@ -49,28 +47,8 @@ func NewSubs() et.Plugin {
 		},
 		queue: queue.NewQueue(),
 		done:  make(chan struct{}),
+		log:   l,
 	}
-}
-
-func (d *dnsSubs) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
-
-	name := "DNS-Subdomains-Handler"
-	if err := r.RegisterHandler(&et.Handler{
-		Name:         name,
-		Priority:     3,
-		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{"fqdn"},
-		EventType:    oam.FQDN,
-		Callback:     d.check,
-	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
-		return err
-	}
-
-	go d.process()
-	d.log.Info("Plugin started")
-	return nil
 }
 
 func (d *dnsSubs) Stop() {
@@ -80,7 +58,6 @@ func (d *dnsSubs) Stop() {
 	default:
 	}
 	close(d.done)
-	d.log.Info("Plugin stopped")
 }
 
 func (d *dnsSubs) check(e *et.Event) error {

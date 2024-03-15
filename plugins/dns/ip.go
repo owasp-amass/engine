@@ -7,7 +7,6 @@ package dns
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/owasp-amass/engine/graph"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
@@ -28,37 +26,6 @@ type dnsIP struct {
 	queries []uint16
 	dblock  sync.Mutex
 	log     *slog.Logger
-}
-
-func NewIP() et.Plugin {
-	return &dnsIP{
-		Name:    "DNS-IP",
-		queries: []uint16{dns.TypeA, dns.TypeAAAA},
-	}
-}
-
-func (d *dnsIP) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
-
-	name := "DNS-IP-Handler"
-	if err := r.RegisterHandler(&et.Handler{
-		Name:         name,
-		Priority:     2,
-		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{"ipaddress"},
-		EventType:    oam.FQDN,
-		Callback:     d.handler,
-	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
-		return err
-	}
-
-	d.log.Info("Plugin started")
-	return nil
-}
-
-func (d *dnsIP) Stop() {
-	d.log.Info("Plugin stopped")
 }
 
 func (d *dnsIP) handler(e *et.Event) error {

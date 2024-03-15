@@ -6,7 +6,6 @@ package dns
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"github.com/caffix/stringset"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 )
 
@@ -25,35 +23,12 @@ type alts struct {
 	chars string
 }
 
-func NewAlterations() et.Plugin {
+func NewAlterations(l *slog.Logger) *alts {
 	return &alts{
-		Name:  "FQDN-Alterations",
+		Name:  "DNS-Alterations",
+		log:   l,
 		chars: "abcdefghijklmnopqrstuvwxyz0123456789-",
 	}
-}
-
-func (d *alts) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
-
-	name := "DNS-Alterations-Handler"
-	if err := r.RegisterHandler(&et.Handler{
-		Name:         name,
-		Priority:     7,
-		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{"fqdn"},
-		EventType:    oam.FQDN,
-		Callback:     d.handler,
-	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
-		return err
-	}
-
-	d.log.Info("Plugin started")
-	return nil
-}
-
-func (d *alts) Stop() {
-	d.log.Info("Plugin stopped")
 }
 
 func (d *alts) handler(e *et.Event) error {

@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2023. All rights reserved.
+// Copyright © by Jeff Foley 2023-2024. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,15 +13,11 @@ import (
 )
 
 var pluginStartFuncs = []func() et.Plugin{
+	api.NewChaos,
 	api.NewHackerTarget,
 	api.NewBGPTools,
 	archive.NewWayback,
-	dns.NewCNAME,
-	dns.NewIP,
-	dns.NewSubs,
-	dns.NewAlterations,
-	dns.NewReverse,
-	dns.NewApex,
+	dns.NewDNS,
 	scrape.NewBing,
 	scrape.NewDNSHistory,
 	scrape.NewDuckDuckGo,

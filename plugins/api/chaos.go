@@ -35,25 +35,25 @@ func NewChaos() et.Plugin {
 }
 
 func (c *chaos) Start(r et.Registry) error {
-	ht.log = r.Log().WithGroup("plugin").With("name", c.Name)
+	c.log = r.Log().WithGroup("plugin").With("name", c.Name)
 
 	name := "HackerTarget-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
-		Callback:   ht.check,
+		Callback:   c.check,
 	}); err != nil {
-		ht.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		c.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
-	ht.log.Info("Plugin started")
+	c.log.Info("Plugin started")
 	return nil
 }
 
 func (c *chaos) Stop() {
-	ht.log.Info("Plugin stopped")
+	c.log.Info("Plugin stopped")
 }
 
 func (c *chaos) check(e *et.Event) error {

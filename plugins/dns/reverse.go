@@ -7,7 +7,6 @@ package dns
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"sync"
@@ -19,7 +18,6 @@ import (
 	amassnet "github.com/owasp-amass/engine/net"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/domain"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	"github.com/owasp-amass/resolve"
@@ -39,7 +37,7 @@ type dnsReverse struct {
 	log              *slog.Logger
 }
 
-func NewReverse() et.Plugin {
+func NewReverse(l *slog.Logger) *dnsReverse {
 	var r chan struct{}
 	if max := support.MaxHandlerInstances; max > 0 {
 		r = make(chan struct{}, max)
@@ -57,31 +55,8 @@ func NewReverse() et.Plugin {
 		release:          r,
 		attempts:         attempts,
 		filter:           bf.NewDefaultStableBloomFilter(uint(attempts), 0.01),
+		log:              l,
 	}
-}
-
-func (d *dnsReverse) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
-
-	name := "DNS-Reverse-Handler"
-	if err := r.RegisterHandler(&et.Handler{
-		Name:         name,
-		Priority:     9,
-		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{"fqdn"},
-		EventType:    oam.IPAddress,
-		Callback:     d.handler,
-	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
-		return err
-	}
-
-	d.log.Info("Plugin started")
-	return nil
-}
-
-func (d *dnsReverse) Stop() {
-	d.log.Info("Plugin stopped")
 }
 
 func (d *dnsReverse) handler(e *et.Event) error {
