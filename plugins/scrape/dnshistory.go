@@ -67,7 +67,7 @@ func (d *dnsHistory) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "sitedossier")
+	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "dnshistory")
 	if err != nil {
 		return err
 	}

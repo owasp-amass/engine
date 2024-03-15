@@ -67,7 +67,7 @@ func (d *duckDuckGo) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "sitedossier")
+	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "duckduckgo")
 	if err != nil {
 		return err
 	}
