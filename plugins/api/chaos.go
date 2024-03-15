@@ -87,13 +87,15 @@ func (c *chaos) check(e *et.Event) error {
 		}
 
 		c.rlimit.Take()
-		if r, err := c.query(domlt, cr.Apikey); err != nil {
+		if r, err := c.query(domlt, cr.Apikey); err == nil {
 			body = r
 			break
 		}
 	}
 
-	c.process(e, domlt, body)
+	if body != "" {
+		c.process(e, domlt, body)
+	}
 	return nil
 }
 
