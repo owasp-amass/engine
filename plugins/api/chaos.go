@@ -37,7 +37,7 @@ func NewChaos() et.Plugin {
 func (c *chaos) Start(r et.Registry) error {
 	c.log = r.Log().WithGroup("plugin").With("name", c.Name)
 
-	name := "HackerTarget-Handler"
+	name := "Chaos-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
