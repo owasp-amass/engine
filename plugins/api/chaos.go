@@ -87,10 +87,14 @@ func (c *chaos) check(e *et.Event) error {
 		}
 
 		c.rlimit.Take()
-		if r, err := c.query(domlt, cr.Apikey); err == nil {
+		r, err := c.query(domlt, cr.Apikey)
+		if err == nil {
 			body = r
 			break
 		}
+
+		n := c.Name + "-Handler"
+		c.log.Error(fmt.Sprintf("Failed to use the API endpoint: %v", err), "handler", n)
 	}
 
 	if body != "" {
@@ -105,7 +109,7 @@ func (c *chaos) query(domain, key string) (string, error) {
 		Header: map[string]string{"Authorization": key},
 	})
 	if err != nil {
-		return "", fmt.Errorf("error fetching URL: %w", err)
+		return "", err
 	}
 	return resp.Body, nil
 }
