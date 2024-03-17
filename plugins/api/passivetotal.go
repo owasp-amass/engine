@@ -141,7 +141,6 @@ func (pt *passiveTotal) process(e *et.Event, domain, body string) string {
 	for _, sub := range result.Subdomains {
 		fqdn := dns.RemoveAsteriskLabel(http.CleanName(sub + "." + domain))
 		// if the subdomain is not in scope, skip it
-		fmt.Println(fqdn)
 		if fqdn != "" && e.Session.Config().IsDomainInScope(fqdn) {
 			support.SubmitFQDNGuess(e, fqdn)
 		}
