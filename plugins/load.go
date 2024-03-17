@@ -17,6 +17,7 @@ var pluginStartFuncs = []func() et.Plugin{
 	api.NewHackerTarget,
 	api.NewBGPTools,
 	api.NewLeakIX,
+	api.NewPassiveTotal,
 	api.NewSecurityTrails,
 	api.NewVirusTotal,
 	archive.NewWayback,

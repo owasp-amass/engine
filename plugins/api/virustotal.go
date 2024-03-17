@@ -37,14 +37,15 @@ func NewVirusTotal() et.Plugin {
 func (vt *virusTotal) Start(r et.Registry) error {
 	vt.log = r.Log().WithGroup("plugin").With("name", vt.Name)
 
-	name := "VirusTotal-Handler"
+	name := vt.Name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   vt.check,
 	}); err != nil {
-		vt.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", vt.Name, "handler", name))
 		return err
 	}
 
@@ -93,8 +94,8 @@ func (vt *virusTotal) check(e *et.Event) error {
 			break
 		}
 
-		n := vt.Name + "-Handler"
-		vt.log.Error(fmt.Sprintf("Failed to use the API endpoint: %v", err), "handler", n)
+		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
+			slog.Group("plugin", "name", vt.Name, "handler", vt.Name+"-Handler"))
 	}
 
 	if body != "" {

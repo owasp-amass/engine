@@ -45,7 +45,8 @@ func (ht *hackerTarget) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   ht.check,
 	}); err != nil {
-		ht.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", ht.Name, "handler", name))
 		return err
 	}
 
@@ -89,7 +90,7 @@ func (ht *hackerTarget) check(e *et.Event) error {
 func (ht *hackerTarget) query(name string) ([][]string, error) {
 	resp, err := http.RequestWebPage(context.TODO(), &http.Request{URL: ht.URL + name})
 	if err != nil {
-		return nil, fmt.Errorf("error fetching URL: %w", err)
+		return nil, err
 	}
 
 	return csv.NewReader(strings.NewReader(resp.Body)).ReadAll()

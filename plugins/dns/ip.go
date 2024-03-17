@@ -25,7 +25,7 @@ type dnsIP struct {
 	Name    string
 	queries []uint16
 	dblock  sync.Mutex
-	log     *slog.Logger
+	plugin  *dnsPlugin
 }
 
 func (d *dnsIP) handler(e *et.Event) error {
@@ -102,6 +102,6 @@ func (d *dnsIP) dispatchAndCache(e *et.Event, name, data string, ip *dbt.Asset, 
 	if a, ok := addr.Asset.(*oamnet.IPAddress); ok {
 		e.Session.Log().Info("relationship discovered", "from",
 			name, "relation", rtype, "to", a.Address.String(),
-			slog.Group("plugin", "name", d.Name, "handler", "DNS-IP-Handler"))
+			slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
 	}
 }

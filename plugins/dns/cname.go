@@ -23,7 +23,7 @@ import (
 type dnsCNAME struct {
 	Name   string
 	dblock sync.Mutex
-	log    *slog.Logger
+	plugin *dnsPlugin
 }
 
 func (d *dnsCNAME) handler(e *et.Event) error {
@@ -72,7 +72,7 @@ func (d *dnsCNAME) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 
 				e.Session.Log().Info("relationship discovered", "from",
 					record.Name, "relation", "cname_record", "to", record.Data,
-					slog.Group("plugin", "name", d.Name, "handler", "DNS-CNAME-Handler"))
+					slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
 			}
 		}
 	}

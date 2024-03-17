@@ -34,10 +34,10 @@ type dnsReverse struct {
 	count            int
 	attempts         int
 	filter           *bf.StableBloomFilter
-	log              *slog.Logger
+	plugin           *dnsPlugin
 }
 
-func NewReverse(l *slog.Logger) *dnsReverse {
+func NewReverse(p *dnsPlugin) *dnsReverse {
 	var r chan struct{}
 	if max := support.MaxHandlerInstances; max > 0 {
 		r = make(chan struct{}, max)
@@ -55,7 +55,7 @@ func NewReverse(l *slog.Logger) *dnsReverse {
 		release:          r,
 		attempts:         attempts,
 		filter:           bf.NewDefaultStableBloomFilter(uint(attempts), 0.01),
-		log:              l,
+		plugin:           p,
 	}
 }
 
@@ -113,7 +113,7 @@ func (d *dnsReverse) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
 
 						e.Session.Log().Info("relationship discovered", "from",
 							record.Name, "relation", "ptr_record", "to", record.Data,
-							slog.Group("plugin", "name", d.Name, "handler", "DNS-Reverse-Handler"))
+							slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
 					}
 				}
 			}

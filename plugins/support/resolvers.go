@@ -134,7 +134,7 @@ func PerformQuery(name string, qtype uint16) ([]*resolve.ExtractedAnswer, error)
 	}
 
 	resp, err := dnsQuery(msg, trusted, 50)
-	if err == nil && resp != nil && !wildcardDetected(resp) {
+	if err == nil && resp != nil && !wildcardDetected(resp, trusted) {
 		if ans := resolve.ExtractAnswers(resp); len(ans) > 0 {
 			if rr := resolve.AnswersByType(ans, qtype); len(rr) > 0 {
 				return normalize(rr), nil
@@ -151,7 +151,7 @@ func PerformUntrustedQuery(name string, qtype uint16) ([]*resolve.ExtractedAnswe
 	}
 
 	resp, err := dnsQuery(msg, untrusted, 50)
-	if err == nil && resp != nil {
+	if err == nil && resp != nil && !wildcardDetected(resp, untrusted) {
 		if ans := resolve.ExtractAnswers(resp); len(ans) > 0 {
 			if rr := resolve.AnswersByType(ans, qtype); len(rr) > 0 {
 				return normalize(rr), nil
@@ -204,9 +204,7 @@ func guessAttempt(e *et.Event, name string, ch chan struct{}) {
 	}
 
 	for _, qtype := range []uint16{dns.TypeCNAME, dns.TypeA, dns.TypeAAAA} {
-		msg := resolve.QueryMsg(name, qtype)
-
-		if resp, err := dnsQuery(msg, untrusted, 50); err == nil && resp != nil {
+		if ans, err := PerformUntrustedQuery(name, qtype); err == nil && ans != nil {
 			guessCallback(e, name)
 		}
 	}
@@ -231,11 +229,11 @@ func guessCallback(e *et.Event, name string) {
 	})
 }
 
-func wildcardDetected(resp *dns.Msg) bool {
+func wildcardDetected(resp *dns.Msg, r *resolve.Resolvers) bool {
 	name := strings.ToLower(resolve.RemoveLastDot(resp.Question[0].Name))
 
 	if dom, err := publicsuffix.EffectiveTLDPlusOne(name); err == nil && dom != "" {
-		return trusted.WildcardDetected(context.TODO(), resp, dom)
+		return r.WildcardDetected(context.TODO(), resp, dom)
 	}
 	return false
 }
@@ -283,8 +281,8 @@ func trustedResolvers() (*resolve.Resolvers, int) {
 		for _, r := range blr {
 			_ = pool.AddResolvers(r.qps, r.address)
 		}
-		pool.SetDetectionResolver(50, "8.8.8.8")
 		pool.SetTimeout(3 * time.Second)
+		pool.SetDetectionResolver(50, "8.8.8.8")
 		return pool, pool.Len()
 	}
 	return nil, 0
@@ -304,6 +302,7 @@ func untrustedResolvers() (*resolve.Resolvers, int) {
 	if pool := resolve.NewResolvers(); pool != nil {
 		_ = pool.AddResolvers(queriesPerPublicResolver, resolvers...)
 		pool.SetTimeout(5 * time.Second)
+		pool.SetDetectionResolver(50, "8.8.8.8")
 		pool.SetThresholdOptions(&resolve.ThresholdOptions{
 			ThresholdValue:      20,
 			CountTimeouts:       true,

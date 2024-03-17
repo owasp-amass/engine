@@ -32,7 +32,7 @@ func NewDNS() et.Plugin {
 func (d *dnsPlugin) Start(r et.Registry) error {
 	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
 
-	d.alts = NewAlterations(d.log)
+	d.alts = NewAlterations(d)
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         d.alts.Name,
 		Priority:     7,
@@ -41,11 +41,12 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.alts.handler,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", d.alts.Name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", d.Name, "handler", d.alts.Name))
 		return err
 	}
 
-	d.apex = &dnsApex{Name: "DNS-Apex", log: d.log}
+	d.apex = &dnsApex{Name: "DNS-Apex", plugin: d}
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         d.apex.Name,
 		Priority:     9,
@@ -54,11 +55,12 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.apex.handler,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", d.apex.Name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", d.Name, "handler", d.apex.Name))
 		return err
 	}
 
-	d.cname = &dnsCNAME{Name: "DNS-CNAME", log: d.log}
+	d.cname = &dnsCNAME{Name: "DNS-CNAME", plugin: d}
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         d.cname.Name,
 		Priority:     1,
@@ -67,14 +69,15 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.cname.handler,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", d.cname.Name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", d.Name, "handler", d.cname.Name))
 		return err
 	}
 
 	d.ip = &dnsIP{
 		Name:    "DNS-IP",
 		queries: []uint16{dns.TypeA, dns.TypeAAAA},
-		log:     d.log,
+		plugin:  d,
 	}
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         d.ip.Name,
@@ -84,11 +87,12 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.ip.handler,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", d.ip.Name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", d.Name, "handler", d.ip.Name))
 		return err
 	}
 
-	d.reverse = NewReverse(d.log)
+	d.reverse = NewReverse(d)
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         d.reverse.Name,
 		Priority:     9,
@@ -97,11 +101,12 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		EventType:    oam.IPAddress,
 		Callback:     d.reverse.handler,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", d.reverse.Name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", d.Name, "handler", d.reverse.Name))
 		return err
 	}
 
-	d.subs = NewSubs(d.log)
+	d.subs = NewSubs(d)
 	if err := r.RegisterHandler(&et.Handler{
 		Name:         d.subs.Name,
 		Priority:     3,
@@ -110,7 +115,8 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		EventType:    oam.FQDN,
 		Callback:     d.subs.check,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", d.subs.Name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", d.Name, "handler", d.subs.Name))
 		return err
 	}
 	go d.subs.process()

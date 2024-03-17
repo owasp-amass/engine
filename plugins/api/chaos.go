@@ -44,7 +44,8 @@ func (c *chaos) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   c.check,
 	}); err != nil {
-		c.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", c.Name, "handler", name))
 		return err
 	}
 
@@ -93,8 +94,8 @@ func (c *chaos) check(e *et.Event) error {
 			break
 		}
 
-		n := c.Name + "-Handler"
-		c.log.Error(fmt.Sprintf("Failed to use the API endpoint: %v", err), "handler", n)
+		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
+			slog.Group("plugin", "name", c.Name, "handler", c.Name+"-Handler"))
 	}
 
 	if body != "" {

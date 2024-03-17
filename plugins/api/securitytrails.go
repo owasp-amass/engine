@@ -44,7 +44,8 @@ func (st *securityTrails) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   st.check,
 	}); err != nil {
-		st.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", st.Name, "handler", name))
 		return err
 	}
 
@@ -93,8 +94,8 @@ func (st *securityTrails) check(e *et.Event) error {
 			break
 		}
 
-		n := st.Name + "-Handler"
-		st.log.Error(fmt.Sprintf("Failed to use the API endpoint: %v", err), "handler", n)
+		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
+			slog.Group("plugin", "name", st.Name, "handler", st.Name+"-Handler"))
 	}
 
 	if body != "" {

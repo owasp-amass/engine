@@ -16,8 +16,8 @@ import (
 )
 
 type dnsApex struct {
-	Name string
-	log  *slog.Logger
+	Name   string
+	plugin *dnsPlugin
 }
 
 func (d *dnsApex) handler(e *et.Event) error {
@@ -66,7 +66,7 @@ func (d *dnsApex) callbackClosure(e *et.Event, apex *dbt.Asset, fqdn *domain.FQD
 			if a, ok := apex.Asset.(*domain.FQDN); ok {
 				e.Session.Log().Info("relationship discovered", "from",
 					a.Name, "relation", "node", "to", fqdn.Name,
-					slog.Group("plugin", "name", d.Name, "handler", "DNS-Apex-Handler"))
+					slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
 			}
 		}
 	})

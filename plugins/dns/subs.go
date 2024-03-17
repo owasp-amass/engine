@@ -29,14 +29,14 @@ type subsQtypes struct {
 }
 
 type dnsSubs struct {
-	Name  string
-	types []subsQtypes
-	queue queue.Queue
-	done  chan struct{}
-	log   *slog.Logger
+	Name   string
+	types  []subsQtypes
+	queue  queue.Queue
+	done   chan struct{}
+	plugin *dnsPlugin
 }
 
-func NewSubs(l *slog.Logger) *dnsSubs {
+func NewSubs(p *dnsPlugin) *dnsSubs {
 	return &dnsSubs{
 		Name: "DNS-Subdomains",
 		types: []subsQtypes{
@@ -45,9 +45,9 @@ func NewSubs(l *slog.Logger) *dnsSubs {
 			//{Qtype: dns.TypeSOA, Rtype: "soa_record"},
 			//{Qtype: dns.TypeSPF, Rtype: "spf_record"},
 		},
-		queue: queue.NewQueue(),
-		done:  make(chan struct{}),
-		log:   l,
+		queue:  queue.NewQueue(),
+		done:   make(chan struct{}),
+		plugin: p,
 	}
 }
 
@@ -179,7 +179,7 @@ func (d *dnsSubs) callbackClosure(e *et.Event, rtype string, rr []*resolve.Extra
 					})
 					e.Session.Log().Info("relationship discovered", "from",
 						record.Name, "relation", rtype, "to", record.Data,
-						slog.Group("plugin", "name", d.Name, "handler", "DNS-Subdomains-Handler"))
+						slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
 				}
 			}
 		}

@@ -44,7 +44,8 @@ func (ix *leakix) Start(r et.Registry) error {
 		EventType:  oam.FQDN,
 		Callback:   ix.check,
 	}); err != nil {
-		ix.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", ix.Name, "handler", name))
 		return err
 	}
 
@@ -93,8 +94,8 @@ func (ix *leakix) check(e *et.Event) error {
 			break
 		}
 
-		n := ix.Name + "-Handler"
-		ix.log.Error(fmt.Sprintf("Failed to use the API endpoint: %v", err), "handler", n)
+		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
+			slog.Group("plugin", "name", ix.Name, "handler", ix.Name+"-Handler"))
 	}
 
 	if body != "" {

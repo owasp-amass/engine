@@ -6,7 +6,6 @@ package dns
 
 import (
 	"errors"
-	"log/slog"
 	"strconv"
 	"strings"
 	"unicode"
@@ -18,16 +17,16 @@ import (
 )
 
 type alts struct {
-	Name  string
-	log   *slog.Logger
-	chars string
+	Name   string
+	chars  string
+	plugin *dnsPlugin
 }
 
-func NewAlterations(l *slog.Logger) *alts {
+func NewAlterations(p *dnsPlugin) *alts {
 	return &alts{
-		Name:  "DNS-Alterations",
-		log:   l,
-		chars: "abcdefghijklmnopqrstuvwxyz0123456789-",
+		Name:   "DNS-Alterations",
+		chars:  "abcdefghijklmnopqrstuvwxyz0123456789-",
+		plugin: p,
 	}
 }
 
@@ -55,6 +54,8 @@ func (d *alts) handler(e *et.Event) error {
 	}
 
 	guesses := stringset.New()
+	defer guesses.Close()
+
 	if cfg.FlipWords && len(cfg.AltWordlist) > 0 {
 		guesses.InsertMany(flipWords(fqdn.Name, cfg.AltWordlist)...)
 	}
