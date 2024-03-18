@@ -194,13 +194,13 @@ loop:
 	})
 }
 
-type PassiveDNSFilter map[string]interface{}
+type FQDNFilter map[string]interface{}
 
-func NewPassiveDNSFilter() PassiveDNSFilter {
-	return make(PassiveDNSFilter)
+func NewFQDNFilter() FQDNFilter {
+	return make(FQDNFilter)
 }
 
-func (r PassiveDNSFilter) Insert(fqdn string) {
+func (r FQDNFilter) Insert(fqdn string) {
 	parts := strings.Split(fqdn, ".")
 
 	var labels []string
@@ -212,38 +212,38 @@ func (r PassiveDNSFilter) Insert(fqdn string) {
 	llen := len(labels)
 	for i, label := range labels {
 		if e, found := cur[label]; !found && i < llen-1 {
-			cur[label] = make(PassiveDNSFilter)
-			cur = cur[label].(PassiveDNSFilter)
+			cur[label] = make(FQDNFilter)
+			cur = cur[label].(FQDNFilter)
 		} else if found && i < llen-1 {
 			if reflect.TypeOf(e).Kind() == reflect.Struct {
-				cur[label] = make(PassiveDNSFilter)
+				cur[label] = make(FQDNFilter)
 			}
-			cur = cur[label].(PassiveDNSFilter)
+			cur = cur[label].(FQDNFilter)
 		} else if !found && i == llen-1 {
 			cur[label] = struct{}{}
 		}
 	}
 }
 
-func (r PassiveDNSFilter) Prune() {
+func (r FQDNFilter) Prune(limit int) {
 	for k, v := range r {
 		switch t := v.(type) {
-		case PassiveDNSFilter:
-			if len(t) >= 100 {
+		case FQDNFilter:
+			if len(t) >= limit {
 				delete(r, k)
 				r[k] = struct{}{}
 			} else {
-				t.Prune()
+				t.Prune(limit)
 			}
 		}
 	}
 }
 
-func (r PassiveDNSFilter) Slice() []string {
+func (r FQDNFilter) Slice() []string {
 	return r.processMap("")
 }
 
-func (r PassiveDNSFilter) processMap(prefix string) []string {
+func (r FQDNFilter) processMap(prefix string) []string {
 	var fqdns []string
 
 	for k, v := range r {
@@ -253,7 +253,7 @@ func (r PassiveDNSFilter) processMap(prefix string) []string {
 		}
 
 		switch t := v.(type) {
-		case PassiveDNSFilter:
+		case FQDNFilter:
 			fqdns = append(fqdns, t.processMap(name)...)
 		default:
 			fqdns = append(fqdns, name)
@@ -263,7 +263,7 @@ func (r PassiveDNSFilter) processMap(prefix string) []string {
 	return fqdns
 }
 
-func (r PassiveDNSFilter) Close() {
+func (r FQDNFilter) Close() {
 	for k := range r {
 		delete(r, k)
 	}

@@ -81,7 +81,7 @@ func (pt *passiveTotal) check(e *et.Event) error {
 		return nil
 	}
 
-	names := support.NewPassiveDNSFilter()
+	names := support.NewFQDNFilter()
 	defer names.Close()
 
 	for _, cr := range ds.Creds {
@@ -107,9 +107,8 @@ func (pt *passiveTotal) check(e *et.Event) error {
 			slog.Group("plugin", "name", pt.Name, "handler", pt.Name+"-Handler"))
 	}
 
-	names.Prune()
+	names.Prune(1000)
 	for _, name := range names.Slice() {
-		fmt.Println(name)
 		support.SubmitFQDNGuess(e, name)
 	}
 	return nil
@@ -136,7 +135,7 @@ func (pt *passiveTotal) query(domain, lastid, username, key string) (string, err
 	return resp.Body, nil
 }
 
-func (pt *passiveTotal) process(e *et.Event, domain, body string, names support.PassiveDNSFilter) string {
+func (pt *passiveTotal) process(e *et.Event, domain, body string, names support.FQDNFilter) string {
 	var result struct {
 		Success    bool     `json:"success"`
 		Subdomains []string `json:"subdomains"`

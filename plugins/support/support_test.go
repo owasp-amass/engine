@@ -10,14 +10,14 @@ import (
 	"testing"
 )
 
-func TestPassiveDNSFilterInsert(t *testing.T) {
-	pdnsf := NewPassiveDNSFilter()
-	defer pdnsf.Close()
+func TestFQDNFilterInsert(t *testing.T) {
+	ff := NewFQDNFilter()
+	defer ff.Close()
 
 	fqdn := "www.cs.utica.edu"
-	pdnsf.Insert(fqdn)
+	ff.Insert(fqdn)
 
-	cur := pdnsf
+	cur := ff
 	labels := strings.Split(fqdn, ".")
 	for i := len(labels) - 1; i >= 0; i-- {
 		if _, found := cur[labels[i]]; !found {
@@ -25,23 +25,25 @@ func TestPassiveDNSFilterInsert(t *testing.T) {
 			break
 		}
 		if i > 0 {
-			cur = cur[labels[i]].(PassiveDNSFilter)
+			cur = cur[labels[i]].(FQDNFilter)
 		}
 	}
 }
 
-func TestPassiveDNSFilterPrune(t *testing.T) {
-	pdnsf := NewPassiveDNSFilter()
-	defer pdnsf.Close()
+func TestFQDNFilterPrune(t *testing.T) {
+	ff := NewFQDNFilter()
+	defer ff.Close()
 
-	for i := 0; i < 200; i++ {
+	limit := 50
+	for i := 0; i < limit; i++ {
 		fqdn := "www" + strconv.Itoa(i) + ".cs.utica.edu"
-		pdnsf.Insert(fqdn)
+		ff.Insert(fqdn)
 	}
 
 	var found bool
 	var name string
-	for _, fqdn := range pdnsf.Slice() {
+	ff.Prune(limit)
+	for _, fqdn := range ff.Slice() {
 		if fqdn == "www1.cs.utica.edu" {
 			name = fqdn
 			found = true
@@ -54,14 +56,14 @@ func TestPassiveDNSFilterPrune(t *testing.T) {
 	}
 }
 
-func TestPassiveDNSFilterSlice(t *testing.T) {
-	pdnsf := NewPassiveDNSFilter()
-	defer pdnsf.Close()
+func TestFQDNFilterSlice(t *testing.T) {
+	ff := NewFQDNFilter()
+	defer ff.Close()
 
 	fqdn := "www.cs.utica.edu"
-	pdnsf.Insert(fqdn)
+	ff.Insert(fqdn)
 
-	if fqdn != pdnsf.Slice()[0] {
+	if fqdn != ff.Slice()[0] {
 		t.Errorf("Passive DNS Filter Slice failed to produce the expected FQDN: %s", fqdn)
 	}
 }
