@@ -6,7 +6,9 @@ package support
 
 import (
 	"errors"
+	"reflect"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/caffix/queue"
@@ -190,4 +192,76 @@ loop:
 			callback()
 		}
 	})
+}
+
+type PassiveDNSFilter map[string]interface{}
+
+func NewPassiveDNSFilter() PassiveDNSFilter {
+	return make(PassiveDNSFilter)
+}
+
+func (r PassiveDNSFilter) Insert(fqdn string) {
+	var labels []string
+	parts := strings.Split(fqdn, ".")
+
+	for i := len(labels) - 1; i >= 0; i-- {
+		labels = append(labels, parts[i])
+	}
+
+	cur := r
+	llen := len(labels)
+	for i, label := range labels {
+		if e, found := cur[label]; !found && i < llen-1 {
+			cur[label] = make(PassiveDNSFilter)
+		} else if found && i < llen-1 && reflect.TypeOf(e).Kind() == reflect.Struct {
+			cur[label] = make(PassiveDNSFilter)
+		} else if !found && i == llen-1 {
+			cur[label] = struct{}{}
+			break
+		}
+		cur = cur[label].(PassiveDNSFilter)
+	}
+}
+
+func (r PassiveDNSFilter) Prune() {
+	for k, v := range r {
+		switch t := v.(type) {
+		case PassiveDNSFilter:
+			if len(t) >= 100 {
+				delete(r, k)
+			} else {
+				t.Prune()
+			}
+		}
+	}
+}
+
+func (r PassiveDNSFilter) Slice() []string {
+	return r.processMap("")
+}
+
+func (r PassiveDNSFilter) processMap(prefix string) []string {
+	var fqdns []string
+
+	for k, v := range r {
+		name := k
+		if prefix != "" {
+			name += "." + prefix
+		}
+
+		switch t := v.(type) {
+		case PassiveDNSFilter:
+			fqdns = append(fqdns, t.processMap(name)...)
+		default:
+			fqdns = append(fqdns, name)
+		}
+	}
+
+	return fqdns
+}
+
+func (r PassiveDNSFilter) Close() {
+	for k := range r {
+		delete(r, k)
+	}
 }

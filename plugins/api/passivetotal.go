@@ -81,6 +81,9 @@ func (pt *passiveTotal) check(e *et.Event) error {
 		return nil
 	}
 
+	names := support.NewPassiveDNSFilter()
+	defer names.Close()
+
 	for _, cr := range ds.Creds {
 		if cr == nil || cr.Username == "" || cr.Apikey == "" {
 			continue
@@ -88,13 +91,13 @@ func (pt *passiveTotal) check(e *et.Event) error {
 
 		var lastid string
 		if body, err := pt.query(domlt, "", cr.Username, cr.Apikey); err == nil {
-			lastid = pt.process(e, domlt, body)
+			lastid = pt.process(e, domlt, body, names)
 
 			for lastid != "" {
 				id := lastid
 				lastid = ""
 				if body, err := pt.query(domlt, id, cr.Username, cr.Apikey); err == nil {
-					lastid = pt.process(e, domlt, body)
+					lastid = pt.process(e, domlt, body, names)
 				}
 			}
 			break
@@ -102,6 +105,12 @@ func (pt *passiveTotal) check(e *et.Event) error {
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
 			slog.Group("plugin", "name", pt.Name, "handler", pt.Name+"-Handler"))
+	}
+
+	names.Prune()
+	for _, name := range names.Slice() {
+		fmt.Println(name)
+		support.SubmitFQDNGuess(e, name)
 	}
 	return nil
 }
@@ -127,7 +136,7 @@ func (pt *passiveTotal) query(domain, lastid, username, key string) (string, err
 	return resp.Body, nil
 }
 
-func (pt *passiveTotal) process(e *et.Event, domain, body string) string {
+func (pt *passiveTotal) process(e *et.Event, domain, body string, names support.PassiveDNSFilter) string {
 	var result struct {
 		Success    bool     `json:"success"`
 		Subdomains []string `json:"subdomains"`
@@ -142,7 +151,7 @@ func (pt *passiveTotal) process(e *et.Event, domain, body string) string {
 		fqdn := dns.RemoveAsteriskLabel(http.CleanName(sub + "." + domain))
 		// if the subdomain is not in scope, skip it
 		if fqdn != "" && e.Session.Config().IsDomainInScope(fqdn) {
-			support.SubmitFQDNGuess(e, fqdn)
+			names.Insert(fqdn)
 		}
 	}
 	return result.LastID
