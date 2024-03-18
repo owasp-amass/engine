@@ -214,9 +214,10 @@ func (r PassiveDNSFilter) Insert(fqdn string) {
 		if e, found := cur[label]; !found && i < llen-1 {
 			cur[label] = make(PassiveDNSFilter)
 			cur = cur[label].(PassiveDNSFilter)
-		} else if found && i < llen-1 &&
-			reflect.TypeOf(e).Kind() == reflect.Struct {
-			cur[label] = make(PassiveDNSFilter)
+		} else if found && i < llen-1 {
+			if reflect.TypeOf(e).Kind() == reflect.Struct {
+				cur[label] = make(PassiveDNSFilter)
+			}
 			cur = cur[label].(PassiveDNSFilter)
 		} else if !found && i == llen-1 {
 			cur[label] = struct{}{}
