@@ -201,10 +201,10 @@ func NewPassiveDNSFilter() PassiveDNSFilter {
 }
 
 func (r PassiveDNSFilter) Insert(fqdn string) {
-	var labels []string
 	parts := strings.Split(fqdn, ".")
 
-	for i := len(labels) - 1; i >= 0; i-- {
+	var labels []string
+	for i := len(parts) - 1; i >= 0; i-- {
 		labels = append(labels, parts[i])
 	}
 
@@ -213,13 +213,14 @@ func (r PassiveDNSFilter) Insert(fqdn string) {
 	for i, label := range labels {
 		if e, found := cur[label]; !found && i < llen-1 {
 			cur[label] = make(PassiveDNSFilter)
-		} else if found && i < llen-1 && reflect.TypeOf(e).Kind() == reflect.Struct {
+			cur = cur[label].(PassiveDNSFilter)
+		} else if found && i < llen-1 &&
+			reflect.TypeOf(e).Kind() == reflect.Struct {
 			cur[label] = make(PassiveDNSFilter)
+			cur = cur[label].(PassiveDNSFilter)
 		} else if !found && i == llen-1 {
 			cur[label] = struct{}{}
-			break
 		}
-		cur = cur[label].(PassiveDNSFilter)
 	}
 }
 
@@ -229,6 +230,7 @@ func (r PassiveDNSFilter) Prune() {
 		case PassiveDNSFilter:
 			if len(t) >= 100 {
 				delete(r, k)
+				r[k] = struct{}{}
 			} else {
 				t.Prune()
 			}
