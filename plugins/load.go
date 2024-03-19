@@ -20,6 +20,7 @@ var pluginStartFuncs = []func() et.Plugin{
 	api.NewPassiveTotal,
 	api.NewSecurityTrails,
 	api.NewVirusTotal,
+	api.NewZetalytics,
 	archive.NewWayback,
 	dns.NewDNS,
 	scrape.NewBing,
