@@ -91,6 +91,7 @@ func (z *zetalytics) check(e *et.Event) error {
 			continue
 		}
 
+		z.rlimit.Take()
 		if body, err := z.query(domlt, cr.Apikey); err == nil && body != "" {
 			z.process(e, body, names)
 			break
@@ -108,8 +109,6 @@ func (z *zetalytics) check(e *et.Event) error {
 }
 
 func (z *zetalytics) query(domain, key string) (string, error) {
-	z.rlimit.Take()
-
 	start := time.Now().Add((time.Hour * 24) * -90).Unix() // The epoch 90 days ago
 	url := "https://zonecruncher.com/api/v1/subdomains?q=" + domain +
 		"&token=" + key + "&tsfield=last_seen&start=" + strconv.FormatInt(start, 10)
