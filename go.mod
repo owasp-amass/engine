@@ -12,7 +12,7 @@ require (
 	github.com/caffix/stringset v0.1.2
 	github.com/cheggaaa/pb/v3 v3.1.5
 	github.com/geziyor/geziyor v0.0.0-20230315135110-a242b58aaa65
-	github.com/glebarez/sqlite v1.10.0
+	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0 // direct
 	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/go-multierror v1.1.1
@@ -26,7 +26,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.11
 	golang.org/x/net v0.22.0
 	gorm.io/driver/postgres v1.5.7
-	gorm.io/gorm v1.25.7
+	gorm.io/gorm v1.25.8
 )
 
 require (
@@ -45,7 +45,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/chromedp/cdproto v0.0.0-20240304214822-eeb3d13057c9 // indirect
+	github.com/chromedp/cdproto v0.0.0-20240312231614-1e5096e63154 // indirect
 	github.com/chromedp/chromedp v0.9.5 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/dgraph-io/badger v1.6.2 // indirect
@@ -80,7 +80,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
-	github.com/prometheus/common v0.50.0 // indirect
+	github.com/prometheus/common v0.51.1 // indirect
 	github.com/prometheus/procfs v0.13.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/sosodev/duration v1.2.0 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
-	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
+	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
@@ -98,9 +98,9 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/datatypes v1.2.0 // indirect
-	gorm.io/driver/mysql v1.5.4 // indirect
-	modernc.org/libc v1.44.0 // indirect
+	gorm.io/driver/mysql v1.5.6 // indirect
+	modernc.org/libc v1.47.0 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.7.2 // indirect
-	modernc.org/sqlite v1.29.3 // indirect
+	modernc.org/sqlite v1.29.5 // indirect
 )
