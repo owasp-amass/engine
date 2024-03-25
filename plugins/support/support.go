@@ -40,6 +40,7 @@ func init() {
 
 func ScrapeSubdomainNames(s string) []string {
 	set := stringset.New()
+	defer set.Close()
 
 	for _, sub := range subre.FindAllString(s, -1) {
 		if sub != "" {

@@ -14,11 +14,13 @@ import (
 
 var pluginStartFuncs = []func() et.Plugin{
 	api.NewChaos,
+	api.NewDNSRepo,
 	api.NewHackerTarget,
 	api.NewBGPTools,
 	api.NewLeakIX,
 	api.NewPassiveTotal,
 	api.NewSecurityTrails,
+	api.NewURLScan,
 	api.NewVirusTotal,
 	api.NewZetalytics,
 	archive.NewWayback,
