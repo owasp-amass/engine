@@ -115,9 +115,14 @@ func handlerTask(h *et.Handler) pipeline.TaskFunc {
 			}
 		}
 
-		if err := r.Callback(ede.Event); err != nil {
-			ede.Error = multierror.Append(ede.Error, err)
+		tos := append(h.Transforms, h.Plugin.Name())
+		from := string(ede.Event.Asset.Asset.AssetType())
+		if _, err := ede.Event.Session.Config().CheckTransformations(from, tos...); err == nil {
+			if err := r.Callback(ede.Event); err != nil {
+				ede.Error = multierror.Append(ede.Error, err)
+			}
 		}
+
 		return data, nil
 	})
 }

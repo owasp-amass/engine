@@ -21,7 +21,7 @@ import (
 )
 
 type dnsCNAME struct {
-	Name   string
+	name   string
 	dblock sync.Mutex
 	plugin *dnsPlugin
 }
@@ -30,14 +30,6 @@ func (d *dnsCNAME) handler(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "dns")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
 	}
 
 	if rr, err := support.PerformQuery(fqdn.Name, dns.TypeCNAME); err == nil && len(rr) > 0 {
@@ -72,7 +64,7 @@ func (d *dnsCNAME) processRecords(e *et.Event, rr []*resolve.ExtractedAnswer) {
 
 				e.Session.Log().Info("relationship discovered", "from",
 					record.Name, "relation", "cname_record", "to", record.Data,
-					slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
+					slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
 			}
 		}
 	}

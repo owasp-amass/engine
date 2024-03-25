@@ -20,7 +20,7 @@ import (
 )
 
 type dnsHistory struct {
-	Name   string
+	name   string
 	fmtstr string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
@@ -28,23 +28,27 @@ type dnsHistory struct {
 
 func NewDNSHistory() et.Plugin {
 	return &dnsHistory{
-		Name:   "DNSHistory",
+		name:   "DNSHistory",
 		fmtstr: "https://dnshistory.org/subdomains/%d/%s",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
+func (d *dnsHistory) Name() string {
+	return d.name
+}
+
 func (d *dnsHistory) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
+	d.log = r.Log().WithGroup("plugin").With("name", d.name)
 
 	name := "DNSHistory-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     d,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   d.check,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -67,14 +71,6 @@ func (d *dnsHistory) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "dnshistory")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	for i := 1; i < 20; i++ {
 		d.rlimit.Take()
 		if body, err := d.query(domlt, i); err == nil {
@@ -89,7 +85,7 @@ func (d *dnsHistory) query(name string, itemnum int) (string, error) {
 
 	resp, err := http.RequestWebPage(context.TODO(), req)
 	if err != nil {
-		return "", fmt.Errorf("error fetching URL: %w", err)
+		return "", err
 	}
 
 	return resp.Body, nil
@@ -107,7 +103,8 @@ func (d *dnsHistory) process(e *et.Event, body string) {
 
 func (d *dnsHistory) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

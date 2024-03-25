@@ -20,7 +20,7 @@ import (
 )
 
 type rapidDNS struct {
-	Name   string
+	name   string
 	fmtstr string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
@@ -28,23 +28,27 @@ type rapidDNS struct {
 
 func NewRapidDNS() et.Plugin {
 	return &rapidDNS{
-		Name:   "RapidDNS",
+		name:   "RapidDNS",
 		fmtstr: "https://rapiddns.io/subdomain/%s?full=1",
 		rlimit: ratelimit.New(5, ratelimit.WithoutSlack),
 	}
 }
 
-func (rd *rapidDNS) Start(r et.Registry) error {
-	rd.log = r.Log().WithGroup("plugin").With("name", rd.Name)
+func (rd *rapidDNS) Name() string {
+	return rd.name
+}
 
-	name := "RapidDNS-Handler"
+func (rd *rapidDNS) Start(r et.Registry) error {
+	rd.log = r.Log().WithGroup("plugin").With("name", rd.name)
+
+	name := rd.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     rd,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   rd.check,
 	}); err != nil {
-		rd.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -67,14 +71,6 @@ func (rd *rapidDNS) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "rapiddns")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	rd.rlimit.Take()
 	body, err := rd.query(domlt)
 	if err != nil {
@@ -86,9 +82,10 @@ func (rd *rapidDNS) check(e *et.Event) error {
 }
 
 func (rd *rapidDNS) query(name string) (string, error) {
-	resp, err := http.RequestWebPage(context.TODO(), &http.Request{URL: fmt.Sprintf(rd.fmtstr, name)})
+	resp, err := http.RequestWebPage(context.TODO(),
+		&http.Request{URL: fmt.Sprintf(rd.fmtstr, name)})
 	if err != nil {
-		return "", fmt.Errorf("error fetching URL: %w", err)
+		return "", err
 	}
 
 	return resp.Body, nil
@@ -106,7 +103,8 @@ func (rd *rapidDNS) process(e *et.Event, body string) {
 
 func (rd *rapidDNS) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

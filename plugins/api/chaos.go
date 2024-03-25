@@ -22,30 +22,33 @@ import (
 )
 
 type chaos struct {
-	Name   string
+	name   string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewChaos() et.Plugin {
 	return &chaos{
-		Name:   "Chaos",
+		name:   "Chaos",
 		rlimit: ratelimit.New(10, ratelimit.WithoutSlack),
 	}
 }
 
-func (c *chaos) Start(r et.Registry) error {
-	c.log = r.Log().WithGroup("plugin").With("name", c.Name)
+func (c *chaos) Name() string {
+	return c.name
+}
 
-	name := c.Name + "-Handler"
+func (c *chaos) Start(r et.Registry) error {
+	c.log = r.Log().WithGroup("plugin").With("name", c.name)
+
+	name := c.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     c,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   c.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", c.Name, "handler", name))
 		return err
 	}
 
@@ -63,21 +66,13 @@ func (c *chaos) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	ds := e.Session.Config().GetDataSourceConfig(c.Name)
+	ds := e.Session.Config().GetDataSourceConfig(c.name)
 	if ds == nil || len(ds.Creds) == 0 {
 		return nil
 	}
 
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if e.Session.Config().WhichDomain(domlt) != domlt {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "chaos")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -95,7 +90,7 @@ func (c *chaos) check(e *et.Event) error {
 		}
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
-			slog.Group("plugin", "name", c.Name, "handler", c.Name+"-Handler"))
+			slog.Group("plugin", "name", c.name, "handler", c.name+"-Handler"))
 	}
 
 	if body != "" {
@@ -136,7 +131,8 @@ func (c *chaos) process(e *et.Event, domain, body string) {
 
 func (c *chaos) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

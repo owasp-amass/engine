@@ -25,7 +25,7 @@ import (
 )
 
 type dnsReverse struct {
-	Name             string
+	name             string
 	defaultSweepSize int
 	activeSweepSize  int
 	maxSweepSize     int
@@ -48,7 +48,7 @@ func NewReverse(p *dnsPlugin) *dnsReverse {
 
 	attempts := 10000
 	return &dnsReverse{
-		Name:             "DNS-Reverse",
+		name:             p.name + "-Reverse",
 		defaultSweepSize: 50,
 		activeSweepSize:  100,
 		maxSweepSize:     250,
@@ -67,14 +67,6 @@ func (d *dnsReverse) handler(e *et.Event) error {
 
 	addrstr := ip.Address.String()
 	if reserved, _ := amassnet.IsReservedAddress(addrstr); reserved {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("ipaddress", "fqdn", "dns")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -113,7 +105,7 @@ func (d *dnsReverse) process(e *et.Event, rr []*resolve.ExtractedAnswer) {
 
 						e.Session.Log().Info("relationship discovered", "from",
 							record.Name, "relation", "ptr_record", "to", record.Data,
-							slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
+							slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
 					}
 				}
 			}

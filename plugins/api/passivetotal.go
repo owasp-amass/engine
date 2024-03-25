@@ -12,7 +12,6 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/owasp-amass/engine/net/dns"
 	"github.com/owasp-amass/engine/net/http"
 	"github.com/owasp-amass/engine/plugins/support"
 	et "github.com/owasp-amass/engine/types"
@@ -22,30 +21,33 @@ import (
 )
 
 type passiveTotal struct {
-	Name   string
+	name   string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewPassiveTotal() et.Plugin {
 	return &passiveTotal{
-		Name:   "PassiveTotal",
+		name:   "PassiveTotal",
 		rlimit: ratelimit.New(10, ratelimit.WithoutSlack),
 	}
 }
 
-func (pt *passiveTotal) Start(r et.Registry) error {
-	pt.log = r.Log().WithGroup("plugin").With("name", pt.Name)
+func (pt *passiveTotal) Name() string {
+	return pt.name
+}
 
-	name := pt.Name + "-Handler"
+func (pt *passiveTotal) Start(r et.Registry) error {
+	pt.log = r.Log().WithGroup("plugin").With("name", pt.name)
+
+	name := pt.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     pt,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   pt.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", pt.Name, "handler", name))
 		return err
 	}
 
@@ -63,21 +65,13 @@ func (pt *passiveTotal) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	ds := e.Session.Config().GetDataSourceConfig(pt.Name)
+	ds := e.Session.Config().GetDataSourceConfig(pt.name)
 	if ds == nil || len(ds.Creds) == 0 {
 		return nil
 	}
 
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if e.Session.Config().WhichDomain(domlt) != domlt {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "passivetotal")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -90,13 +84,16 @@ func (pt *passiveTotal) check(e *et.Event) error {
 		}
 
 		var lastid string
-		if body, err := pt.query(domlt, "", cr.Username, cr.Apikey); err == nil {
+		body, err := pt.query(domlt, "", cr.Username, cr.Apikey)
+		if err == nil {
 			lastid = pt.process(e, domlt, body, names)
 
 			for lastid != "" {
 				id := lastid
 				lastid = ""
-				if body, err := pt.query(domlt, id, cr.Username, cr.Apikey); err == nil {
+
+				body, err = pt.query(domlt, id, cr.Username, cr.Apikey)
+				if err == nil {
 					lastid = pt.process(e, domlt, body, names)
 				}
 			}
@@ -104,7 +101,7 @@ func (pt *passiveTotal) check(e *et.Event) error {
 		}
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
-			slog.Group("plugin", "name", pt.Name, "handler", pt.Name+"-Handler"))
+			slog.Group("plugin", "name", pt.name, "handler", pt.name+"-Handler"))
 	}
 
 	names.Prune(1000)
@@ -147,7 +144,7 @@ func (pt *passiveTotal) process(e *et.Event, domain, body string, names support.
 	}
 
 	for _, sub := range result.Subdomains {
-		fqdn := dns.RemoveAsteriskLabel(http.CleanName(sub + "." + domain))
+		fqdn := http.CleanName(sub + "." + domain)
 		// if the subdomain is not in scope, skip it
 		if fqdn != "" && e.Session.Config().IsDomainInScope(fqdn) {
 			names.Insert(fqdn)

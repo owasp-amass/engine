@@ -14,11 +14,13 @@ import (
 )
 
 type Plugin interface {
+	Name() string
 	Start(r Registry) error
 	Stop()
 }
 
 type Handler struct {
+	Plugin       Plugin
 	Name         string
 	Priority     int
 	MaxInstances int

@@ -17,14 +17,14 @@ import (
 )
 
 type alts struct {
-	Name   string
+	name   string
 	chars  string
 	plugin *dnsPlugin
 }
 
 func NewAlterations(p *dnsPlugin) *alts {
 	return &alts{
-		Name:   "DNS-Alterations",
+		name:   p.name + "-Alterations",
 		chars:  "abcdefghijklmnopqrstuvwxyz0123456789-",
 		plugin: p,
 	}
@@ -38,14 +38,6 @@ func (d *alts) handler(e *et.Event) error {
 
 	cfg := e.Session.Config()
 	if cfg != nil && (!cfg.BruteForcing || !cfg.Alterations) {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "dns")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 

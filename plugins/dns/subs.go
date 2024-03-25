@@ -29,7 +29,7 @@ type subsQtypes struct {
 }
 
 type dnsSubs struct {
-	Name   string
+	name   string
 	types  []subsQtypes
 	queue  queue.Queue
 	done   chan struct{}
@@ -38,7 +38,7 @@ type dnsSubs struct {
 
 func NewSubs(p *dnsPlugin) *dnsSubs {
 	return &dnsSubs{
-		Name: "DNS-Subdomains",
+		name: p.name + "-Subdomains",
 		types: []subsQtypes{
 			{Qtype: dns.TypeNS, Rtype: "ns_record"},
 			{Qtype: dns.TypeMX, Rtype: "mx_record"},
@@ -66,12 +66,7 @@ func (d *dnsSubs) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "dns")
-	if err != nil {
-		return err
-	}
-
-	if matches.IsMatch("fqdn") && support.NameResolved(e.Session, fqdn) {
+	if support.NameResolved(e.Session, fqdn) {
 		d.traverse(e, fqdn)
 	}
 	return nil
@@ -130,7 +125,8 @@ func (d *dnsSubs) queries(e *et.Event, subdomain string, wg *sync.WaitGroup) {
 	}
 
 	for _, name := range srvNames {
-		if rr, err := support.PerformQuery(name+"."+subdomain, dns.TypeSRV); err == nil && len(rr) > 0 {
+		if rr, err := support.PerformQuery(
+			name+"."+subdomain, dns.TypeSRV); err == nil && len(rr) > 0 {
 			wg.Add(1)
 			d.callbackClosure(e, "srv_record", rr, wg)
 		}
@@ -179,7 +175,7 @@ func (d *dnsSubs) callbackClosure(e *et.Event, rtype string, rr []*resolve.Extra
 					})
 					e.Session.Log().Info("relationship discovered", "from",
 						record.Name, "relation", rtype, "to", record.Data,
-						slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
+						slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
 				}
 			}
 		}

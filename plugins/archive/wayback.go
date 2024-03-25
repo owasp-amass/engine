@@ -22,7 +22,7 @@ import (
 )
 
 type wayback struct {
-	Name   string
+	name   string
 	URL    string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
@@ -30,23 +30,27 @@ type wayback struct {
 
 func NewWayback() et.Plugin {
 	return &wayback{
-		Name:   "Wayback",
+		name:   "Wayback",
 		URL:    "https://web.archive.org/cdx/search/cdx?matchType=domain&fl=original&output=json&collapse=urlkey&url=",
 		rlimit: ratelimit.New(5, ratelimit.WithoutSlack),
 	}
 }
 
-func (w *wayback) Start(r et.Registry) error {
-	w.log = r.Log().WithGroup("plugin").With("name", w.Name)
+func (w *wayback) Name() string {
+	return w.name
+}
 
-	name := "Wayback-Handler"
+func (w *wayback) Start(r et.Registry) error {
+	w.log = r.Log().WithGroup("plugin").With("name", w.name)
+
+	name := w.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     w,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   w.check,
 	}); err != nil {
-		w.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -69,17 +73,11 @@ func (w *wayback) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "wayback")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	w.rlimit.Take()
 	records, err := w.query(domlt)
 	if err != nil {
+		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
+			slog.Group("plugin", "name", w.name, "handler", w.name+"-Handler"))
 		return err
 	}
 

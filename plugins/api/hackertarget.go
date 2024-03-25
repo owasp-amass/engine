@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/csv"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -21,32 +20,35 @@ import (
 )
 
 type hackerTarget struct {
-	Name   string
-	URL    string
+	name   string
+	url    string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewHackerTarget() et.Plugin {
 	return &hackerTarget{
-		Name:   "HackerTarget",
-		URL:    "https://api.hackertarget.com/hostsearch/?q=",
+		name:   "HackerTarget",
+		url:    "https://api.hackertarget.com/hostsearch/?q=",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
-func (ht *hackerTarget) Start(r et.Registry) error {
-	ht.log = r.Log().WithGroup("plugin").With("name", ht.Name)
+func (ht *hackerTarget) Name() string {
+	return ht.name
+}
 
-	name := "HackerTarget-Handler"
+func (ht *hackerTarget) Start(r et.Registry) error {
+	ht.log = r.Log().WithGroup("plugin").With("name", ht.name)
+
+	name := ht.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     ht,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   ht.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", ht.Name, "handler", name))
 		return err
 	}
 
@@ -69,14 +71,6 @@ func (ht *hackerTarget) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "hackertarget")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	ht.rlimit.Take()
 	records, err := ht.query(domlt)
 	if err != nil {
@@ -88,11 +82,10 @@ func (ht *hackerTarget) check(e *et.Event) error {
 }
 
 func (ht *hackerTarget) query(name string) ([][]string, error) {
-	resp, err := http.RequestWebPage(context.TODO(), &http.Request{URL: ht.URL + name})
+	resp, err := http.RequestWebPage(context.TODO(), &http.Request{URL: ht.url + name})
 	if err != nil {
 		return nil, err
 	}
-
 	return csv.NewReader(strings.NewReader(resp.Body)).ReadAll()
 }
 
@@ -111,7 +104,8 @@ func (ht *hackerTarget) process(e *et.Event, records [][]string) {
 
 func (ht *hackerTarget) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

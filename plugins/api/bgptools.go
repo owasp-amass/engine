@@ -39,7 +39,7 @@ type row struct {
 }
 
 type bgpTools struct {
-	Name   string
+	name   string
 	m      sync.Mutex
 	addr   string
 	port   int
@@ -49,14 +49,18 @@ type bgpTools struct {
 
 func NewBGPTools() et.Plugin {
 	return &bgpTools{
-		Name:   "BGPTools",
+		name:   "BGPTools",
 		port:   43,
 		rlimit: ratelimit.New(1, ratelimit.WithoutSlack),
 	}
 }
 
+func (bt *bgpTools) Name() string {
+	return bt.name
+}
+
 func (bt *bgpTools) Start(r et.Registry) error {
-	bt.log = r.Log().WithGroup("plugin").With("name", bt.Name)
+	bt.log = r.Log().WithGroup("plugin").With("name", bt.name)
 
 	rr, err := support.PerformQuery("bgp.tools", dns.TypeA)
 	if err != nil {
@@ -64,8 +68,9 @@ func (bt *bgpTools) Start(r et.Registry) error {
 	}
 	bt.addr = rr[0].Data
 
-	name := "BGPTools-IP-Handler"
+	name := bt.name + "-IP-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:       bt,
 		Name:         name,
 		Priority:     1,
 		MaxInstances: 50,
@@ -73,7 +78,6 @@ func (bt *bgpTools) Start(r et.Registry) error {
 		EventType:    oam.IPAddress,
 		Callback:     bt.lookup,
 	}); err != nil {
-		bt.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -98,7 +102,8 @@ func (bt *bgpTools) lookup(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("ipaddress", "netblock", "asn", "rirorg", "bgptools")
+	matches, err := e.Session.Config().CheckTransformations(
+		"ipaddress", "netblock", "asn", "rirorg", bt.name)
 	if err != nil || matches.Len() == 0 {
 		return err
 	}
@@ -116,7 +121,8 @@ func (bt *bgpTools) lookup(e *et.Event) error {
 		}
 	}
 	if row := bt.netblock(dir, net.ParseIP(ipstr)); row != nil {
-		if as, hit := e.Session.Cache().GetAsset(&oamnet.AutonomousSystem{Number: row.ASN}); hit && as != nil {
+		if as, hit := e.Session.Cache().GetAsset(
+			&oamnet.AutonomousSystem{Number: row.ASN}); hit && as != nil {
 			bt.submitNetblock(e, row, as)
 			bt.m.Unlock()
 			return nil
@@ -167,7 +173,7 @@ func (bt *bgpTools) process(e *et.Event, record []string, matches *config.Matche
 	now := time.Now()
 	var as *dbt.Asset
 	var oamas *oamnet.AutonomousSystem
-	group := slog.Group("plugin", "name", bt.Name, "handler", "BGPTools-IP-Handler")
+	group := slog.Group("plugin", "name", bt.name, "handler", bt.name+"-IP-Handler")
 
 	if asnstr := record[0]; asnstr != "" {
 		if asn, err := strconv.Atoi(asnstr); err == nil {
@@ -360,7 +366,7 @@ func (bt *bgpTools) submitNetblock(e *et.Event, line *row, as *dbt.Asset) {
 			if oamas, ok := as.Asset.(*oamnet.AutonomousSystem); ok {
 				e.Session.Log().Info("relationship discovered", "from",
 					oamas.Number, "relation", "announces", "to", line.Netblock,
-					slog.Group("plugin", "name", bt.Name, "handler", "BGPTools-IP-Handler"))
+					slog.Group("plugin", "name", bt.name, "handler", bt.name+"-IP-Handler"))
 			}
 		}
 	}

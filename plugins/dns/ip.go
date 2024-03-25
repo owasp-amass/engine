@@ -22,7 +22,7 @@ import (
 )
 
 type dnsIP struct {
-	Name    string
+	name    string
 	queries []uint16
 	dblock  sync.Mutex
 	plugin  *dnsPlugin
@@ -32,14 +32,6 @@ func (d *dnsIP) handler(e *et.Event) error {
 	fqdn, ok := e.Asset.Asset.(*domain.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "ipaddress", "dns")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("ipaddress") {
-		return nil
 	}
 
 	if _, found := support.IsCNAME(e.Session, fqdn); found {
@@ -102,6 +94,6 @@ func (d *dnsIP) dispatchAndCache(e *et.Event, name, data string, ip *dbt.Asset, 
 	if a, ok := addr.Asset.(*oamnet.IPAddress); ok {
 		e.Session.Log().Info("relationship discovered", "from",
 			name, "relation", rtype, "to", a.Address.String(),
-			slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
+			slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
 	}
 }

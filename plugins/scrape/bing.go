@@ -20,7 +20,7 @@ import (
 )
 
 type bing struct {
-	Name   string
+	name   string
 	fmtstr string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
@@ -28,23 +28,27 @@ type bing struct {
 
 func NewBing() et.Plugin {
 	return &bing{
-		Name:   "Bing",
+		name:   "Bing",
 		fmtstr: "https://www.ask.com/web?o=0&l=dir&qo=pagination&page=%d&q=site:%s -www.%s",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
-func (b *bing) Start(r et.Registry) error {
-	b.log = r.Log().WithGroup("plugin").With("name", b.Name)
+func (b *bing) Name() string {
+	return b.name
+}
 
-	name := "Bing-Handler"
+func (b *bing) Start(r et.Registry) error {
+	b.log = r.Log().WithGroup("plugin").With("name", b.name)
+
+	name := b.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     b,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   b.check,
 	}); err != nil {
-		b.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -67,14 +71,6 @@ func (b *bing) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "bing")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	for i := 1; i < 10; i++ {
 		b.rlimit.Take()
 		if body, err := b.query(domlt, i); err == nil {
@@ -89,7 +85,7 @@ func (b *bing) query(name string, itemnum int) (string, error) {
 
 	resp, err := http.RequestWebPage(context.TODO(), req)
 	if err != nil {
-		return "", fmt.Errorf("error fetching URL: %w", err)
+		return "", err
 	}
 
 	return resp.Body, nil
@@ -107,7 +103,8 @@ func (b *bing) process(e *et.Event, body string) {
 
 func (b *bing) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

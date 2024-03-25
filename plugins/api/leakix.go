@@ -22,30 +22,33 @@ import (
 )
 
 type leakix struct {
-	Name   string
+	name   string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewLeakIX() et.Plugin {
 	return &leakix{
-		Name:   "LeakIX",
+		name:   "LeakIX",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
-func (ix *leakix) Start(r et.Registry) error {
-	ix.log = r.Log().WithGroup("plugin").With("name", ix.Name)
+func (ix *leakix) Name() string {
+	return ix.name
+}
 
-	name := ix.Name + "-Handler"
+func (ix *leakix) Start(r et.Registry) error {
+	ix.log = r.Log().WithGroup("plugin").With("name", ix.name)
+
+	name := ix.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     ix,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   ix.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", ix.Name, "handler", name))
 		return err
 	}
 
@@ -63,21 +66,13 @@ func (ix *leakix) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	ds := e.Session.Config().GetDataSourceConfig(ix.Name)
+	ds := e.Session.Config().GetDataSourceConfig(ix.name)
 	if ds == nil || len(ds.Creds) == 0 {
 		return nil
 	}
 
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if e.Session.Config().WhichDomain(domlt) != domlt {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "leakix")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -95,7 +90,7 @@ func (ix *leakix) check(e *et.Event) error {
 		}
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
-			slog.Group("plugin", "name", ix.Name, "handler", ix.Name+"-Handler"))
+			slog.Group("plugin", "name", ix.name, "handler", ix.name+"-Handler"))
 	}
 
 	if body != "" {
@@ -139,7 +134,8 @@ func (ix *leakix) process(e *et.Event, body string) {
 
 func (ix *leakix) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

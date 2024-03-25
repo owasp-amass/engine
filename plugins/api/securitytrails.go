@@ -22,30 +22,33 @@ import (
 )
 
 type securityTrails struct {
-	Name   string
+	name   string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewSecurityTrails() et.Plugin {
 	return &securityTrails{
-		Name:   "SecurityTrails",
+		name:   "SecurityTrails",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
-func (st *securityTrails) Start(r et.Registry) error {
-	st.log = r.Log().WithGroup("plugin").With("name", st.Name)
+func (st *securityTrails) Name() string {
+	return st.name
+}
 
-	name := "SecurityTrails-Handler"
+func (st *securityTrails) Start(r et.Registry) error {
+	st.log = r.Log().WithGroup("plugin").With("name", st.name)
+
+	name := st.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     st,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   st.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", st.Name, "handler", name))
 		return err
 	}
 
@@ -63,21 +66,13 @@ func (st *securityTrails) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	ds := e.Session.Config().GetDataSourceConfig(st.Name)
+	ds := e.Session.Config().GetDataSourceConfig(st.name)
 	if ds == nil || len(ds.Creds) == 0 {
 		return nil
 	}
 
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if e.Session.Config().WhichDomain(domlt) != domlt {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "securitytrails")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -95,7 +90,7 @@ func (st *securityTrails) check(e *et.Event) error {
 		}
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
-			slog.Group("plugin", "name", st.Name, "handler", st.Name+"-Handler"))
+			slog.Group("plugin", "name", st.name, "handler", st.name+"-Handler"))
 	}
 
 	if body != "" {
@@ -136,7 +131,8 @@ func (st *securityTrails) process(e *et.Event, domain, body string) {
 
 func (st *securityTrails) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

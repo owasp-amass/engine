@@ -20,7 +20,7 @@ import (
 )
 
 type duckDuckGo struct {
-	Name   string
+	name   string
 	fmtstr string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
@@ -28,23 +28,27 @@ type duckDuckGo struct {
 
 func NewDuckDuckGo() et.Plugin {
 	return &duckDuckGo{
-		Name:   "DuckDuckGo",
+		name:   "DuckDuckGo",
 		fmtstr: "https://html.duckduckgo.com/html/?q=site:%s -site:www.%s",
 		rlimit: ratelimit.New(2, ratelimit.WithoutSlack),
 	}
 }
 
-func (d *duckDuckGo) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
+func (d *duckDuckGo) Name() string {
+	return d.name
+}
 
-	name := "DuckDuckGo-Handler"
+func (d *duckDuckGo) Start(r et.Registry) error {
+	d.log = r.Log().WithGroup("plugin").With("name", d.name)
+
+	name := d.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     d,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   d.check,
 	}); err != nil {
-		d.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -67,14 +71,6 @@ func (d *duckDuckGo) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "duckduckgo")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	d.rlimit.Take()
 	if body, err := d.query(domlt); err == nil {
 		d.process(e, body)
@@ -87,7 +83,7 @@ func (d *duckDuckGo) query(name string) (string, error) {
 
 	resp, err := http.RequestWebPage(context.TODO(), req)
 	if err != nil {
-		return "", fmt.Errorf("error fetching URL: %w", err)
+		return "", err
 	}
 
 	return resp.Body, nil
@@ -105,7 +101,8 @@ func (d *duckDuckGo) process(e *et.Event, body string) {
 
 func (d *duckDuckGo) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

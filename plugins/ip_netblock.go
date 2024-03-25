@@ -22,19 +22,24 @@ import (
 )
 
 type ipNetblock struct {
-	Name string
+	name string
 	log  *slog.Logger
 }
 
 func newIPNetblock() et.Plugin {
-	return &ipNetblock{Name: "IP-Netblock"}
+	return &ipNetblock{name: "IP-Netblock"}
+}
+
+func (d *ipNetblock) Name() string {
+	return d.name
 }
 
 func (d *ipNetblock) Start(r et.Registry) error {
-	d.log = r.Log().WithGroup("plugin").With("name", d.Name)
+	d.log = r.Log().WithGroup("plugin").With("name", d.name)
 
-	name := "IP-Netblock-Handler"
+	name := d.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     d,
 		Name:       name,
 		Priority:   4,
 		Transforms: []string{"netblock"},
@@ -59,14 +64,6 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 	ip, ok := e.Asset.Asset.(*oamnet.IPAddress)
 	if !ok {
 		return errors.New("failed to extract the IPAddress asset")
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("ipaddress", "netblock")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("netblock") {
-		return nil
 	}
 
 	var netblock *oamnet.Netblock
@@ -111,7 +108,7 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 			if oamas, ok := a.Asset.(*oamnet.AutonomousSystem); ok {
 				e.Session.Log().Info("relationship discovered", "from",
 					netblock.Cidr.String(), "relation", "contains", "to", oamas.Number,
-					slog.Group("plugin", "name", d.Name, "handler", "IP-Netblock-Handler"))
+					slog.Group("plugin", "name", d.name, "handler", d.name+"-Handler"))
 			}
 		}
 	}
@@ -121,7 +118,7 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 func (d *ipNetblock) reservedAS(e *et.Event, netblock *oamnet.Netblock) {
 	now := time.Now()
 	g := graph.Graph{DB: e.Session.DB()}
-	group := slog.Group("plugin", "name", d.Name, "handler", "IP-Netblock-Handler")
+	group := slog.Group("plugin", "name", d.name, "handler", d.name+"-Handler")
 
 	asn, rir, err := g.UpsertAS(context.TODO(), 0, "Reserved Network Address Blocks")
 	if err != nil || asn == nil || rir == nil {

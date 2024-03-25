@@ -22,30 +22,35 @@ import (
 )
 
 type virusTotal struct {
-	Name   string
+	name   string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewVirusTotal() et.Plugin {
 	return &virusTotal{
-		Name:   "VirusTotal",
+		name:   "VirusTotal",
 		rlimit: ratelimit.New(5, ratelimit.WithoutSlack),
 	}
 }
 
-func (vt *virusTotal) Start(r et.Registry) error {
-	vt.log = r.Log().WithGroup("plugin").With("name", vt.Name)
+func (vt *virusTotal) Name() string {
+	return vt.name
+}
 
-	name := vt.Name + "-Handler"
+func (vt *virusTotal) Start(r et.Registry) error {
+	vt.log = r.Log().WithGroup("plugin").With("name", vt.name)
+
+	name := vt.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     vt,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   vt.check,
 	}); err != nil {
 		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", vt.Name, "handler", name))
+			slog.Group("plugin", "name", vt.name, "handler", name))
 		return err
 	}
 
@@ -63,21 +68,13 @@ func (vt *virusTotal) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	ds := e.Session.Config().GetDataSourceConfig(vt.Name)
+	ds := e.Session.Config().GetDataSourceConfig(vt.name)
 	if ds == nil || len(ds.Creds) == 0 {
 		return nil
 	}
 
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if e.Session.Config().WhichDomain(domlt) != domlt {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "virustotal")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -95,7 +92,7 @@ func (vt *virusTotal) check(e *et.Event) error {
 		}
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
-			slog.Group("plugin", "name", vt.Name, "handler", vt.Name+"-Handler"))
+			slog.Group("plugin", "name", vt.name, "handler", vt.name+"-Handler"))
 	}
 
 	if body != "" {
@@ -135,7 +132,8 @@ func (vt *virusTotal) process(e *et.Event, body string) {
 
 func (vt *virusTotal) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

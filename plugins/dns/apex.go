@@ -16,7 +16,7 @@ import (
 )
 
 type dnsApex struct {
-	Name   string
+	name   string
 	plugin *dnsPlugin
 }
 
@@ -66,7 +66,7 @@ func (d *dnsApex) callbackClosure(e *et.Event, apex *dbt.Asset, fqdn *domain.FQD
 			if a, ok := apex.Asset.(*domain.FQDN); ok {
 				e.Session.Log().Info("relationship discovered", "from",
 					a.Name, "relation", "node", "to", fqdn.Name,
-					slog.Group("plugin", "name", d.plugin.Name, "handler", d.Name))
+					slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
 			}
 		}
 	})

@@ -20,7 +20,7 @@ import (
 )
 
 type siteDossier struct {
-	Name   string
+	name   string
 	fmtstr string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
@@ -28,23 +28,27 @@ type siteDossier struct {
 
 func NewSiteDossier() et.Plugin {
 	return &siteDossier{
-		Name:   "SiteDossier",
+		name:   "SiteDossier",
 		fmtstr: "http://www.sitedossier.com/parentdomain/%s/%d",
 		rlimit: ratelimit.New(4, ratelimit.WithoutSlack),
 	}
 }
 
-func (sd *siteDossier) Start(r et.Registry) error {
-	sd.log = r.Log().WithGroup("plugin").With("name", sd.Name)
+func (sd *siteDossier) Name() string {
+	return sd.name
+}
 
-	name := "SiteDossier-Handler"
+func (sd *siteDossier) Start(r et.Registry) error {
+	sd.log = r.Log().WithGroup("plugin").With("name", sd.name)
+
+	name := sd.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     sd,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   sd.check,
 	}); err != nil {
-		sd.log.Error(fmt.Sprintf("Failed to register a handler: %v", err), "handler", name)
 		return err
 	}
 
@@ -67,14 +71,6 @@ func (sd *siteDossier) check(e *et.Event) error {
 		return nil
 	}
 
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "sitedossier")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
-		return nil
-	}
-
 	for i := 1; i < 20; i++ {
 		sd.rlimit.Take()
 		if body, err := sd.query(domlt, i); err == nil {
@@ -89,7 +85,7 @@ func (sd *siteDossier) query(name string, itemnum int) (string, error) {
 
 	resp, err := http.RequestWebPage(context.TODO(), req)
 	if err != nil {
-		return "", fmt.Errorf("error fetching URL: %w", err)
+		return "", err
 	}
 
 	return resp.Body, nil
@@ -107,7 +103,8 @@ func (sd *siteDossier) process(e *et.Event, body string) {
 
 func (sd *siteDossier) submitCallback(e *et.Event, name string) {
 	support.AppendToDBQueue(func() {
-		if a, err := e.Session.DB().Create(nil, "", &domain.FQDN{Name: name}); err == nil && a != nil {
+		if a, err := e.Session.DB().Create(nil, "",
+			&domain.FQDN{Name: name}); err == nil && a != nil {
 			_ = e.Dispatcher.DispatchEvent(&et.Event{
 				Name:    name,
 				Asset:   a,

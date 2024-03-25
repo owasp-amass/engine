@@ -54,7 +54,10 @@ loop:
 		}
 	}
 	if found {
-		return fmt.Errorf("handler %s already registered for EventType %s", h.Name, h.EventType)
+		err := fmt.Errorf("handler %s already registered for EventType %s", h.Name, h.EventType)
+		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
+			slog.Group("plugin", "name", h.Plugin.Name(), "handler", h.Name))
+		return err
 	}
 
 	if h.Priority == 0 {

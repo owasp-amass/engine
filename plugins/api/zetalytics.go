@@ -24,30 +24,33 @@ import (
 )
 
 type zetalytics struct {
-	Name   string
+	name   string
 	log    *slog.Logger
 	rlimit ratelimit.Limiter
 }
 
 func NewZetalytics() et.Plugin {
 	return &zetalytics{
-		Name:   "ZETAlytics",
+		name:   "ZETAlytics",
 		rlimit: ratelimit.New(5, ratelimit.WithoutSlack),
 	}
 }
 
-func (z *zetalytics) Start(r et.Registry) error {
-	z.log = r.Log().WithGroup("plugin").With("name", z.Name)
+func (z *zetalytics) Name() string {
+	return z.name
+}
 
-	name := z.Name + "-Handler"
+func (z *zetalytics) Start(r et.Registry) error {
+	z.log = r.Log().WithGroup("plugin").With("name", z.name)
+
+	name := z.name + "-Handler"
 	if err := r.RegisterHandler(&et.Handler{
+		Plugin:     z,
 		Name:       name,
 		Transforms: []string{"fqdn"},
 		EventType:  oam.FQDN,
 		Callback:   z.check,
 	}); err != nil {
-		r.Log().Error(fmt.Sprintf("Failed to register a handler: %v", err),
-			slog.Group("plugin", "name", z.Name, "handler", name))
 		return err
 	}
 
@@ -65,21 +68,13 @@ func (z *zetalytics) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	ds := e.Session.Config().GetDataSourceConfig(z.Name)
+	ds := e.Session.Config().GetDataSourceConfig(z.name)
 	if ds == nil || len(ds.Creds) == 0 {
 		return nil
 	}
 
 	domlt := strings.ToLower(strings.TrimSpace(fqdn.Name))
 	if e.Session.Config().WhichDomain(domlt) != domlt {
-		return nil
-	}
-
-	matches, err := e.Session.Config().CheckTransformations("fqdn", "fqdn", "zetalytics")
-	if err != nil {
-		return err
-	}
-	if !matches.IsMatch("fqdn") {
 		return nil
 	}
 
@@ -92,13 +87,14 @@ func (z *zetalytics) check(e *et.Event) error {
 		}
 
 		z.rlimit.Take()
-		if body, err := z.query(domlt, cr.Apikey); err == nil && body != "" {
+		body, err := z.query(domlt, cr.Apikey)
+		if err == nil && body != "" {
 			z.process(e, body, names)
 			break
 		}
 
 		e.Session.Log().Error(fmt.Sprintf("Failed to use the API endpoint: %v", err),
-			slog.Group("plugin", "name", z.Name, "handler", z.Name+"-Handler"))
+			slog.Group("plugin", "name", z.name, "handler", z.name+"-Handler"))
 	}
 
 	names.Prune(1000)
