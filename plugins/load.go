@@ -13,6 +13,7 @@ import (
 )
 
 var pluginStartFuncs = []func() et.Plugin{
+	api.NewBinaryEdge,
 	api.NewChaos,
 	api.NewDNSRepo,
 	api.NewHackerTarget,

@@ -151,7 +151,7 @@ func (c *OAMCache) GetRelationsByType(rtype string) ([]*types.Relation, bool) {
 	c.Lock()
 	defer c.Unlock()
 
-	if r := c.relations[rtype]; len(r.all) > 0 {
+	if r := c.relations[rtype]; r != nil && len(r.all) > 0 {
 		return r.all, true
 	}
 	return nil, false
